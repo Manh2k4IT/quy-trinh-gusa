@@ -97,7 +97,9 @@ function zaloSecretFingerprint() {
 }
 
 function readZaloTokens() {
-  try { return JSON.parse(fs.readFileSync(zaloTokensPath, "utf8")); } catch { return {}; }
+  try { return JSON.parse(fs.readFileSync(zaloTokensPath, "utf8")); } catch {
+    return process.env.ZALO_ACCESS_TOKEN ? { access_token: String(process.env.ZALO_ACCESS_TOKEN).trim(), refresh_token: String(process.env.ZALO_REFRESH_TOKEN || "").trim() } : {};
+  }
 }
 
 function saveZaloTokens(tokens) {
