@@ -12,10 +12,12 @@ const organizationProfilesPath = path.join(process.cwd(), "organization-profiles
 const organizationMembersPath = path.join(process.cwd(), "organization-members.json");
 const attendancePath = path.join(process.cwd(), "attendance.json");
 const proposalsPath = path.join(process.cwd(), "proposals.json");
+const zaloTokensPath = path.join(process.cwd(), "zalo-tokens.json");
 const usersPath = path.join(process.cwd(), "users.json");
 const users = new Map();
 const sessions = new Map();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
+const zaloRedirectUri = process.env.ZALO_REDIRECT_URI || `https://${process.env.RENDER_EXTERNAL_HOSTNAME || `localhost:${port}`}/zalo/oauth/callback`;
 
 loadUsers();
 
@@ -82,6 +84,54 @@ function cookie(name, value, options = {}) {
 
 function oauthIsConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+function zaloIsConfigured() {
+  return Boolean(process.env.ZALO_APP_ID && process.env.ZALO_APP_SECRET && !process.env.ZALO_APP_ID.startsWith("replace-"));
+}
+
+function readZaloTokens() {
+  try { return JSON.parse(fs.readFileSync(zaloTokensPath, "utf8")); } catch { return {}; }
+}
+
+function saveZaloTokens(tokens) {
+  fs.writeFileSync(zaloTokensPath, JSON.stringify(tokens, null, 2));
+}
+
+function startZaloAuth(req, res) {
+  if (!zaloIsConfigured()) return send(res, 503, "Zalo OAuth chua duoc cau hinh. Hay them ZALO_APP_ID va ZALO_APP_SECRET.");
+  const state = crypto.randomBytes(24).toString("hex");
+  sessions.set(`zalo:${state}`, { createdAt: Date.now() });
+  const params = new URLSearchParams({ app_id: process.env.ZALO_APP_ID, redirect_uri: zaloRedirectUri, state });
+  redirect(res, `https://oauth.zaloapp.com/v4/oa/permission?${params}`);
+}
+
+async function completeZaloAuth(req, res) {
+  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+  const state = requestUrl.searchParams.get("state");
+  const stateData = sessions.get(`zalo:${state}`);
+  sessions.delete(`zalo:${state}`);
+  if (!stateData || Date.now() - stateData.createdAt > 10 * 60 * 1000) return send(res, 400, "Zalo OAuth state khong hop le hoac da het han.");
+  if (requestUrl.searchParams.get("error")) return send(res, 400, `Zalo tu choi cap quyen: ${requestUrl.searchParams.get("error")}`);
+  const code = requestUrl.searchParams.get("code");
+  if (!code) return send(res, 400, "Zalo khong tra ve authorization code.");
+  const tokenResponse = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ app_id: process.env.ZALO_APP_ID, app_secret: process.env.ZALO_APP_SECRET, code, redirect_uri: zaloRedirectUri }) });
+  const tokens = await tokenResponse.json();
+  if (!tokenResponse.ok || !tokens.access_token) return send(res, 502, `Khong doi duoc Zalo access token: ${tokens.error_name || tokens.error || "unknown error"}`);
+  saveZaloTokens({ ...tokens, savedAt: new Date().toISOString() });
+  send(res, 200, "Da ket noi Zalo OA thanh cong. Ban co the dong trang nay.");
+}
+
+function serveZaloWebhook(req, res) {
+  send(res, 200, "OK");
+}
+
+async function sendZaloGroupProposal(proposal) {
+  const tokens = readZaloTokens();
+  const groupId = process.env.ZALO_GROUP_ID;
+  if (!tokens.access_token || !groupId) return;
+  const text = `Đề xuất mới: ${proposal.userName}\nLoại: ${proposal.type}\nNgày: ${proposal.dateFrom && proposal.dateTo ? `${proposal.dateFrom} - ${proposal.dateTo}` : proposal.date}\nLý do: ${proposal.reason}\nXem và xử lý: ${process.env.RENDER_EXTERNAL_URL || "https://quytrinh.gusa.vn"}/proposal-report.html`;
+  await fetch(`https://openapi.zalo.me/v3.0/oa/group/message?access_token=${encodeURIComponent(tokens.access_token)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: { group_id: groupId }, message: { text } }) });
 }
 
 function getCurrentUser(req) {
@@ -356,6 +406,7 @@ async function createProposal(req, res) {
   const proposals = getProposals();
   proposals.unshift(proposal);
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
+  sendZaloGroupProposal(proposal).catch((error) => console.error("Zalo group notification failed:", error.message));
   sendJson(res, 201, { proposal });
 }
 
@@ -610,6 +661,9 @@ async function updateOrganizationChart(req, res) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (req.url === "/zalo/oauth/start") return startZaloAuth(req, res);
+    if (req.url.startsWith("/zalo/oauth/callback")) return await completeZaloAuth(req, res);
+    if (req.method === "POST" && req.url === "/zalo/webhook") return serveZaloWebhook(req, res);
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
     if (req.url === "/auth/logout") return logout(res);
