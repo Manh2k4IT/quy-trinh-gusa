@@ -113,7 +113,7 @@ async function completeZaloAuth(req, res) {
   if (requestUrl.searchParams.get("error")) return send(res, 400, `Zalo tu choi cap quyen: ${requestUrl.searchParams.get("error")}`);
   const code = requestUrl.searchParams.get("code");
   if (!code) return send(res, 400, "Zalo khong tra ve authorization code.");
-  const tokenResponse = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ app_id: process.env.ZALO_APP_ID, app_secret: process.env.ZALO_APP_SECRET, code, redirect_uri: zaloRedirectUri }) });
+  const tokenResponse = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ app_id: process.env.ZALO_APP_ID, app_secret: process.env.ZALO_APP_SECRET, code, grant_type: "authorization_code" }) });
   const tokens = await tokenResponse.json();
   if (!tokenResponse.ok || !tokens.access_token) return send(res, 502, `Khong doi duoc Zalo access token: ${tokens.error_name || tokens.error || "unknown error"}`);
   saveZaloTokens({ ...tokens, savedAt: new Date().toISOString() });
