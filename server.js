@@ -116,13 +116,14 @@ async function completeZaloAuth(req, res) {
   let tokenResponse;
   let tokens;
   try {
-    tokenResponse = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ app_id: process.env.ZALO_APP_ID, app_secret: process.env.ZALO_APP_SECRET, code, grant_type: "authorization_code" }), signal: AbortSignal.timeout(15000) });
-    tokens = await tokenResponse.json();
+    tokenResponse = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ app_id: process.env.ZALO_APP_ID, app_secret: process.env.ZALO_APP_SECRET, code, grant_type: "authorization_code", redirect_uri: zaloRedirectUri }), signal: AbortSignal.timeout(15000) });
+    const tokenBody = await tokenResponse.text();
+    try { tokens = JSON.parse(tokenBody); } catch { tokens = { error_name: tokenBody }; }
   } catch (error) {
     console.error("Zalo token exchange failed:", error);
     return send(res, 502, "Khong ket noi duoc Zalo de doi access token. Hay thu lai sau khi Render deploy on dinh.");
   }
-  if (!tokenResponse.ok || !tokens.access_token) return send(res, 502, `Khong doi duoc Zalo access token: ${tokens.error_name || tokens.error || "unknown error"}`);
+  if (!tokenResponse.ok || !tokens.access_token) return send(res, 400, `Zalo tu choi doi access token (HTTP ${tokenResponse.status}): ${tokens.error_name || tokens.error || tokens.message || "unknown error"}`);
   saveZaloTokens({ ...tokens, savedAt: new Date().toISOString() });
   send(res, 200, "Da ket noi Zalo OA thanh cong. Ban co the dong trang nay.", { "Set-Cookie": cookie("zalo_oauth_state", "", { maxAge: 0 }) });
 }
