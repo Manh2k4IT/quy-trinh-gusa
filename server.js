@@ -101,17 +101,15 @@ function saveZaloTokens(tokens) {
 function startZaloAuth(req, res) {
   if (!zaloIsConfigured()) return send(res, 503, "Zalo OAuth chua duoc cau hinh. Hay them ZALO_APP_ID va ZALO_APP_SECRET.");
   const state = crypto.randomBytes(24).toString("hex");
-  sessions.set(`zalo:${state}`, { createdAt: Date.now() });
   const params = new URLSearchParams({ app_id: process.env.ZALO_APP_ID, redirect_uri: zaloRedirectUri, state });
-  redirect(res, `https://oauth.zaloapp.com/v4/oa/permission?${params}`);
+  redirect(res, `https://oauth.zaloapp.com/v4/oa/permission?${params}`, [cookie("zalo_oauth_state", state, { maxAge: 600 })]);
 }
 
 async function completeZaloAuth(req, res) {
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   const state = requestUrl.searchParams.get("state");
-  const stateData = sessions.get(`zalo:${state}`);
-  sessions.delete(`zalo:${state}`);
-  if (!stateData || Date.now() - stateData.createdAt > 10 * 60 * 1000) return send(res, 400, "Zalo OAuth state khong hop le hoac da het han.");
+  const savedState = parseCookies(req).zalo_oauth_state;
+  if (!state || !savedState || state !== savedState) return send(res, 400, "Zalo OAuth state khong hop le hoac da het han. Hay bat dau lai tai /zalo/oauth/start.");
   if (requestUrl.searchParams.get("error")) return send(res, 400, `Zalo tu choi cap quyen: ${requestUrl.searchParams.get("error")}`);
   const code = requestUrl.searchParams.get("code");
   if (!code) return send(res, 400, "Zalo khong tra ve authorization code.");
@@ -119,7 +117,7 @@ async function completeZaloAuth(req, res) {
   const tokens = await tokenResponse.json();
   if (!tokenResponse.ok || !tokens.access_token) return send(res, 502, `Khong doi duoc Zalo access token: ${tokens.error_name || tokens.error || "unknown error"}`);
   saveZaloTokens({ ...tokens, savedAt: new Date().toISOString() });
-  send(res, 200, "Da ket noi Zalo OA thanh cong. Ban co the dong trang nay.");
+  send(res, 200, "Da ket noi Zalo OA thanh cong. Ban co the dong trang nay.", { "Set-Cookie": cookie("zalo_oauth_state", "", { maxAge: 0 }) });
 }
 
 function serveZaloWebhook(req, res) {
