@@ -107,9 +107,9 @@ function startZaloAuth(req, res) {
 
 async function completeZaloAuth(req, res) {
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-  const state = requestUrl.searchParams.get("state");
+  const returnedState = requestUrl.searchParams.get("state");
   const savedState = parseCookies(req).zalo_oauth_state;
-  if (!state || !savedState || state !== savedState) return send(res, 400, "Zalo OAuth state khong hop le hoac da het han. Hay bat dau lai tai /zalo/oauth/start.");
+  if (!savedState || (returnedState && returnedState !== savedState)) return send(res, 400, "Zalo OAuth state khong hop le hoac da het han. Hay bat dau lai tai /zalo/oauth/start.");
   if (requestUrl.searchParams.get("error")) return send(res, 400, `Zalo tu choi cap quyen: ${requestUrl.searchParams.get("error")}`);
   const code = requestUrl.searchParams.get("code");
   if (!code) return send(res, 400, "Zalo khong tra ve authorization code.");
