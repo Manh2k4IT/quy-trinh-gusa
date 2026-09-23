@@ -13,6 +13,7 @@ const organizationMembersPath = path.join(process.cwd(), "organization-members.j
 const attendancePath = path.join(process.cwd(), "attendance.json");
 const proposalsPath = path.join(process.cwd(), "proposals.json");
 const zaloTokensPath = path.join(process.cwd(), "zalo-tokens.json");
+const zaloUsersPath = path.join(process.cwd(), "zalo-users.json");
 const usersPath = path.join(process.cwd(), "users.json");
 const users = new Map();
 const sessions = new Map();
@@ -138,7 +139,31 @@ async function completeZaloAuth(req, res) {
 }
 
 function serveZaloWebhook(req, res) {
-  send(res, 200, "OK");
+  let body = "";
+  req.on("data", (chunk) => { body += chunk; });
+  req.on("end", () => {
+    try {
+      const payload = JSON.parse(body || "{}");
+      const userId = payload.user_id_by_app || payload.sender?.id || payload.user?.user_id_by_app;
+      if (userId) {
+        let users = [];
+        try { users = JSON.parse(fs.readFileSync(zaloUsersPath, "utf8")); } catch { users = []; }
+        if (!users.some((user) => user.userId === String(userId))) {
+          users.push({ userId: String(userId), receivedAt: new Date().toISOString() });
+          fs.writeFileSync(zaloUsersPath, JSON.stringify(users, null, 2));
+        }
+      }
+    } catch (error) {
+      console.error("Zalo webhook payload error:", error.message);
+    }
+    send(res, 200, "OK");
+  });
+}
+
+function serveZaloUsers(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.role !== "admin") return send(res, 403, "Forbidden");
+  try { return sendJson(res, 200, { users: JSON.parse(fs.readFileSync(zaloUsersPath, "utf8")) }); } catch { return sendJson(res, 200, { users: [] }); }
 }
 
 async function sendZaloPrivateProposal(proposal) {
@@ -679,6 +704,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/zalo/oauth/start") return startZaloAuth(req, res);
     if (req.url.startsWith("/zalo/oauth/callback")) return await completeZaloAuth(req, res);
     if (req.method === "POST" && req.url === "/zalo/webhook") return serveZaloWebhook(req, res);
+    if (req.method === "GET" && req.url === "/api/zalo/users") return serveZaloUsers(req, res);
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
     if (req.url === "/auth/logout") return logout(res);
