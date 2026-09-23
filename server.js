@@ -214,15 +214,17 @@ function startGoogleAuth(req, res) {
   if (loginHint) params.set("login_hint", loginHint);
 
   sessions.set(state, { returnTo, mode, createdAt: Date.now() });
-  redirect(res, `https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  redirect(res, `https://accounts.google.com/o/oauth2/v2/auth?${params}`, [cookie("google_oauth_state", state, { maxAge: 600 })]);
 }
 
 async function completeGoogleAuth(req, res) {
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-  const stateData = sessions.get(requestUrl.searchParams.get("state"));
-  sessions.delete(requestUrl.searchParams.get("state"));
+  const returnedState = requestUrl.searchParams.get("state");
+  const savedState = parseCookies(req).google_oauth_state;
+  const stateData = sessions.get(returnedState || savedState);
+  sessions.delete(returnedState || savedState);
 
-  if (!stateData || Date.now() - stateData.createdAt > 10 * 60 * 1000) {
+  if (!savedState || !stateData || (returnedState && returnedState !== savedState) || Date.now() - stateData.createdAt > 10 * 60 * 1000) {
     return send(res, 400, "OAuth state khong hop le hoac da het han.");
   }
   if (requestUrl.searchParams.get("error")) return send(res, 400, "Google tu choi dang nhap.");
@@ -276,7 +278,7 @@ async function completeGoogleAuth(req, res) {
   const sessionId = crypto.randomBytes(32).toString("hex");
   sessions.set(sessionId, { userId: profile.sub, createdAt: Date.now() });
   const destination = users.get(profile.sub).status === "pending" ? "/pending.html" : stateData.returnTo;
-  redirect(res, destination, [cookie("gusa_session", sessionId, { maxAge: 60 * 60 * 8 })]);
+  redirect(res, destination, [cookie("gusa_session", sessionId, { maxAge: 60 * 60 * 8 }), cookie("google_oauth_state", "", { maxAge: 0 })]);
 }
 
 function serveStatic(req, res) {
