@@ -17,7 +17,9 @@ const usersPath = path.join(process.cwd(), "users.json");
 const users = new Map();
 const sessions = new Map();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
-const zaloRedirectUri = process.env.ZALO_REDIRECT_URI || `https://${process.env.RENDER_EXTERNAL_HOSTNAME || `localhost:${port}`}/zalo/oauth/callback`;
+const zaloAppId = String(process.env.ZALO_APP_ID || "").trim();
+const zaloAppSecret = String(process.env.ZALO_APP_SECRET || "").trim();
+const zaloRedirectUri = String(process.env.ZALO_REDIRECT_URI || `https://${process.env.RENDER_EXTERNAL_HOSTNAME || `localhost:${port}`}/zalo/oauth/callback`).trim();
 
 loadUsers();
 
@@ -87,7 +89,7 @@ function oauthIsConfigured() {
 }
 
 function zaloIsConfigured() {
-  return Boolean(process.env.ZALO_APP_ID && process.env.ZALO_APP_SECRET && !process.env.ZALO_APP_ID.startsWith("replace-"));
+  return Boolean(zaloAppId && zaloAppSecret && !zaloAppId.startsWith("replace-"));
 }
 
 function readZaloTokens() {
@@ -101,7 +103,7 @@ function saveZaloTokens(tokens) {
 function startZaloAuth(req, res) {
   if (!zaloIsConfigured()) return send(res, 503, "Zalo OAuth chua duoc cau hinh. Hay them ZALO_APP_ID va ZALO_APP_SECRET.");
   const state = crypto.randomBytes(24).toString("hex");
-  const params = new URLSearchParams({ app_id: process.env.ZALO_APP_ID, redirect_uri: zaloRedirectUri, state });
+  const params = new URLSearchParams({ app_id: zaloAppId, redirect_uri: zaloRedirectUri, state });
   redirect(res, `https://oauth.zaloapp.com/v4/oa/permission?${params}`, [cookie("zalo_oauth_state", state, { maxAge: 600 })]);
 }
 
@@ -116,7 +118,7 @@ async function completeZaloAuth(req, res) {
   let tokenResponse;
   let tokens;
   try {
-    tokenResponse = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ app_id: process.env.ZALO_APP_ID, app_secret: process.env.ZALO_APP_SECRET, code, grant_type: "authorization_code", redirect_uri: zaloRedirectUri }), signal: AbortSignal.timeout(15000) });
+    tokenResponse = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ app_id: zaloAppId, app_secret: zaloAppSecret, code, grant_type: "authorization_code", redirect_uri: zaloRedirectUri }), signal: AbortSignal.timeout(15000) });
     const tokenBody = await tokenResponse.text();
     try { tokens = JSON.parse(tokenBody); } catch { tokens = { error_name: tokenBody }; }
   } catch (error) {
