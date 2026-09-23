@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chưa đăng ký - Quy Trình</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="pending.css" />
+  </head>
+  <body>
+    <main class="pending-shell">
+      <section class="pending-card" aria-labelledby="not-registered-title">
+        <div class="pending-icon not-registered-icon" aria-hidden="true">!</div>
+        <p class="eyebrow">QUY TRÌNH NỘI BỘ</p>
+        <h1 id="not-registered-title">Bạn chưa đăng ký tài khoản</h1>
+        <p class="pending-copy">
+          Gmail này chưa được đăng ký trong hệ thống. Hãy quay lại và chọn “Đăng ký tài khoản mới” để gửi yêu cầu cho quản trị viên.
+        </p>
+        <div class="pending-user">
+          <span class="pending-avatar" data-not-registered-avatar>G</span>
+          <span>
+            <strong id="not-registered-name">Tài khoản Google</strong>
+            <small id="not-registered-email"></small>
+          </span>
+        </div>
+        <a class="back-login" href="/">Quay lại đăng nhập</a>
+      </section>
+    </main>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const email = params.get("email");
+      const name = params.get("name");
+      const picture = params.get("picture");
+      if (email) document.querySelector("#not-registered-email").textContent = email;
+      if (name) document.querySelector("#not-registered-name").textContent = name;
+      if (picture) {
+        const image = document.createElement("img");
+        image.src = picture;
+        image.referrerPolicy = "no-referrer";
+        image.alt = `Ảnh đại diện của ${name || email || "Tài khoản Google"}`;
+        document.querySelector("[data-not-registered-avatar]").replaceChildren(image);
+      }
+    </script>
+  </body>
+</html>

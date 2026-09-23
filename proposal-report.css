@@ -1,0 +1,21 @@
+.report-content { width: 100%; min-height: 0; flex: 1; overflow-y: auto; padding: 2rem clamp(1rem, 5vw, 4.5rem) 3rem; scrollbar-width: none; }
+.report-content::-webkit-scrollbar { display: none; }
+.report-toolbar { display: flex; justify-content: flex-end; gap: .6rem; margin: 1.3rem 0 .8rem; }
+.report-toolbar select, .report-refresh { min-height: 36px; border: 1px solid #cbd8e8; border-radius: 8px; padding: 0 .75rem; color: #263b55; background: #fff; cursor: pointer; font: inherit; font-size: .73rem; font-weight: 700; }
+.report-refresh { color: #fff; border-color: #174b8e; background: #174b8e; }
+.report-list { display: grid; gap: .8rem; }
+.report-item { display: flex; justify-content: space-between; gap: 1rem; border: 1px solid #dce5f0; border-left: 4px solid #8b5cf6; border-radius: 10px; padding: 1rem; background: #fff; }
+.report-item-main { min-width: 0; }
+.report-type { color: #6d3fc0; font-size: .7rem; font-weight: 800; text-transform: uppercase; }
+.report-item h2 { margin: .2rem 0 .4rem; color: #173f78; font-size: .95rem; }
+.report-item p { margin: .2rem 0; color: #617187; font-size: .75rem; }
+.report-proof { display: block; width: 100px; height: 70px; margin-top: .6rem; border-radius: 7px; object-fit: cover; }
+.report-location { display: inline-block; margin-top: .45rem; color: #174b8e; font-size: .72rem; font-weight: 700; }
+.report-actions { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: .45rem; }
+.report-actions button { min-width: 78px; min-height: 30px; border: 0; border-radius: 6px; color: #fff; background: #174b8e; cursor: pointer; font: inherit; font-size: .7rem; font-weight: 700; }
+.report-actions button:last-child { background: #d65a68; }
+.report-status { padding: .3rem .55rem; border-radius: 999px; font-size: .7rem; white-space: nowrap; }
+.report-status.is-pending { color: #9a6908; background: #fff1c9; }
+.report-status.is-approved { color: #167247; background: #c9f1dc; }
+.report-status.is-rejected { color: #a52f42; background: #fde1e5; }
+@media (max-width: 650px) { .report-item { flex-direction: column; } .report-actions { align-items: stretch; } .report-actions button { width: 100%; } }

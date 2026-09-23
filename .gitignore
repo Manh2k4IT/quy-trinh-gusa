@@ -1,0 +1,7 @@
+.env
+node_modules/
+users.json
+attendance.json
+proposals.json
+organization-members.json
+organization-profiles.json

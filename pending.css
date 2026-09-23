@@ -1,0 +1,142 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --navy: #174b8e;
+  --ink: #1e2c3e;
+  --muted: #718095;
+  --blue-100: #eaf2fa;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  font-family: "Be Vietnam Pro", "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  background-color: var(--blue-100);
+  background-image:
+    linear-gradient(rgba(128, 153, 179, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(128, 153, 179, 0.13) 1px, transparent 1px);
+  background-size: 43px 43px;
+}
+
+.pending-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.25rem;
+}
+
+.pending-card {
+  width: min(100%, 465px);
+  padding: 2.3rem 2rem 2rem;
+  border: 1px solid #d9e2ec;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 28px rgba(39, 62, 86, 0.12);
+  text-align: center;
+}
+
+.pending-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 1rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #9b6910;
+  background: #fff3d5;
+  font-size: 1.7rem;
+}
+
+.not-registered-icon {
+  color: #b33d3d;
+  background: #fde5e5;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.pending-card h1 {
+  margin: 0.45rem 0 0.7rem;
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+
+.pending-copy {
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.pending-user {
+  display: flex;
+  max-width: 310px;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 1.35rem auto 1.5rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  text-align: left;
+}
+
+.pending-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.pending-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pending-user strong,
+.pending-user small {
+  display: block;
+}
+
+.pending-user strong {
+  font-size: 0.75rem;
+}
+
+.pending-user small {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.67rem;
+}
+
+.back-login {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 1rem;
+  border-radius: 8px;
+  color: #fff;
+  background: var(--navy);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.back-login:hover {
+  background: #123666;
+}

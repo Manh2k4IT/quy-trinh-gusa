@@ -1,0 +1,9 @@
+{
+  "name": "gusa-quy-trinh",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gusa Quy Trinh local OAuth application",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

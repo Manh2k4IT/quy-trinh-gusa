@@ -1,0 +1,236 @@
+{
+  "nodes": [
+    {
+      "id": "8433467a-2810-44c1-b4a8-fde81de962b3",
+      "parentId": null,
+      "name": "GIÁM ĐỐC",
+      "role": "Hồng Gusa",
+      "staff": 1
+    },
+    {
+      "id": "031519e1-3ac8-4e15-91de-bc578f693f2d",
+      "parentId": "bf0b2c61-37ed-4def-b320-953d646a1d40",
+      "name": "HỆ THỐNG CHI NHÁNH",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "90b36807-311a-466d-8d52-883c58bf8dcf",
+      "parentId": "bf0b2c61-37ed-4def-b320-953d646a1d40",
+      "name": "MARKETING",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "102ab3ec-4f89-4d21-89de-ce61c3556bd2",
+      "parentId": "bf0b2c61-37ed-4def-b320-953d646a1d40",
+      "name": "TC-KT",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "483992d3-6c50-489c-bad5-74568f61e323",
+      "parentId": "bf0b2c61-37ed-4def-b320-953d646a1d40",
+      "name": "HC-NS",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "1b51a5d4-979b-468b-bb42-1baa04000b8a",
+      "parentId": "bf0b2c61-37ed-4def-b320-953d646a1d40",
+      "name": "THU MUA KHO VẬN",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "4b00a569-f197-42f5-abf1-92f90611c3ad",
+      "parentId": "bf0b2c61-37ed-4def-b320-953d646a1d40",
+      "name": "R&D",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "b94cc534-ff18-44b2-976c-93498e47961b",
+      "parentId": "bf0b2c61-37ed-4def-b320-953d646a1d40",
+      "name": "CSKH",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "6992818e-5178-4271-a450-ccca698d1809",
+      "parentId": "031519e1-3ac8-4e15-91de-bc578f693f2d",
+      "name": "CHI NHÁNH 1",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "adcbadb6-61c9-451b-aa6d-f7c6b2de4058",
+      "parentId": "6992818e-5178-4271-a450-ccca698d1809",
+      "name": "SALE",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "8fa238b7-f634-4517-a658-7282c6a6ca87",
+      "parentId": "6992818e-5178-4271-a450-ccca698d1809",
+      "name": "VẬN HÀNH",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "5f30ea7e-3cdd-49f3-9fc7-1eeb0b9a1c68",
+      "parentId": "031519e1-3ac8-4e15-91de-bc578f693f2d",
+      "name": "CHI NHÁNH 2",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "87eddbe3-a47b-4bbd-9b9b-1e0cd553f710",
+      "parentId": "5f30ea7e-3cdd-49f3-9fc7-1eeb0b9a1c68",
+      "name": "SALE",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "188b8c6e-62b0-40de-80c5-1d073270c515",
+      "parentId": "5f30ea7e-3cdd-49f3-9fc7-1eeb0b9a1c68",
+      "name": "VẬN HÀNH",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "36bdaaf7-e4a1-435d-8414-50b19096c39c",
+      "parentId": "90b36807-311a-466d-8d52-883c58bf8dcf",
+      "name": "THƯƠNG HIỆU & CONTENT",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "6b42d46a-03d2-43a4-a9a8-bf7426ae7002",
+      "parentId": "90b36807-311a-466d-8d52-883c58bf8dcf",
+      "name": "DIGITAL MARKETING",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "9ea3b8a4-692b-4326-b610-0091e14740e1",
+      "parentId": "90b36807-311a-466d-8d52-883c58bf8dcf",
+      "name": "MEDIA CONTENT",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "e2a7c291-c6ff-4b40-b9dc-e804f2c6231f",
+      "parentId": "36bdaaf7-e4a1-435d-8414-50b19096c39c",
+      "name": "BRADING",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "0a3cfcfd-b75c-44ad-9f70-628fe70c49cf",
+      "parentId": "36bdaaf7-e4a1-435d-8414-50b19096c39c",
+      "name": "CONTENT MARKETING",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "139c8c36-9a47-4c50-9433-9960b0402541",
+      "parentId": "6b42d46a-03d2-43a4-a9a8-bf7426ae7002",
+      "name": "Growth",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "62ee7e4a-b8f4-4566-aa98-e94b66da464f",
+      "parentId": "6b42d46a-03d2-43a4-a9a8-bf7426ae7002",
+      "name": "Website & SEO",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "3bda9089-02b5-43ff-a10f-f1bc652d3e6f",
+      "parentId": "6b42d46a-03d2-43a4-a9a8-bf7426ae7002",
+      "name": "SOCIAL MEDIA",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "1d5cae93-ed27-4d50-82b5-ff9331cc3cce",
+      "parentId": "9ea3b8a4-692b-4326-b610-0091e14740e1",
+      "name": "VIDEO",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "2d2833d4-4b93-4995-b339-6b052bd19c75",
+      "parentId": "9ea3b8a4-692b-4326-b610-0091e14740e1",
+      "name": "HÌNH ẢNH",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "e740441f-3922-4240-9122-145acdd4a4fe",
+      "parentId": "102ab3ec-4f89-4d21-89de-ce61c3556bd2",
+      "name": "KẾ TOÁN THUẾ",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "72080009-36dd-4eb0-bbb4-c22ac3f4f746",
+      "parentId": "102ab3ec-4f89-4d21-89de-ce61c3556bd2",
+      "name": "KẾ TOÁN TÀI CHÍNH",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "1586c033-4edf-448a-8ef1-c703260a8e33",
+      "parentId": "102ab3ec-4f89-4d21-89de-ce61c3556bd2",
+      "name": "KẾ TOÁN NỘI BỘ",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "3a4cad7e-d606-4c57-99e1-154bb536a7b3",
+      "parentId": "1586c033-4edf-448a-8ef1-c703260a8e33",
+      "name": "Vải",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "018f7ed2-a160-4540-bef4-24dfb36efa1e",
+      "parentId": "1586c033-4edf-448a-8ef1-c703260a8e33",
+      "name": "Thời trang",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "bf0b2c61-37ed-4def-b320-953d646a1d40",
+      "parentId": "8433467a-2810-44c1-b4a8-fde81de962b3",
+      "name": "P. GIÁM ĐỐC",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "671ee2ca-bb4f-4931-97b0-20928465a46c",
+      "parentId": "8433467a-2810-44c1-b4a8-fde81de962b3",
+      "name": "KIỂM SOÁT NỘI BỘ",
+      "role": "",
+      "staff": 1,
+      "placement": "above"
+    },
+    {
+      "id": "7ace3b15-d590-4d5f-a97d-ac7078dc949a",
+      "parentId": "671ee2ca-bb4f-4931-97b0-20928465a46c",
+      "name": "KIỂM SOÁT TUÂN THỦ",
+      "role": "",
+      "staff": 1
+    },
+    {
+      "id": "dae5efef-b4b9-4356-a525-757921a8e831",
+      "parentId": "671ee2ca-bb4f-4931-97b0-20928465a46c",
+      "name": "KIỂM SOÁT  TÀI CHÍNH",
+      "role": "",
+      "staff": 1
+    }
+  ]
+}

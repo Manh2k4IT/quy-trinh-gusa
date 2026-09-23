@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cài đặt giao diện - Quy Trình</title>
+    <link rel="stylesheet" href="management.css?v=20260922-3" />
+  </head>
+  <body>
+    <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand"><div class="mini-logo"><img src="logo1.jpg" alt="" /></div><span>Quy Trình</span><button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5M19 7l-5 5 5 5" /></svg></button></div>
+        <div class="sidebar-scroll">
+          <p class="menu-label">DANH MỤC</p>
+          <nav class="menu" aria-label="Danh mục chính">
+            <a class="menu-item" href="organization-chart.html"><span class="menu-icon">▤</span><span>Sơ đồ tổ chức</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">◷</span><span>Chấm Công</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">▱</span><span>Đơn từ &amp; Đề Xuất</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">▤</span><span>Biểu mẫu &amp; Văn bản</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">▥</span><span>Báo cáo doanh số</span></a>
+          </nav>
+          <p class="menu-label">CÀI ĐẶT</p>
+          <nav class="menu"><a class="menu-item is-active" href="interface-settings.html" aria-current="page"><span class="menu-icon">⚙</span><span>Cài đặt giao diện</span></a></nav>
+          <p class="menu-label" data-admin-menu-label hidden>QUẢN TRỊ</p>
+          <nav class="menu" aria-label="Menu quản trị" data-admin-menu hidden>
+            <a class="menu-item" href="user-management.html"><span class="menu-icon">⚙</span><span>Quản lý user</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">▥</span><span>Thùng rác</span></a>
+            <a class="menu-item" href="#"><span class="menu-icon">◉</span><span>Nhật ký lỗi</span></a>
+          </nav>
+        </div>
+        <div class="sidebar-account"><div class="avatar" data-user-avatar>B</div><div><strong data-user-name>BENL</strong><small data-user-role>Quản trị viên</small></div><a class="sidebar-logout" href="/auth/logout">Đăng xuất</a></div>
+      </aside>
+      <main class="workspace">
+        <header class="topbar">
+          <button class="mobile-menu-toggle" type="button" data-mobile-menu-toggle aria-label="Mở menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>
+          <div class="breadcrumbs"><span>Quy Trình</span><span class="crumb-separator">/</span><strong>Cài đặt giao diện</strong></div>
+          <div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip is-selected" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div>
+        </header>
+        <section class="interface-settings-content" aria-labelledby="interface-settings-title">
+          <div class="interface-page-heading"><span class="eyebrow">CÀI ĐẶT</span><h1 id="interface-settings-title">Cài đặt giao diện</h1><p>Điều chỉnh giao diện theo cách bạn muốn làm việc.</p></div>
+          <div class="interface-settings-page">
+            <section class="interface-page-setting"><div><span class="interface-setting-icon">☾</span><div><h2>Chế độ tối</h2><p>Bật giao diện nền tối để làm việc trong môi trường thiếu sáng.</p></div></div><button class="interface-switch" type="button" role="switch" aria-checked="false" data-interface-theme-toggle aria-label="Bật hoặc tắt chế độ tối"><span></span></button></section>
+            <section class="interface-page-setting interface-page-palette"><div><span class="interface-setting-icon">◉</span><div><h2>Màu giao diện</h2><p>Chọn màu chủ đạo cho thanh điều hướng và các điểm nhấn.</p></div></div><div class="color-swatches" aria-label="Chọn màu giao diện"><button type="button" class="color-swatch palette-blue" data-theme-primary="#174b8e" data-theme-surface="#eaf2fa" aria-label="Bảng màu xanh dương"></button><button type="button" class="color-swatch palette-green" data-theme-primary="#247a58" data-theme-surface="#e9f5ef" aria-label="Bảng màu xanh lá"></button><button type="button" class="color-swatch palette-brown" data-theme-primary="#75483f" data-theme-surface="#f5eeeb" aria-label="Bảng màu nâu"></button><button type="button" class="color-swatch palette-red" data-theme-primary="#a44848" data-theme-surface="#f9eded" aria-label="Bảng màu đỏ"></button><button type="button" class="color-swatch palette-indigo" data-theme-primary="#5b4aa8" data-theme-surface="#efedfb" aria-label="Bảng màu chàm"></button><button type="button" class="color-swatch palette-teal" data-theme-primary="#167b83" data-theme-surface="#e6f5f5" aria-label="Bảng màu xanh ngọc"></button></div></section>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="interface-settings.js"></script>
+    <script src="admin-menu.js?v=20260923-7"></script>
+  </body>
+</html>
