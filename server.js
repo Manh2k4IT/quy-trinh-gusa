@@ -92,6 +92,10 @@ function zaloIsConfigured() {
   return Boolean(zaloAppId && zaloAppSecret && !zaloAppId.startsWith("replace-"));
 }
 
+function zaloSecretFingerprint() {
+  return crypto.createHash("sha256").update(zaloAppSecret).digest("hex").slice(0, 12);
+}
+
 function readZaloTokens() {
   try { return JSON.parse(fs.readFileSync(zaloTokensPath, "utf8")); } catch { return {}; }
 }
@@ -115,6 +119,7 @@ async function completeZaloAuth(req, res) {
   if (requestUrl.searchParams.get("error")) return send(res, 400, `Zalo tu choi cap quyen: ${requestUrl.searchParams.get("error")}`);
   const code = requestUrl.searchParams.get("code");
   if (!code) return send(res, 400, "Zalo khong tra ve authorization code.");
+  console.log(`Zalo OAuth token exchange: app_id=${zaloAppId}, secret_length=${zaloAppSecret.length}, secret_sha256_12=${zaloSecretFingerprint()}, redirect_uri=${zaloRedirectUri}`);
   let tokenResponse;
   let tokens;
   try {
