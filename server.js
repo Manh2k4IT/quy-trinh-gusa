@@ -85,6 +85,21 @@ function cookie(name, value, options = {}) {
   return `${name}=${encodeURIComponent(value)}; ${attributes.join("; ")}`;
 }
 
+function signOauthPayload(payload) {
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto.createHmac("sha256", process.env.SESSION_SECRET || "gusa-oauth-fallback").update(encoded).digest("base64url");
+  return `${encoded}.${signature}`;
+}
+
+function verifyOauthPayload(value) {
+  if (!value) return null;
+  const [encoded, signature] = value.split(".");
+  if (!encoded || !signature) return null;
+  const expected = crypto.createHmac("sha256", process.env.SESSION_SECRET || "gusa-oauth-fallback").update(encoded).digest("base64url");
+  if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+  try { return JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")); } catch { return null; }
+}
+
 function oauthIsConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
@@ -213,18 +228,16 @@ function startGoogleAuth(req, res) {
   });
   if (loginHint) params.set("login_hint", loginHint);
 
-  sessions.set(state, { returnTo, mode, createdAt: Date.now() });
-  redirect(res, `https://accounts.google.com/o/oauth2/v2/auth?${params}`, [cookie("google_oauth_state", state, { maxAge: 600 })]);
+  const oauthData = signOauthPayload({ state, returnTo, mode, createdAt: Date.now() });
+  redirect(res, `https://accounts.google.com/o/oauth2/v2/auth?${params}`, [cookie("google_oauth_state", oauthData, { maxAge: 600 })]);
 }
 
 async function completeGoogleAuth(req, res) {
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   const returnedState = requestUrl.searchParams.get("state");
-  const savedState = parseCookies(req).google_oauth_state;
-  const stateData = sessions.get(returnedState || savedState);
-  sessions.delete(returnedState || savedState);
+  const stateData = verifyOauthPayload(parseCookies(req).google_oauth_state);
 
-  if (!savedState || !stateData || (returnedState && returnedState !== savedState) || Date.now() - stateData.createdAt > 10 * 60 * 1000) {
+  if (!stateData || !returnedState || returnedState !== stateData.state || Date.now() - stateData.createdAt > 10 * 60 * 1000) {
     return send(res, 400, "OAuth state khong hop le hoac da het han.");
   }
   if (requestUrl.searchParams.get("error")) return send(res, 400, "Google tu choi dang nhap.");
