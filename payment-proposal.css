@@ -85,6 +85,8 @@
 }
 
 .payment-action:hover { background: #d9363e; box-shadow: 0 7px 14px rgba(240,68,69,.2); transform: translateY(-1px); }
+.payment-action[data-preview-template] { background: #1557a6; }
+.payment-action[data-preview-template]:hover { background: #0f4382; box-shadow: 0 7px 14px rgba(21,87,166,.22); }
 
 .payment-note {
 	max-width: none;
