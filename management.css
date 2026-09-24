@@ -3507,6 +3507,11 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
     touch-action: manipulation;
   }
 
+  .app-shell.is-mobile-menu-open .topbar .mobile-menu-toggle {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .mobile-menu-toggle svg {
     width: 28px;
     height: 28px;
