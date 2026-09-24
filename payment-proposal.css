@@ -123,7 +123,7 @@
 .payment-cancel-main[hidden] { display: none; }
 
 @media (max-width: 760px) {
-	.payment-page { padding: 1.3rem .9rem 2rem; }
+	.payment-page { padding: 1.3rem .9rem calc(6rem + env(safe-area-inset-bottom)); scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
 	.payment-ribbon { margin-bottom: 1rem; font-size: 1.5rem; }
 	.payment-layout { grid-template-columns: 1fr; gap: 1rem; padding: 1rem; border-radius: 14px; }
 	.payment-template { grid-template-columns: 1fr 1fr; }
