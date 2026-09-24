@@ -7,6 +7,7 @@ loadEnvFile();
 
 const port = Number(process.env.PORT || 5500);
 const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${port}/auth/callback`;
+const fixedAdminEmail = "manh98627@gmail.com";
 const organizationChartPath = path.join(process.cwd(), "organization-chart.json");
 const organizationProfilesPath = path.join(process.cwd(), "organization-profiles.json");
 const organizationMembersPath = path.join(process.cwd(), "organization-members.json");
@@ -176,9 +177,10 @@ async function completeGoogleAuth(req, res) {
   if (!profileResponse.ok || !profile.email) return send(res, 502, "Khong lay duoc thong tin Gmail.");
 
   const existingUser = users.get(profile.sub);
+  const isFixedAdmin = profile.email.toLowerCase() === fixedAdminEmail;
   const invitedUser = existingUser || [...users.values()].find((user) => user.email.toLowerCase() === profile.email.toLowerCase());
   if (!existingUser && invitedUser) users.delete(invitedUser.id);
-  if (!invitedUser && stateData.mode === "login") {
+  if (!invitedUser && !isFixedAdmin && stateData.mode === "login") {
     const params = new URLSearchParams({
       email: profile.email,
       name: profile.name || "Tài khoản Google",
@@ -192,8 +194,8 @@ async function completeGoogleAuth(req, res) {
     name: profile.name || profile.email,
     email: profile.email,
     picture: profile.picture || "",
-    role: invitedUser?.role || (users.size === 0 ? "admin" : "employee"),
-    status: invitedUser?.status || (users.size === 0 ? "active" : "pending"),
+    role: isFixedAdmin ? "admin" : (invitedUser?.role || (users.size === 0 ? "admin" : "employee")),
+    status: isFixedAdmin ? "active" : (invitedUser?.status || (users.size === 0 ? "active" : "pending")),
     updatedAt: new Date().toISOString(),
   });
   saveUsers();
