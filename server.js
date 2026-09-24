@@ -385,6 +385,19 @@ async function updateProposalStatus(req, res) {
   sendJson(res, 200, { proposal });
 }
 
+async function cancelProposal(req, res, proposalId) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const proposals = getProposals();
+  const proposal = proposals.find((item) => item.id === proposalId && item.userId === getAttendanceUserKey(currentUser));
+  if (!proposal || proposal.type !== "payment") return send(res, 404, "Không tìm thấy đề xuất.");
+  if (proposal.status !== "pending") return send(res, 400, "Chỉ có thể hủy đề xuất đang chờ duyệt.");
+  proposal.status = "canceled";
+  proposal.canceledAt = new Date().toISOString();
+  fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
+  sendJson(res, 200, { proposal });
+}
+
 async function createProposal(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -678,6 +691,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url.startsWith("/api/proposals?")) return serveProposals(req, res);
     if (req.method === "POST" && req.url === "/api/proposals") return await createProposal(req, res);
     if (req.method === "POST" && req.url === "/api/proposals/status") return await updateProposalStatus(req, res);
+    if (req.method === "POST" && req.url.startsWith("/api/proposals/") && req.url.endsWith("/cancel")) {
+      const proposalId = decodeURIComponent(req.url.slice("/api/proposals/".length, -"/cancel".length));
+      return await cancelProposal(req, res, proposalId);
+    }
     if (req.method === "GET" && req.url === "/api/payment-template") return servePaymentTemplate(req, res);
     if (req.method === "POST" && req.url === "/api/payment-template") return await updatePaymentTemplate(req, res);
     if (req.url === "/api/users") return serveUsers(req, res);

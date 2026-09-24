@@ -133,6 +133,9 @@
 .payment-review { display: grid; gap: .55rem; margin-bottom: .8rem; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 9px; color: #526278; background: #f7fafd; font-size: .78rem; }
 .payment-review[hidden] { display: none; }
 .payment-review strong { font-size: .95rem; }.payment-review.is-approved strong { color: #16804a; }.payment-review.is-rejected strong { color: #c23d50; }.payment-review.is-pending strong { color: #b77909; }
+.payment-cancel { width: 100%; min-height: 42px; margin-bottom: .8rem; border: 1px solid #e2aab3; border-radius: 8px; color: #b42318; background: #fff5f4; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 800; }
+.payment-cancel:hover { background: #ffe8e5; }
+.payment-cancel[hidden] { display: none; }
 .admin-template-tools { display: grid; gap: .45rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dbe6ed; }
 .admin-template-tools[hidden] { display: none; }
 .admin-template-tools label { display: grid; gap: .35rem; color: #183b68; font-size: .75rem; font-weight: 800; }

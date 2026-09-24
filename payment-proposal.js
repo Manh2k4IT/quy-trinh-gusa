@@ -9,6 +9,7 @@ const adminTemplateFile = document.querySelector('[data-admin-template-file]');
 const adminTemplateStatus = document.querySelector('[data-admin-template-status]');
 const paymentButton = document.querySelector('[data-open-payment]');
 const paymentReview = document.querySelector('[data-payment-review]');
+const cancelButton = document.querySelector('[data-cancel-payment]');
 let currentTemplate = { fileName: 'payment-template.html', fileData: 'payment-template.html' };
 let currentProposal = null;
 
@@ -17,7 +18,7 @@ function isPastProposalDate(proposal) {
 }
 
 function setPaymentButton(proposal) {
-  currentProposal = proposal && !(proposal.status === 'pending' && isPastProposalDate(proposal)) ? proposal : null;
+  currentProposal = proposal && proposal.status !== 'canceled' && !(proposal.status === 'pending' && isPastProposalDate(proposal)) ? proposal : null;
   paymentButton.classList.remove('is-approved', 'is-rejected', 'is-pending');
   paymentButton.disabled = false;
   if (!currentProposal) {
@@ -60,6 +61,7 @@ function closePaymentModal() {
   form.reset();
   form.hidden = false;
   paymentReview.hidden = true;
+  cancelButton.hidden = true;
   status.textContent = '';
 }
 
@@ -71,12 +73,32 @@ paymentButton.addEventListener('click', () => {
     paymentReview.className = `payment-review is-${currentProposal.status}`;
     const state = currentProposal.status === 'approved' ? 'ĐÃ DUYỆT' : currentProposal.status === 'rejected' ? 'TỪ CHỐI' : 'ĐANG CHỜ DUYỆT';
     paymentReview.innerHTML = `<strong>${state}</strong><span>Ngày đề xuất: ${currentProposal.date}</span><span>Hạng mục: ${currentProposal.category}</span><span>Số tiền: ${Number(currentProposal.amount).toLocaleString('vi-VN')} VNĐ</span><a href="${currentProposal.paymentFileData}" download="${currentProposal.paymentFileName || 'bieu-mau-de-xuat'}">Tải lại file đã gửi</a>`;
+    cancelButton.hidden = currentProposal.status !== 'pending';
     return;
   }
   form.hidden = false;
   paymentReview.hidden = true;
+  cancelButton.hidden = true;
   form.querySelector('[name="date"]').value = new Date().toISOString().slice(0, 10);
   form.querySelector('[name="category"]').focus();
+});
+
+cancelButton.addEventListener('click', async () => {
+  if (!currentProposal || currentProposal.status !== 'pending') return;
+  cancelButton.disabled = true;
+  cancelButton.textContent = 'ĐANG HỦY...';
+  try {
+    const response = await fetch(`/api/proposals/${encodeURIComponent(currentProposal.id)}/cancel`, { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || 'Không thể hủy đề xuất.');
+    status.textContent = 'Đã hủy đề xuất.';
+    setPaymentButton(null);
+    closePaymentModal();
+  } catch (error) {
+    status.textContent = error.message;
+    cancelButton.disabled = false;
+    cancelButton.textContent = 'HỦY ĐỀ XUẤT';
+  }
 });
 document.querySelector('[data-close-payment]').addEventListener('click', closePaymentModal);
 modal.addEventListener('click', (event) => {
