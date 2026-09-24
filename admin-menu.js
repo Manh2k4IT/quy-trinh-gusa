@@ -80,7 +80,13 @@ if (sidebarScroll) {
       if (backdrop) backdrop.hidden = !open;
       mobileToggle?.setAttribute('aria-expanded', String(open));
     };
-    mobileToggle?.addEventListener('click', () => setMobileMenu(!appShell.classList.contains('is-mobile-menu-open')));
+    document.addEventListener('click', (event) => {
+      const toggle = event.target.closest('[data-mobile-menu-toggle]');
+      if (!toggle) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setMobileMenu(!appShell.classList.contains('is-mobile-menu-open'));
+    }, true);
     backdrop?.addEventListener('click', () => setMobileMenu(false));
   }
 }
