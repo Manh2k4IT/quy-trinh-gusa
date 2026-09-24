@@ -137,6 +137,8 @@ function getCurrentUser(req) {
   const session = sessionId ? sessions.get(sessionId) : null;
   if (session) return users.get(session.userId) || null;
   if (allowLocalDevAccess) {
+    const localAdmin = [...users.values()].find((user) => user.email.toLowerCase() === fixedAdminEmail);
+    if (localAdmin) return { ...localAdmin, role: "admin", status: "active" };
     return {
       id: "local-dev",
       name: "Local Admin",
