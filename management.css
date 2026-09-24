@@ -99,14 +99,19 @@ a {
 
 .sidebar-toggle {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
   place-items: center;
   margin-left: auto;
   padding: 0;
   border: 2px solid color-mix(in srgb, var(--navy) 28%, #d5dce6);
   border-radius: 50%;
   font-size: 1.2rem;
+  line-height: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar-toggle:hover {
@@ -3481,20 +3486,25 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
 
   .topbar .mobile-menu-toggle {
     display: grid;
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
     place-items: center;
     border: 1px solid #d7e0eb;
-    border-radius: 10px;
+    border-radius: 12px;
     color: #203b61;
     background: #fff;
     box-shadow: 0 6px 12px rgba(20, 35, 53, 0.08);
     cursor: pointer;
+    padding: 0;
+    line-height: 0;
+    touch-action: manipulation;
   }
 
   .mobile-menu-toggle svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
