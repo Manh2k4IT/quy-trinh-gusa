@@ -4,35 +4,27 @@ const proposalVoiceAudios = {
   payment: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3'),
 };
 Object.values(proposalVoiceAudios).forEach((audio) => { audio.preload = 'auto'; });
+let proposalAudioEnabled = localStorage.getItem('gusa-proposal-audio-enabled') === 'true';
 
 window.playProposalVoiceTest = () => {
   const audio = proposalVoiceAudios.general;
   audio.pause();
   audio.currentTime = 0;
-  return audio.play();
+  return audio.play().then(() => {
+    proposalAudioEnabled = true;
+    localStorage.setItem('gusa-proposal-audio-enabled', 'true');
+  });
 };
-
-let proposalSpeechUnlocked = false;
-
-function unlockProposalSpeech(fromUserGesture = false) {
-  if (proposalSpeechUnlocked || !('speechSynthesis' in window)) return;
-  if (!fromUserGesture) return;
-  proposalSpeechUnlocked = true;
-  const unlock = new SpeechSynthesisUtterance(' ');
-  unlock.volume = 0;
-  unlock.lang = 'vi-VN';
-  window.speechSynthesis.speak(unlock);
-}
 
 function showProposalPermissionPrompt() {
   if (document.querySelector('[data-proposal-permission-prompt]')) return;
   const notificationState = 'Notification' in window ? Notification.permission : 'unsupported';
-  const soundState = proposalSpeechUnlocked ? 'granted' : 'default';
+  const soundState = proposalAudioEnabled ? 'granted' : 'default';
   if (notificationState === 'granted' && soundState === 'granted') return;
   const prompt = document.createElement('div');
   prompt.className = 'proposal-permission-prompt';
   prompt.dataset.proposalPermissionPrompt = '';
-  prompt.innerHTML = `<div class="proposal-permission-card" role="dialog" aria-modal="true" aria-labelledby="proposal-permission-title"><strong id="proposal-permission-title">Bắt buộc bật thông báo đề xuất</strong><p>Admin cần bật thông báo và giọng nữ tiếng Việt để nghe ngay khi nhân viên gửi đề xuất mới.</p><div class="proposal-permission-status"></div><div class="proposal-permission-actions"><button type="button" class="proposal-permission-enable">Bật quyền và nghe thử</button></div></div>`;
+  prompt.innerHTML = `<div class="proposal-permission-card" role="dialog" aria-modal="true" aria-labelledby="proposal-permission-title"><strong id="proposal-permission-title">Bật âm thanh thông báo</strong><p>Bấm nút bên dưới để bật file voice thông báo đề xuất trên thiết bị này.</p><div class="proposal-permission-status"></div><div class="proposal-permission-actions"><button type="button" class="proposal-permission-enable">Bật âm thanh và nghe thử</button></div></div>`;
   document.body.append(prompt);
   const status = prompt.querySelector('.proposal-permission-status');
   const updateStatus = () => {
@@ -42,11 +34,10 @@ function showProposalPermissionPrompt() {
     else status.textContent = '';
   };
   const enable = async () => {
-    unlockProposalSpeech(true);
     if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
-    window.playProposalVoiceTest?.().catch(() => {});
+    try { await window.playProposalVoiceTest?.(); } catch { status.textContent = 'Trình duyệt đang chặn âm thanh. Hãy kiểm tra biểu tượng loa trên tab hoặc cài đặt trang web.'; return; }
     updateStatus();
-    if ((!('Notification' in window) || Notification.permission === 'granted') && proposalSpeechUnlocked) prompt.remove();
+    if (proposalAudioEnabled) prompt.remove();
   };
   prompt.querySelector('.proposal-permission-enable').addEventListener('click', enable);
   updateStatus();
@@ -54,23 +45,13 @@ function showProposalPermissionPrompt() {
 
 window.showProposalPermissionPrompt = showProposalPermissionPrompt;
 
-document.addEventListener('pointerdown', () => unlockProposalSpeech(true), { once: true });
-document.addEventListener('keydown', () => unlockProposalSpeech(true), { once: true });
-
 window.speakProposalNotification = (proposal) => {
-  if (!proposal) return;
+  if (!proposal || !proposalAudioEnabled) return;
   const proposalVoiceAudio = proposal.type === 'payment' ? proposalVoiceAudios.payment : proposalVoiceAudios.general;
   proposalVoiceAudio.pause();
   proposalVoiceAudio.currentTime = 0;
-  let repeats = 0;
-  proposalVoiceAudio.onended = () => {
-    repeats += 1;
-    if (repeats < 2) {
-      proposalVoiceAudio.currentTime = 0;
-      proposalVoiceAudio.play().catch(() => {});
-    }
-  };
-  proposalVoiceAudio.play().catch(() => {});
+  proposalVoiceAudio.onended = null;
+  proposalVoiceAudio.play().catch(() => { proposalAudioEnabled = false; localStorage.removeItem('gusa-proposal-audio-enabled'); });
 };
 
 function initializeSharedProposalNotifications() {
