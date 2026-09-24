@@ -4,6 +4,8 @@ const mobileMenuBackdrop = document.querySelector("[data-mobile-menu-backdrop]")
 const adminMenu = document.querySelector("[data-admin-menu]");
 const adminMenuLabel = document.querySelector("[data-admin-menu-label]");
 const themeToggle = document.querySelector("[data-interface-theme-toggle]");
+const audioPermissionButton = document.querySelector("[data-audio-permission-button]");
+const audioPermissionStatus = document.querySelector("[data-audio-permission-status]");
 
 const topAvatar = document.querySelector("[data-top-avatar]");
 if (topAvatar && !document.querySelector("[data-notification-trigger]")) {
@@ -138,3 +140,21 @@ fetch("/api/me", { cache: "no-store" })
     }
   })
   .catch(() => setAdminMenuVisibility(false));
+
+function updateAudioPermissionStatus() {
+  const notification = "Notification" in window ? Notification.permission : "unsupported";
+  const hasVietnameseVoice = "speechSynthesis" in window && speechSynthesis.getVoices().some((voice) => /^vi(?:-|_)/i.test(voice.lang));
+  if (notification === "denied") audioPermissionStatus.textContent = "Thông báo đang bị chặn trong cài đặt trình duyệt.";
+  else if (!hasVietnameseVoice) audioPermissionStatus.textContent = "Chưa có voice tiếng Việt trên thiết bị.";
+  else if (notification === "granted") audioPermissionStatus.textContent = "Đã sẵn sàng: thông báo và voice tiếng Việt.";
+  else audioPermissionStatus.textContent = "Chưa cấp đủ quyền.";
+}
+
+audioPermissionButton?.addEventListener("click", async () => {
+  window.showProposalPermissionPrompt?.();
+  if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
+  updateAudioPermissionStatus();
+});
+if (location.hash === "#audio-permission") document.querySelector("#audio-permission")?.scrollIntoView({ behavior: "smooth", block: "center" });
+updateAudioPermissionStatus();
+if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voiceschanged", updateAudioPermissionStatus);

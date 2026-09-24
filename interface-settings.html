@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cài đặt giao diện - Quy Trình</title>
-    <link rel="stylesheet" href="management.css?v=20260922-3" />
+    <link rel="stylesheet" href="management.css?v=20260924-11" />
   </head>
   <body>
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -24,7 +24,7 @@
             <a class="menu-item" href="#"><span class="menu-icon">▥</span><span>Báo cáo doanh số</span></a>
           </nav>
           <p class="menu-label">CÀI ĐẶT</p>
-          <nav class="menu"><a class="menu-item is-active" href="interface-settings.html" aria-current="page"><span class="menu-icon">⚙</span><span>Cài đặt giao diện</span></a></nav>
+          <nav class="menu"><a class="menu-item is-active" href="interface-settings.html" aria-current="page"><span class="menu-icon">⚙</span><span>Cài đặt giao diện</span></a><a class="menu-item" href="interface-settings.html#audio-permission"><span class="menu-icon">♬</span><span>Cài đặt quyền âm thanh</span></a></nav>
           <p class="menu-label" data-admin-menu-label hidden>QUẢN TRỊ</p>
           <nav class="menu" aria-label="Menu quản trị" data-admin-menu hidden>
             <a class="menu-item" href="user-management.html"><span class="menu-icon">⚙</span><span>Quản lý user</span></a>
@@ -45,11 +45,12 @@
           <div class="interface-settings-page">
             <section class="interface-page-setting"><div><span class="interface-setting-icon">☾</span><div><h2>Chế độ tối</h2><p>Bật giao diện nền tối để làm việc trong môi trường thiếu sáng.</p></div></div><button class="interface-switch" type="button" role="switch" aria-checked="false" data-interface-theme-toggle aria-label="Bật hoặc tắt chế độ tối"><span></span></button></section>
             <section class="interface-page-setting interface-page-palette"><div><span class="interface-setting-icon">◉</span><div><h2>Màu giao diện</h2><p>Chọn màu chủ đạo cho thanh điều hướng và các điểm nhấn.</p></div></div><div class="color-swatches" aria-label="Chọn màu giao diện"><button type="button" class="color-swatch palette-blue" data-theme-primary="#174b8e" data-theme-surface="#eaf2fa" aria-label="Bảng màu xanh dương"></button><button type="button" class="color-swatch palette-green" data-theme-primary="#247a58" data-theme-surface="#e9f5ef" aria-label="Bảng màu xanh lá"></button><button type="button" class="color-swatch palette-brown" data-theme-primary="#75483f" data-theme-surface="#f5eeeb" aria-label="Bảng màu nâu"></button><button type="button" class="color-swatch palette-red" data-theme-primary="#a44848" data-theme-surface="#f9eded" aria-label="Bảng màu đỏ"></button><button type="button" class="color-swatch palette-indigo" data-theme-primary="#5b4aa8" data-theme-surface="#efedfb" aria-label="Bảng màu chàm"></button><button type="button" class="color-swatch palette-teal" data-theme-primary="#167b83" data-theme-surface="#e6f5f5" aria-label="Bảng màu xanh ngọc"></button></div></section>
+            <section class="interface-page-setting audio-permission-setting" id="audio-permission"><div><span class="interface-setting-icon">♬</span><div><h2>Cài đặt quyền âm thanh</h2><p>Bật thông báo và giọng nữ tiếng Việt để nghe đề xuất mới ngay khi nhân viên gửi.</p><strong data-audio-permission-status>Đang kiểm tra quyền...</strong></div></div><button class="interface-audio-button" type="button" data-audio-permission-button>Bật quyền và nghe thử</button></section>
           </div>
         </section>
       </main>
     </div>
     <script src="interface-settings.js"></script>
-    <script src="admin-menu.js?v=20260924-15"></script>
+    <script src="admin-menu.js?v=20260924-16"></script>
   </body>
 </html>

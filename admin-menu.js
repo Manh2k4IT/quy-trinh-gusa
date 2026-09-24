@@ -52,6 +52,8 @@ function showProposalPermissionPrompt() {
   updateStatus();
 }
 
+window.showProposalPermissionPrompt = showProposalPermissionPrompt;
+
 document.addEventListener('pointerdown', () => unlockProposalSpeech(true), { once: true });
 document.addEventListener('keydown', () => unlockProposalSpeech(true), { once: true });
 
@@ -163,7 +165,7 @@ if (sidebarScroll) {
       <a class="menu-item" href="proposal-report.html" data-admin-proposal-report><span class="menu-icon">▥</span><span>Báo cáo đề xuất</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
-    <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt giao diện</span></a></nav>
+    <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt giao diện</span></a><a class="menu-item" href="interface-settings.html#audio-permission"><span class="menu-icon">♬</span><span>Cài đặt quyền âm thanh</span></a></nav>
     <p class="menu-label" data-admin-menu-label>QUẢN TRỊ</p>
     <nav class="menu" aria-label="Menu quản trị" data-admin-menu>
       <a class="menu-item" href="user-management.html"><span class="menu-icon">⚙</span><span>Quản lý user</span></a>
