@@ -1,4 +1,6 @@
 const sidebarScroll = document.querySelector('.sidebar-scroll');
+const proposalVoiceAudio = new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3');
+proposalVoiceAudio.preload = 'auto';
 
 let proposalSpeechUnlocked = false;
 
@@ -58,32 +60,18 @@ document.addEventListener('pointerdown', () => unlockProposalSpeech(true), { onc
 document.addEventListener('keydown', () => unlockProposalSpeech(true), { once: true });
 
 window.speakProposalNotification = (proposal) => {
-  if (!('speechSynthesis' in window) || !proposal) return;
-  if (!proposalSpeechUnlocked) return;
-  const person = proposal.userName || proposal.email || 'một nhân sự';
-  const category = proposal.category ? ` danh mục ${proposal.category}` : ' một danh mục mới';
-  const message = `Nhân sự ${person} vừa đề xuất${category} trong đề xuất chung.`;
-  const speakWithVietnameseVoice = () => {
-    const voices = window.speechSynthesis.getVoices();
-    const vietnameseVoices = voices.filter((voice) => /^vi(?:-|_)/i.test(voice.lang));
-    const femaleVietnameseVoice = vietnameseVoices.find((voice) => /hoaimy|female|woman|nữ|nu\b/i.test(voice.name));
-    const vietnameseVoice = femaleVietnameseVoice || vietnameseVoices[0];
-    if (!vietnameseVoice) return;
-    window.speechSynthesis.cancel();
-    for (let repeat = 0; repeat < 2; repeat += 1) {
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = vietnameseVoice.lang;
-      utterance.voice = vietnameseVoice;
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      window.speechSynthesis.speak(utterance);
+  if (!proposal) return;
+  proposalVoiceAudio.pause();
+  proposalVoiceAudio.currentTime = 0;
+  let repeats = 0;
+  proposalVoiceAudio.onended = () => {
+    repeats += 1;
+    if (repeats < 2) {
+      proposalVoiceAudio.currentTime = 0;
+      proposalVoiceAudio.play().catch(() => {});
     }
   };
-  if (window.speechSynthesis.getVoices().some((voice) => /^vi(?:-|_)/i.test(voice.lang))) speakWithVietnameseVoice();
-  else {
-    window.speechSynthesis.addEventListener('voiceschanged', speakWithVietnameseVoice, { once: true });
-    setTimeout(speakWithVietnameseVoice, 1500);
-  }
+  proposalVoiceAudio.play().catch(() => {});
 };
 
 function initializeSharedProposalNotifications() {

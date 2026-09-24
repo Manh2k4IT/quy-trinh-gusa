@@ -44,6 +44,7 @@ const mimeTypes = {
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
   ".js": "text/javascript; charset=utf-8",
+  ".mp3": "audio/mpeg",
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".webp": "image/webp",
@@ -236,6 +237,15 @@ async function completeGoogleAuth(req, res) {
   const isFixedAdmin = normalizedProfileEmail === fixedAdminEmail;
   const invitedUser = existingUser || [...users.values()].find((user) => normalizeEmail(user.email) === normalizedProfileEmail);
   if (!existingUser && invitedUser) users.delete(invitedUser.id);
+  const nextUser = {
+    id: profile.sub,
+    name: profile.name || profile.email,
+    email: profile.email,
+    picture: profile.picture || invitedUser?.picture || existingUser?.picture || "",
+    role: isFixedAdmin ? "admin" : (invitedUser?.role || (users.size === 0 ? "admin" : "employee")),
+    status: isFixedAdmin ? "active" : (invitedUser?.status || (users.size === 0 ? "active" : "pending")),
+    updatedAt: new Date().toISOString(),
+  };
   if (!invitedUser && !isFixedAdmin && stateData.mode === "login") {
     const params = new URLSearchParams({
       email: profile.email,
@@ -245,15 +255,7 @@ async function completeGoogleAuth(req, res) {
     return redirect(res, `/not-registered.html?${params}`);
   }
 
-  users.set(profile.sub, {
-    id: profile.sub,
-    name: profile.name || profile.email,
-    email: profile.email,
-    picture: profile.picture || "",
-    role: isFixedAdmin ? "admin" : (invitedUser?.role || (users.size === 0 ? "admin" : "employee")),
-    status: isFixedAdmin ? "active" : (invitedUser?.status || (users.size === 0 ? "active" : "pending")),
-    updatedAt: new Date().toISOString(),
-  });
+  users.set(profile.sub, nextUser);
   saveUsers();
 
   const sessionId = crypto.randomBytes(32).toString("hex");
