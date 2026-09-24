@@ -10,6 +10,7 @@ const adminTemplateStatus = document.querySelector('[data-admin-template-status]
 const paymentButton = document.querySelector('[data-open-payment]');
 const paymentReview = document.querySelector('[data-payment-review]');
 const cancelButton = document.querySelector('[data-cancel-payment]');
+const cancelMainButton = document.querySelector('[data-cancel-payment-main]');
 let currentTemplate = { fileName: 'payment-template.html', fileData: 'payment-template.html' };
 let currentProposal = null;
 
@@ -21,6 +22,7 @@ function setPaymentButton(proposal) {
   currentProposal = proposal && proposal.status !== 'canceled' && !(proposal.status === 'pending' && isPastProposalDate(proposal)) ? proposal : null;
   paymentButton.classList.remove('is-approved', 'is-rejected', 'is-pending');
   paymentButton.disabled = false;
+  cancelMainButton.hidden = true;
   if (!currentProposal) {
     paymentButton.textContent = 'ĐỀ XUẤT';
   } else if (currentProposal.status === 'approved') {
@@ -32,6 +34,7 @@ function setPaymentButton(proposal) {
   } else {
     paymentButton.textContent = 'XEM LẠI ĐỀ XUẤT';
     paymentButton.classList.add('is-pending');
+    cancelMainButton.hidden = false;
   }
 }
 
@@ -83,10 +86,10 @@ paymentButton.addEventListener('click', () => {
   form.querySelector('[name="category"]').focus();
 });
 
-cancelButton.addEventListener('click', async () => {
+async function cancelCurrentProposal(button) {
   if (!currentProposal || currentProposal.status !== 'pending') return;
-  cancelButton.disabled = true;
-  cancelButton.textContent = 'ĐANG HỦY...';
+  button.disabled = true;
+  button.textContent = 'ĐANG HỦY...';
   try {
     const response = await fetch(`/api/proposals/${encodeURIComponent(currentProposal.id)}/cancel`, { method: 'POST' });
     const data = await response.json().catch(() => ({}));
@@ -96,10 +99,13 @@ cancelButton.addEventListener('click', async () => {
     closePaymentModal();
   } catch (error) {
     status.textContent = error.message;
-    cancelButton.disabled = false;
-    cancelButton.textContent = 'HỦY ĐỀ XUẤT';
+    button.disabled = false;
+    button.textContent = 'HỦY ĐỀ XUẤT';
   }
-});
+}
+
+cancelButton.addEventListener('click', () => cancelCurrentProposal(cancelButton));
+cancelMainButton.addEventListener('click', () => cancelCurrentProposal(cancelMainButton));
 document.querySelector('[data-close-payment]').addEventListener('click', closePaymentModal);
 modal.addEventListener('click', (event) => {
   if (event.target === modal) closePaymentModal();
