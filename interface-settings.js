@@ -146,18 +146,15 @@ function updateAudioPermissionStatus() {
   const audioEnabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
   audioPermissionButton?.setAttribute("aria-checked", String(audioEnabled));
   audioPermissionButton?.classList.toggle("is-on", audioEnabled);
-  if (notification === "denied") audioPermissionStatus.textContent = "Thông báo đang bị chặn trong cài đặt trình duyệt.";
-  else if (audioEnabled) audioPermissionStatus.textContent = "Đã bật: file voice sẽ phát khi có đề xuất mới.";
-  else audioPermissionStatus.textContent = "Chưa bật âm thanh trên thiết bị này.";
+  if (notification === "denied") audioPermissionStatus.textContent = "Thông báo trình duyệt đang bị chặn. Hãy cho phép trong cài đặt trang web nếu cần thông báo hệ thống.";
+  else if (audioEnabled) audioPermissionStatus.textContent = "Đã bật trong ứng dụng. Nếu vẫn không nghe, hãy bỏ tắt tiếng tab và kiểm tra âm lượng trình duyệt/thiết bị.";
+  else audioPermissionStatus.textContent = "Đang tắt trong ứng dụng.";
 }
 
 audioPermissionButton?.addEventListener("click", async () => {
   const enabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
   if (enabled) localStorage.removeItem("gusa-proposal-audio-enabled");
-  else {
-    if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
-    localStorage.setItem("gusa-proposal-audio-enabled", "true");
-  }
+  else localStorage.setItem("gusa-proposal-audio-enabled", "true");
   updateAudioPermissionStatus();
 });
 if (location.hash === "#audio-permission") document.querySelector("#audio-permission")?.scrollIntoView({ behavior: "smooth", block: "center" });
