@@ -53,7 +53,7 @@ if (sidebarScroll) {
           element.textContent = user.name || user.email || 'Tài khoản Google';
         });
         document.querySelectorAll('[data-user-role], [data-profile-role]').forEach((element) => {
-          element.textContent = user.role === 'admin' ? 'Quản trị viên' : 'Nhân viên';
+          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : 'Nhân viên';
         });
         if (user.picture) {
           document.querySelectorAll('[data-user-avatar], [data-top-avatar], [data-profile-avatar]').forEach((element) => {
@@ -69,7 +69,7 @@ if (sidebarScroll) {
         if (profileName) profileName.textContent = user.name || 'Tài khoản Google';
         if (profileEmail) profileEmail.textContent = user.email || '';
       }
-      const isAdmin = user?.role === 'admin';
+      const isAdmin = user?.role === 'admin' || user?.role === 'ceo';
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');

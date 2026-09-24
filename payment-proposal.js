@@ -130,7 +130,7 @@ async function readFile(file) {
 }
 
 fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(({ user }) => {
-  if (user?.role === 'admin') adminTemplateTools.hidden = false;
+  if (user?.role === 'admin' || user?.role === 'ceo') adminTemplateTools.hidden = false;
 }).catch(() => {});
 
 adminTemplateFile.addEventListener('change', async () => {

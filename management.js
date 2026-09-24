@@ -292,7 +292,7 @@ async function loadUserManagement() {
     userCell.append(identity);
 
     const role = document.createElement("td");
-    role.textContent = user.role === "admin" ? "Quản trị viên" : "Nhân viên";
+    role.textContent = user.role === "admin" ? "Quản trị viên" : user.role === "ceo" ? "CEO" : "Nhân viên";
     const state = document.createElement("td");
     const stateLabel = { active: "Đang hoạt động", pending: "Chờ duyệt", blocked: "Đang khóa" }[user.status];
     const pill = document.createElement("span");

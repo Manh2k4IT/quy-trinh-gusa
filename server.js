@@ -55,6 +55,10 @@ function saveUsers() {
   fs.writeFileSync(usersPath, JSON.stringify(Object.fromEntries(users), null, 2));
 }
 
+function isManagementUser(user) {
+  return user?.role === "admin" || user?.role === "ceo";
+}
+
 function getPaymentTemplate() {
   try {
     return JSON.parse(fs.readFileSync(paymentTemplatePath, "utf8"));
@@ -73,7 +77,7 @@ function servePaymentTemplate(req, res) {
 
 async function updatePaymentTemplate(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin" || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -262,14 +266,14 @@ function serveCurrentUser(req, res) {
 
 function serveUsers(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
   res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify({ users: [...users.values()] }));
 }
 
 async function updateUserStatus(req, res, userId) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -284,7 +288,7 @@ async function updateUserStatus(req, res, userId) {
 
 async function inviteUser(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -303,7 +307,7 @@ async function inviteUser(req, res) {
     name: email.split("@")[0],
     email,
     picture: "",
-    role: payload.role === "admin" ? "admin" : "employee",
+    role: ["admin", "ceo"].includes(payload.role) ? payload.role : "employee",
     status: "active",
     invited: true,
     updatedAt: new Date().toISOString(),
@@ -366,7 +370,7 @@ function serveProposals(req, res) {
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   const proposals = requestUrl.searchParams.get("scope") === "all"
-    ? currentUser.role === "admin" ? getProposals() : null
+    ? isManagementUser(currentUser) ? getProposals() : null
     : getProposals().filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser));
   if (!proposals) return send(res, 403, "Forbidden");
   sendJson(res, 200, { proposals });
@@ -374,7 +378,7 @@ function serveProposals(req, res) {
 
 async function updateProposalStatus(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin" || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -432,7 +436,7 @@ async function createProposal(req, res) {
 
 function serveAttendanceOverview(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   const month = /^\d{4}-\d{2}$/.test(requestUrl.searchParams.get("month") || "") ? requestUrl.searchParams.get("month") : getLocalDateKey().slice(0, 7);
   const attendance = getAttendance();
@@ -493,7 +497,7 @@ async function updateAttendance(req, res) {
 
 async function updateAttendanceOverviewStatus(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -574,7 +578,7 @@ function serveOrganizationMembers(req, res, nodeId) {
 
 async function updateOrganizationMember(req, res, nodeId) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin" || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -606,7 +610,7 @@ async function updateOrganizationMember(req, res, nodeId) {
 
 function deleteOrganizationMember(req, res, nodeId, memberId) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin" || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
   const membersByNode = getOrganizationMembers();
   const members = membersByNode[nodeId] || [];
   const nextMembers = members.filter((member) => member.id !== memberId);
@@ -624,7 +628,7 @@ function serveOrganizationProfile(req, res, nodeId) {
 
 async function updateOrganizationProfile(req, res, nodeId) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin" || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -649,7 +653,7 @@ function serveOrganizationChart(req, res) {
 
 async function updateOrganizationChart(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin" || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const nodes = JSON.parse(body || "{}").nodes;
