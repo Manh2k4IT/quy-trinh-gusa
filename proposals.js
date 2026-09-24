@@ -79,6 +79,11 @@ function renderProposals(proposals) {
         cancelButton.className = 'proposal-cancel-button';
         cancelButton.textContent = 'HỦY ĐỀ XUẤT';
         cancelButton.dataset.cancelProposal = '';
+        cancelButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          cancelProposal(cancelButton.dataset.cancelProposal, cancelButton).catch(() => {});
+        });
         actions.append(cancelButton);
       }
       const cancelButton = actions.querySelector('[data-cancel-proposal]');
@@ -130,7 +135,10 @@ async function cancelProposal(proposalId, button) {
     let data = {};
     try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; }
     if (!response.ok) throw new Error(data.message || 'Không thể hủy đề xuất.');
+    const canceledProposal = proposals.find((proposal) => proposal.id === proposalId);
+    if (canceledProposal) canceledProposal.status = 'canceled';
     status.textContent = 'Đã hủy đề xuất.';
+    renderProposals(proposals);
     await loadProposals();
   } catch (error) {
     status.textContent = error.message;
@@ -206,14 +214,6 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.querySelector('[name="date"]').focus();
     }
   });
-});
-
-document.addEventListener('click', (event) => {
-  const cancelButton = event.target.closest('[data-cancel-proposal]');
-  if (!cancelButton?.dataset.cancelProposal) return;
-  event.preventDefault();
-  event.stopPropagation();
-  cancelProposal(cancelButton.dataset.cancelProposal, cancelButton).catch(() => {});
 });
 
 function closeModal() {
