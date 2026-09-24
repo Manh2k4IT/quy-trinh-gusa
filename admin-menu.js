@@ -50,18 +50,26 @@ window.speakProposalNotification = (proposal) => {
   const person = proposal.userName || proposal.email || 'một nhân sự';
   const category = proposal.category ? ` danh mục ${proposal.category}` : ' một danh mục mới';
   const message = `Nhân sự ${person} vừa đề xuất${category} trong đề xuất chung.`;
-  window.speechSynthesis.cancel();
-  const voices = window.speechSynthesis.getVoices();
-  const vietnameseVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith('vi'));
-  const femaleVietnameseVoice = vietnameseVoices.find((voice) => /hoaimy|female|woman|nữ|nu\b/i.test(voice.name));
-  const vietnameseVoice = femaleVietnameseVoice || vietnameseVoices[0];
-  for (let repeat = 0; repeat < 2; repeat += 1) {
-    const utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = 'vi-VN';
-    if (vietnameseVoice) utterance.voice = vietnameseVoice;
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
+  const speakWithVietnameseVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const vietnameseVoices = voices.filter((voice) => /^vi(?:-|_)/i.test(voice.lang));
+    const femaleVietnameseVoice = vietnameseVoices.find((voice) => /hoaimy|female|woman|nữ|nu\b/i.test(voice.name));
+    const vietnameseVoice = femaleVietnameseVoice || vietnameseVoices[0];
+    if (!vietnameseVoice) return;
+    window.speechSynthesis.cancel();
+    for (let repeat = 0; repeat < 2; repeat += 1) {
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = vietnameseVoice.lang;
+      utterance.voice = vietnameseVoice;
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+  if (window.speechSynthesis.getVoices().some((voice) => /^vi(?:-|_)/i.test(voice.lang))) speakWithVietnameseVoice();
+  else {
+    window.speechSynthesis.addEventListener('voiceschanged', speakWithVietnameseVoice, { once: true });
+    setTimeout(speakWithVietnameseVoice, 1500);
   }
 };
 
