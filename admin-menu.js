@@ -12,6 +12,35 @@ function unlockProposalSpeech(fromUserGesture = false) {
   window.speechSynthesis.speak(unlock);
 }
 
+function showProposalPermissionPrompt() {
+  if (document.querySelector('[data-proposal-permission-prompt]')) return;
+  const notificationState = 'Notification' in window ? Notification.permission : 'unsupported';
+  const soundState = proposalSpeechUnlocked ? 'granted' : 'default';
+  if (notificationState === 'granted' && soundState === 'granted') return;
+  const prompt = document.createElement('div');
+  prompt.className = 'proposal-permission-prompt';
+  prompt.dataset.proposalPermissionPrompt = '';
+  prompt.innerHTML = `<div class="proposal-permission-card" role="dialog" aria-modal="true" aria-labelledby="proposal-permission-title"><button class="proposal-permission-close" type="button" aria-label="Đóng">×</button><strong id="proposal-permission-title">Bật thông báo đề xuất</strong><p>Cho phép thông báo và âm thanh để nhận ngay khi nhân viên gửi đề xuất mới.</p><div class="proposal-permission-status"></div><div class="proposal-permission-actions"><button type="button" class="proposal-permission-enable">Bật quyền</button><button type="button" class="proposal-permission-later">Để sau</button></div></div>`;
+  document.body.append(prompt);
+  const status = prompt.querySelector('.proposal-permission-status');
+  const updateStatus = () => {
+    const currentNotification = 'Notification' in window ? Notification.permission : 'unsupported';
+    if (currentNotification === 'denied') status.textContent = 'Thông báo đang bị chặn. Hãy mở Cài đặt trang web của trình duyệt và cho phép Thông báo, sau đó tải lại trang.';
+    else if (currentNotification === 'unsupported') status.textContent = 'Trình duyệt này không hỗ trợ thông báo hệ thống; bảng thông báo trong ứng dụng vẫn hoạt động.';
+    else status.textContent = '';
+  };
+  const enable = async () => {
+    unlockProposalSpeech(true);
+    if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+    updateStatus();
+    if ((!('Notification' in window) || Notification.permission === 'granted') && proposalSpeechUnlocked) prompt.remove();
+  };
+  prompt.querySelector('.proposal-permission-enable').addEventListener('click', enable);
+  prompt.querySelector('.proposal-permission-close').addEventListener('click', () => prompt.remove());
+  prompt.querySelector('.proposal-permission-later').addEventListener('click', () => prompt.remove());
+  updateStatus();
+}
+
 document.addEventListener('pointerdown', () => unlockProposalSpeech(true), { once: true });
 document.addEventListener('keydown', () => unlockProposalSpeech(true), { once: true });
 
@@ -194,7 +223,10 @@ if (sidebarScroll) {
           link.hidden = true;
         });
       }
-      if (isAdmin) initializeSharedProposalNotifications();
+      if (isAdmin) {
+        initializeSharedProposalNotifications();
+        showProposalPermissionPrompt();
+      }
     })
     .catch(() => {
       sidebarScroll.querySelector('[data-admin-menu]').hidden = true;

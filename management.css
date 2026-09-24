@@ -874,6 +874,17 @@ body[data-theme="dark"] .top-icon {
   animation: gusa-notification-shake 1.2s ease-in-out;
 }
 
+.proposal-permission-prompt { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 1rem; background: rgba(17, 31, 49, .38); }
+.proposal-permission-card { width: min(430px, 100%); padding: 1.35rem; border: 1px solid #cbd9e8; border-radius: 14px; background: #fff; box-shadow: 0 20px 50px rgba(22, 45, 72, .24); }
+.proposal-permission-card strong { display: block; padding-right: 1.5rem; color: #173f78; font-size: 1.05rem; font-weight: 800; }
+.proposal-permission-card p { margin: .7rem 0; color: #526278; font-size: .84rem; line-height: 1.5; }
+.proposal-permission-status { min-height: 2.5rem; color: #a52f42; font-size: .76rem; line-height: 1.4; }
+.proposal-permission-actions { display: flex; justify-content: flex-end; gap: .55rem; margin-top: .8rem; }
+.proposal-permission-actions button { min-height: 38px; border: 0; border-radius: 8px; padding: 0 .9rem; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 800; }
+.proposal-permission-enable { color: #fff; background: #174b8e; }
+.proposal-permission-later { color: #526278; background: #edf2f7; }
+.proposal-permission-close { float: right; width: 30px; height: 30px; border: 1px solid #d7e1ec; border-radius: 50%; color: #66778d; background: #fff; cursor: pointer; font-size: 1.2rem; line-height: 1; }
+
 @keyframes gusa-notification-shake {
   0%, 100% { transform: rotate(0); }
   15% { transform: rotate(16deg); }
