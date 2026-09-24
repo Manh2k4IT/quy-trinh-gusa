@@ -40,7 +40,9 @@ function updateUserProfile(user) {
     element.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
-    const isAdminChip = button.textContent.trim() === "Quản trị";
+    const currentLabel = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị" : "Nhân viên";
+    if (button.textContent.trim() === "Quản trị" || button.textContent.trim() === "Nhân viên") button.textContent = currentLabel;
+    const isAdminChip = button.textContent.trim() === "CEO" || button.textContent.trim() === "Quản trị";
     const isCurrentRole = isAdminChip === (user.role === "admin" || user.role === "ceo");
     button.hidden = !isCurrentRole;
     button.classList.toggle("is-selected", isCurrentRole);

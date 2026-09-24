@@ -55,9 +55,11 @@ if (sidebarScroll) {
         document.querySelectorAll('[data-user-role], [data-profile-role]').forEach((element) => {
           element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : 'Nhân viên';
         });
-        const managementRole = user.role === 'admin' || user.role === 'ceo';
+        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên';
         document.querySelectorAll('.role-chip').forEach((button) => {
-          const isCurrentRole = button.textContent.trim() === (managementRole ? 'Quản trị' : 'Nhân viên');
+          const targetLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên';
+          button.textContent = targetLabel;
+          const isCurrentRole = button.textContent.trim() === targetLabel;
           button.hidden = !isCurrentRole;
           button.classList.toggle('is-selected', isCurrentRole);
         });

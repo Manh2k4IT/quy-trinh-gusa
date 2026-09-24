@@ -97,11 +97,14 @@ const savedPalette = JSON.parse(localStorage.getItem("gusa-palette") || "null");
 document.documentElement.style.setProperty("--navy", savedPalette?.primary || "#174b8e");
 document.documentElement.style.setProperty("--blue-100", savedPalette?.surface || "#eaf2fa");
 
-function setAdminMenuVisibility(isAdmin) {
-  adminMenu.hidden = !isAdmin;
-  adminMenuLabel.hidden = !isAdmin;
+function setAdminMenuVisibility(roleLabel) {
+  const isAdmin = roleLabel === "Quản trị" || roleLabel === "CEO";
+  if (adminMenu) adminMenu.hidden = !isAdmin;
+  if (adminMenuLabel) adminMenuLabel.hidden = !isAdmin;
   document.querySelectorAll(".role-chip").forEach((button) => {
-    const isCurrentRole = button.textContent.trim() === (isAdmin ? "Quản trị" : "Nhân viên");
+    const currentLabel = roleLabel === "CEO" ? "CEO" : roleLabel === "Quản trị" ? "Quản trị" : "Nhân viên";
+    button.textContent = currentLabel;
+    const isCurrentRole = button.textContent.trim() === currentLabel;
     button.hidden = !isCurrentRole;
     button.classList.toggle("is-selected", isCurrentRole);
   });
@@ -112,9 +115,10 @@ fetch("/api/me", { cache: "no-store" })
   .then(({ user }) => {
     if (!user) return;
     const displayName = user.name || user.email || "Tài khoản Google";
+    const roleLabel = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị" : "Nhân viên";
     document.querySelectorAll("[data-user-name]").forEach((element) => { element.textContent = displayName; });
     document.querySelectorAll("[data-user-role]").forEach((element) => { element.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên"; });
-    setAdminMenuVisibility(user.role === "admin" || user.role === "ceo");
+    setAdminMenuVisibility(roleLabel);
     document.querySelector("[data-settings-profile-name]").textContent = displayName;
     document.querySelector("[data-settings-profile-email]").textContent = user.email || "";
     document.querySelector("[data-settings-profile-role]").textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên";

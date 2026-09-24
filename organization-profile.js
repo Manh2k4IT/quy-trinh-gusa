@@ -127,7 +127,9 @@ async function syncAccountRole() {
     element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
-    const isCurrentRole = button.textContent.trim() === (admin ? "Quản trị" : "Nhân viên");
+    const currentLabel = user.role === "ceo" ? "CEO" : admin ? "Quản trị" : "Nhân viên";
+    if (button.textContent.trim() === "Quản trị" || button.textContent.trim() === "Nhân viên") button.textContent = currentLabel;
+    const isCurrentRole = button.textContent.trim() === currentLabel;
     button.hidden = !isCurrentRole;
     button.classList.toggle("is-selected", isCurrentRole);
   });
