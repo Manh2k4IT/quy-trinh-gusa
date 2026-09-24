@@ -1,6 +1,7 @@
 const modal = document.querySelector('[data-payment-modal]');
 const form = document.querySelector('[data-payment-form]');
 const status = document.querySelector('[data-payment-status]');
+const paymentFileInput = form.querySelector('[name="paymentFile"]');
 
 function closePaymentModal() {
   modal.hidden = true;
@@ -31,6 +32,25 @@ form.addEventListener('submit', async (event) => {
   status.textContent = 'Đang gửi...';
   const payload = Object.fromEntries(new FormData(form));
   payload.type = 'payment';
+  const file = paymentFileInput.files?.[0];
+  if (!file) {
+    status.textContent = 'Vui lòng tải file biểu mẫu đề xuất.';
+    return;
+  }
+  if (file.size > 7 * 1024 * 1024) {
+    status.textContent = 'File không được vượt quá 7 MB.';
+    return;
+  }
+  payload.paymentFileName = file.name;
+  payload.paymentFileType = file.type || 'application/octet-stream';
+  payload.paymentFileData = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(String(reader.result)));
+    reader.addEventListener('error', reject);
+    reader.readAsDataURL(file);
+  });
+  delete payload.paymentFile;
+  payload.reason = 'Đính kèm file biểu mẫu đề xuất thanh toán.';
   try {
     const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await response.json().catch(() => ({}));

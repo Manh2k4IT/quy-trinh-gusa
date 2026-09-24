@@ -124,3 +124,6 @@
 	.payment-note { max-width: none; }
 	.payment-submit { width: 100%; }
 }
+.payment-file-field { padding: .85rem; border: 1px dashed #b8c9dc; border-radius: 10px; background: #f7fafd; }
+.payment-file-field input { padding: .55rem; background: #fff; }
+.payment-file-field small { color: #66778d; font-size: .68rem; font-weight: 500; }
