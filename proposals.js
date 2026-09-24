@@ -68,32 +68,69 @@ function renderProposals(proposals) {
   proposals.forEach((proposal) => {
     const button = document.querySelector(`[data-open-proposal="${proposal.type}"]`);
     if (button) {
+      let actions = button.closest('.proposal-card-actions');
+      if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'proposal-card-actions';
+        button.parentElement.insertBefore(actions, button);
+        actions.append(button);
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'proposal-cancel-button';
+        cancelButton.textContent = 'HỦY ĐỀ XUẤT';
+        cancelButton.dataset.cancelProposal = '';
+        actions.append(cancelButton);
+      }
+      const cancelButton = actions.querySelector('[data-cancel-proposal]');
       if (isProposalExpired(proposal)) {
         button.textContent = 'ĐỀ XUẤT';
         button.disabled = false;
         button.classList.remove('is-approved');
         delete button.dataset.proposalId;
+        cancelButton.hidden = true;
       } else if (proposal.status === 'approved') {
         button.textContent = 'ĐÃ DUYỆT';
         button.disabled = true;
         button.classList.add('is-approved');
         button.classList.remove('is-rejected');
         button.dataset.proposalId = proposal.id;
+        cancelButton.hidden = true;
       } else if (proposal.status === 'rejected') {
         button.textContent = 'TỪ CHỐI';
         button.disabled = true;
         button.classList.add('is-rejected');
         button.classList.remove('is-approved');
         button.dataset.proposalId = proposal.id;
+        cancelButton.hidden = true;
       } else {
         button.textContent = 'XEM ĐỀ XUẤT';
         button.disabled = false;
         button.classList.remove('is-approved');
         button.classList.remove('is-rejected');
         button.dataset.proposalId = proposal.id;
+        cancelButton.hidden = false;
+        cancelButton.dataset.cancelProposal = proposal.id;
       }
     }
   });
+}
+
+async function cancelProposal(proposalId, button) {
+  button.disabled = true;
+  button.textContent = 'ĐANG HỦY...';
+  try {
+    const response = await fetch(`/api/proposals/${encodeURIComponent(proposalId)}/cancel`, { method: 'POST' });
+    const responseText = await response.text();
+    let data = {};
+    try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; }
+    if (!response.ok) throw new Error(data.message || 'Không thể hủy đề xuất.');
+    status.textContent = 'Đã hủy đề xuất.';
+    await loadProposals();
+  } catch (error) {
+    status.textContent = error.message;
+    button.disabled = false;
+    button.textContent = 'HỦY ĐỀ XUẤT';
+  }
 }
 
 async function loadProposals() {
@@ -163,6 +200,14 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.querySelector('[name="date"]').focus();
     }
   });
+});
+
+document.addEventListener('click', (event) => {
+  const cancelButton = event.target.closest('[data-cancel-proposal]');
+  if (!cancelButton?.dataset.cancelProposal) return;
+  event.preventDefault();
+  event.stopPropagation();
+  cancelProposal(cancelButton.dataset.cancelProposal, cancelButton);
 });
 
 function closeModal() {
