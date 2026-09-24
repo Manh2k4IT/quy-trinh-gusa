@@ -113,11 +113,11 @@ fetch("/api/me", { cache: "no-store" })
     if (!user) return;
     const displayName = user.name || user.email || "Tài khoản Google";
     document.querySelectorAll("[data-user-name]").forEach((element) => { element.textContent = displayName; });
-    document.querySelectorAll("[data-user-role]").forEach((element) => { element.textContent = user.role === "admin" ? "Quản trị viên" : "Nhân viên"; });
-    setAdminMenuVisibility(user.role === "admin");
+    document.querySelectorAll("[data-user-role]").forEach((element) => { element.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên"; });
+    setAdminMenuVisibility(user.role === "admin" || user.role === "ceo");
     document.querySelector("[data-settings-profile-name]").textContent = displayName;
     document.querySelector("[data-settings-profile-email]").textContent = user.email || "";
-    document.querySelector("[data-settings-profile-role]").textContent = user.role === "admin" ? "Quản trị viên" : "Nhân viên";
+    document.querySelector("[data-settings-profile-role]").textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên";
     if (user.picture) {
       document.querySelectorAll("[data-user-avatar], [data-top-avatar]").forEach((element) => {
         const image = document.createElement("img");

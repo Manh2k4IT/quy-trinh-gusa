@@ -92,7 +92,7 @@ async function syncAccountRole() {
   if (!response.ok) return;
   const user = (await response.json()).user;
   if (!user) return;
-  const admin = user.role === "admin";
+  const admin = user.role === "admin" || user.role === "ceo";
   document.querySelectorAll("[data-user-name], .sidebar-account strong").forEach((element) => { element.textContent = user.name || user.email; });
   document.querySelectorAll("[data-user-avatar], .sidebar-account .avatar").forEach((element) => {
     if (!user.picture) return;
@@ -102,7 +102,7 @@ async function syncAccountRole() {
     element.replaceChildren(image);
   });
   document.querySelectorAll(".sidebar-account small, [data-user-role]").forEach((element) => {
-    element.textContent = admin ? "Quản trị viên" : "Nhân viên";
+    element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
     const isCurrentRole = button.textContent.trim() === (admin ? "Quản trị" : "Nhân viên");
@@ -190,7 +190,7 @@ async function loadPage() {
   const node = (chart.nodes || []).find((item) => item.id === nodeId);
   member = (members.members || []).find((item) => item.id === memberId);
   if (!node || !member) throw new Error("Không tìm thấy thành viên");
-  isAdmin = me.user?.role === "admin";
+  isAdmin = me.user?.role === "admin" || me.user?.role === "ceo";
   document.querySelector("[data-back-link]")?.setAttribute("href", `organization-profile.html?node=${encodeURIComponent(nodeId)}`);
   breadcrumbCurrent.textContent = `Sơ đồ tổ chức / ${node.name} / ${member.name}`;
   showMember();

@@ -11,7 +11,8 @@ async function loadGoogleAvatar() {
   if (!response.ok) return;
   const data = await response.json();
   if (!data.user) return;
-  const isAdmin = data.user.role === "admin";
+  const isAdmin = data.user.role === "admin" || data.user.role === "ceo";
+  const roleLabel = data.user.role === "admin" ? "Quản trị viên" : data.user.role === "ceo" ? "CEO" : "Nhân viên";
   document.querySelectorAll('a[href="attendance.html?view=days"]').forEach((link) => {
     link.hidden = isAdmin;
   });
@@ -19,7 +20,7 @@ async function loadGoogleAvatar() {
     link.hidden = !isAdmin;
   });
   document.querySelectorAll("[data-user-role]").forEach((element) => {
-    element.textContent = isAdmin ? "Quản trị viên" : "Nhân viên";
+    element.textContent = roleLabel;
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
     const isCurrentRole = button.textContent.trim() === (isAdmin ? "Quản trị" : "Nhân viên");
@@ -45,7 +46,7 @@ async function loadGoogleAvatar() {
 
   document.querySelector("[data-profile-name]").textContent = data.user.name || "Tài khoản Google";
   document.querySelector("[data-profile-email]").textContent = data.user.email || "";
-  document.querySelector("[data-profile-role]").textContent = isAdmin ? "Quản trị viên" : "Nhân viên";
+  document.querySelector("[data-profile-role]").textContent = roleLabel;
   const profileAvatar = document.querySelector("[data-profile-avatar]");
   if (data.user.picture) {
     const image = document.createElement("img");

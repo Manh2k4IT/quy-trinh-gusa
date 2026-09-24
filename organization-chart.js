@@ -35,13 +35,13 @@ function updateUserProfile(user) {
   const emailElement = document.querySelector("[data-profile-email]");
   if (emailElement) emailElement.textContent = user.email || "";
   const roleElement = document.querySelector("[data-profile-role]");
-  if (roleElement) roleElement.textContent = user.role === "admin" ? "Quản trị viên" : "Nhân viên";
+  if (roleElement) roleElement.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên";
   document.querySelectorAll("[data-user-role]").forEach((element) => {
-    element.textContent = user.role === "admin" ? "Quản trị viên" : "Nhân viên";
+    element.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
     const isAdminChip = button.textContent.trim() === "Quản trị";
-    const isCurrentRole = isAdminChip === (user.role === "admin");
+    const isCurrentRole = isAdminChip === (user.role === "admin" || user.role === "ceo");
     button.hidden = !isCurrentRole;
     button.classList.toggle("is-selected", isCurrentRole);
   });
@@ -397,7 +397,7 @@ Promise.all([fetch("/api/organization-chart", { cache: "no-store" }), fetch("/ap
     if (!chartResponse.ok || !meResponse.ok) throw new Error();
     const data = await chartResponse.json();
     const me = await meResponse.json();
-    isAdmin = me.user?.role === "admin";
+    isAdmin = me.user?.role === "admin" || me.user?.role === "ceo";
     updateUserProfile(me.user);
     setAdminMenuVisibility(isAdmin);
     addRootButton.hidden = !isAdmin;

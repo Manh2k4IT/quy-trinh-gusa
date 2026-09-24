@@ -114,7 +114,7 @@ async function syncAccountRole() {
   if (!response.ok) return;
   const user = (await response.json()).user;
   if (!user) return;
-  const admin = user.role === "admin";
+  const admin = user.role === "admin" || user.role === "ceo";
   document.querySelectorAll("[data-user-name], .sidebar-account strong").forEach((element) => { element.textContent = user.name || user.email; });
   document.querySelectorAll("[data-user-avatar], .sidebar-account .avatar").forEach((element) => {
     if (!user.picture) return;
@@ -124,7 +124,7 @@ async function syncAccountRole() {
     element.replaceChildren(image);
   });
   document.querySelectorAll(".sidebar-account small, [data-user-role]").forEach((element) => {
-    element.textContent = admin ? "Quản trị viên" : "Nhân viên";
+    element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
     const isCurrentRole = button.textContent.trim() === (admin ? "Quản trị" : "Nhân viên");
@@ -141,7 +141,7 @@ async function syncAccountRole() {
   }
   document.querySelector("[data-profile-name]").textContent = user.name || user.email || "Tài khoản Google";
   document.querySelector("[data-profile-email]").textContent = user.email || "";
-  document.querySelector("[data-profile-role]").textContent = admin ? "Quản trị viên" : "Nhân viên";
+  document.querySelector("[data-profile-role]").textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : "Nhân viên";
   if (user.picture) {
     const profileImage = document.createElement("img");
     profileImage.src = user.picture;
@@ -276,7 +276,7 @@ async function loadPage() {
   const me = await meResponse.json();
   const node = (chart.nodes || []).find((item) => item.id === nodeId);
   if (!node) throw new Error("Không tìm thấy vị trí");
-  isAdmin = me.user?.role === "admin";
+  isAdmin = me.user?.role === "admin" || me.user?.role === "ceo";
   members = membersData.members || [];
   nodeName.textContent = node.name;
   nodeRole.textContent = node.role || "Hồ sơ vị trí trong sơ đồ tổ chức";
