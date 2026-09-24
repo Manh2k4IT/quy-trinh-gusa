@@ -70,6 +70,7 @@ if (sidebarScroll) {
         if (profileEmail) profileEmail.textContent = user.email || '';
       }
       const isAdmin = user?.role === 'admin' || user?.role === 'ceo';
+      const isCeo = user?.role === 'ceo';
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');
@@ -79,6 +80,14 @@ if (sidebarScroll) {
       sidebarScroll.querySelectorAll('a[href^="attendance-overview.html"]').forEach((link) => {
         link.hidden = !isAdmin;
       });
+      if (isCeo) {
+        sidebarScroll.querySelectorAll('a[href="attendance.html"], a[href="attendance.html?view=online"], a[href="proposals.html"], a[href="payment-proposal.html"]').forEach((link) => {
+          link.hidden = true;
+        });
+        sidebarScroll.querySelectorAll('[data-admin-menu] .menu-item[href="#"]').forEach((link) => {
+          link.hidden = true;
+        });
+      }
     })
     .catch(() => {
       sidebarScroll.querySelector('[data-admin-menu]').hidden = true;
