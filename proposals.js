@@ -98,7 +98,7 @@ function renderProposals(proposals) {
 
 async function loadProposals() {
   const response = await fetch('/api/proposals', { cache: 'no-store' });
-  if (!response.ok) throw new Error('Không thể tải đề xuất.');
+  if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.' : 'Không thể tải đề xuất.');
   proposals = (await response.json()).proposals || [];
   renderProposals(proposals);
 }
@@ -126,7 +126,9 @@ form.addEventListener('submit', async (event) => {
   delete payload.duration;
   try {
     const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const data = await response.json();
+    const responseText = await response.text();
+    let data = {};
+    try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; }
     if (!response.ok) throw new Error(data.message || 'Không thể gửi đề xuất.');
     form.reset();
     status.textContent = 'Đã gửi đề xuất, đang chờ duyệt.';
