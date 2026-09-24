@@ -102,6 +102,12 @@ function renderProposals(proposals) {
         button.classList.remove('is-approved');
         button.dataset.proposalId = proposal.id;
         cancelButton.hidden = true;
+      } else if (proposal.status === 'canceled') {
+        button.textContent = 'ĐỀ XUẤT';
+        button.disabled = false;
+        button.classList.remove('is-approved', 'is-rejected');
+        delete button.dataset.proposalId;
+        cancelButton.hidden = true;
       } else {
         button.textContent = 'XEM ĐỀ XUẤT';
         button.disabled = false;
@@ -207,7 +213,7 @@ document.addEventListener('click', (event) => {
   if (!cancelButton?.dataset.cancelProposal) return;
   event.preventDefault();
   event.stopPropagation();
-  cancelProposal(cancelButton.dataset.cancelProposal, cancelButton);
+  cancelProposal(cancelButton.dataset.cancelProposal, cancelButton).catch(() => {});
 });
 
 function closeModal() {
