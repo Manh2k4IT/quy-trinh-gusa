@@ -68,8 +68,6 @@ const colorMenu = document.querySelector("[data-color-menu]");
 const notificationCount = document.querySelector("[data-notification-count]");
 const appShell = document.querySelector(".app-shell");
 const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
-const mobileMenuToggle = document.querySelector("[data-mobile-menu-toggle]");
-const mobileMenuBackdrop = document.querySelector("[data-mobile-menu-backdrop]");
 const organizationMenuParent = document.querySelector(".menu-parent");
 const organizationMenuToggle = document.querySelector("[data-organization-menu-toggle]");
 
@@ -83,17 +81,6 @@ function setMobileMenu(open) {
     if (sidebarToggle) sidebarToggle.setAttribute("aria-label", "Thu gọn menu");
     localStorage.setItem("gusa-sidebar-collapsed", "false");
   }
-}
-
-if (mobileMenuToggle) {
-  mobileMenuToggle.addEventListener("click", () => {
-    const open = !appShell.classList.contains("is-mobile-menu-open");
-    setMobileMenu(open);
-  });
-}
-
-if (mobileMenuBackdrop) {
-  mobileMenuBackdrop.addEventListener("click", () => setMobileMenu(false));
 }
 
 if (organizationMenuParent && organizationMenuToggle) {
