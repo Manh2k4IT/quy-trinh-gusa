@@ -7,7 +7,8 @@ function initializeSharedProposalNotifications() {
   if (!notificationButton || !notificationMenu) return;
   const notificationCount = notificationButton.querySelector('[data-notification-count]');
   const notificationList = notificationMenu.querySelector('.notification-list');
-  let knownIds = null;
+  let knownIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
+  let hasLoadedOnce = false;
   let notificationTimer;
   const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất chung'}.`;
   const showNotifications = (newProposals) => {
@@ -37,8 +38,13 @@ function initializeSharedProposalNotifications() {
     if (!response.ok) return;
     const nextProposals = (await response.json()).proposals || [];
     const nextIds = new Set(nextProposals.map((proposal) => proposal.id));
-    const newProposals = knownIds ? nextProposals.filter((proposal) => !knownIds.has(proposal.id)) : [];
+    const recentThreshold = Date.now() - 10 * 60 * 1000;
+    const newProposals = hasLoadedOnce
+      ? nextProposals.filter((proposal) => !knownIds.has(proposal.id) && proposal.status === 'pending')
+      : nextProposals.filter((proposal) => proposal.status === 'pending' && new Date(proposal.createdAt).getTime() >= recentThreshold);
     knownIds = nextIds;
+    hasLoadedOnce = true;
+    localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...knownIds]));
     showNotifications(newProposals);
   };
   if (notificationCount) notificationCount.hidden = true;
