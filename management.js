@@ -340,36 +340,47 @@ async function loadUserManagement() {
 Promise.all([loadGoogleAvatar(), loadUserManagement()]).catch(() => {});
 
 const closeModal = () => {
-  modal.hidden = true;
-  status.textContent = "";
+  if (modal) modal.hidden = true;
+  if (status) status.textContent = "";
 };
 
-document.querySelector("[data-open-google]").addEventListener("click", () => {
-  modal.hidden = false;
-  emailInput.focus();
-});
-
-document.querySelector("[data-close-google]").addEventListener("click", closeModal);
-
-modal.addEventListener("click", (event) => {
-  if (event.target === modal) closeModal();
-});
-
-document.querySelector("[data-google-form]").addEventListener("submit", (event) => {
-  event.preventDefault();
-  fetch("/api/users/invite", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: emailInput.value,
-      role: document.querySelector("input[name='invite-role']:checked").value,
-    }),
-  }).then(async (response) => {
-    if (!response.ok) throw new Error(await response.text());
-    status.textContent = "Đã cấp quyền. Người dùng chỉ cần đăng nhập bằng Gmail này.";
-    emailInput.value = "";
-    await loadUserManagement();
-  }).catch((error) => {
-    status.textContent = error.message || "Không thể cấp quyền tài khoản.";
+const openGoogleButton = document.querySelector("[data-open-google]");
+if (openGoogleButton) {
+  openGoogleButton.addEventListener("click", () => {
+    if (modal) modal.hidden = false;
+    if (emailInput) emailInput.focus();
   });
-});
+}
+
+const closeGoogleButton = document.querySelector("[data-close-google]");
+if (closeGoogleButton) closeGoogleButton.addEventListener("click", closeModal);
+
+if (modal) {
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal();
+  });
+}
+
+const googleForm = document.querySelector("[data-google-form]");
+if (googleForm) {
+  googleForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!emailInput) return;
+    const selectedRole = document.querySelector("input[name='invite-role']:checked")?.value || "employee";
+    fetch("/api/users/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: emailInput.value,
+        role: selectedRole,
+      }),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(await response.text());
+      if (status) status.textContent = "Đã cấp quyền. Người dùng chỉ cần đăng nhập bằng Gmail này.";
+      emailInput.value = "";
+      await loadUserManagement();
+    }).catch((error) => {
+      if (status) status.textContent = error.message || "Không thể cấp quyền tài khoản.";
+    });
+  });
+}
