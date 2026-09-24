@@ -48,6 +48,27 @@ if (sidebarScroll) {
   fetch('/api/me', { cache: 'no-store' })
     .then((response) => response.json())
     .then(({ user }) => {
+      if (user) {
+        document.querySelectorAll('[data-user-name]').forEach((element) => {
+          element.textContent = user.name || user.email || 'Tài khoản Google';
+        });
+        document.querySelectorAll('[data-user-role], [data-profile-role]').forEach((element) => {
+          element.textContent = user.role === 'admin' ? 'Quản trị viên' : 'Nhân viên';
+        });
+        if (user.picture) {
+          document.querySelectorAll('[data-user-avatar], [data-top-avatar], [data-profile-avatar]').forEach((element) => {
+            const image = document.createElement('img');
+            image.src = user.picture;
+            image.referrerPolicy = 'no-referrer';
+            image.alt = `Ảnh đại diện Gmail của ${user.name || user.email || 'người dùng'}`;
+            element.replaceChildren(image);
+          });
+        }
+        const profileName = document.querySelector('[data-profile-name]');
+        const profileEmail = document.querySelector('[data-profile-email]');
+        if (profileName) profileName.textContent = user.name || 'Tài khoản Google';
+        if (profileEmail) profileEmail.textContent = user.email || '';
+      }
       const isAdmin = user?.role === 'admin';
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
