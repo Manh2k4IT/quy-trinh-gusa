@@ -19,6 +19,10 @@ const users = new Map();
 const sessions = new Map();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
 
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
 loadUsers();
 
 const mimeTypes = {
@@ -214,9 +218,10 @@ async function completeGoogleAuth(req, res) {
   const profile = await profileResponse.json();
   if (!profileResponse.ok || !profile.email) return send(res, 502, "Khong lay duoc thong tin Gmail.");
 
+  const normalizedProfileEmail = normalizeEmail(profile.email);
   const existingUser = users.get(profile.sub);
-  const isFixedAdmin = profile.email.toLowerCase() === fixedAdminEmail;
-  const invitedUser = existingUser || [...users.values()].find((user) => user.email.toLowerCase() === profile.email.toLowerCase());
+  const isFixedAdmin = normalizedProfileEmail === fixedAdminEmail;
+  const invitedUser = existingUser || [...users.values()].find((user) => normalizeEmail(user.email) === normalizedProfileEmail);
   if (!existingUser && invitedUser) users.delete(invitedUser.id);
   if (!invitedUser && !isFixedAdmin && stateData.mode === "login") {
     const params = new URLSearchParams({
