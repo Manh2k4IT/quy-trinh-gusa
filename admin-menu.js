@@ -1,5 +1,51 @@
 const sidebarScroll = document.querySelector('.sidebar-scroll');
 
+function initializeSharedProposalNotifications() {
+  if (document.querySelector('.proposal-notification-trigger')) return;
+  const notificationButton = document.querySelector('[data-notification-trigger]');
+  const notificationMenu = document.querySelector('[data-notification-menu]') || document.querySelector('.notification-menu');
+  if (!notificationButton || !notificationMenu) return;
+  const notificationCount = notificationButton.querySelector('[data-notification-count]');
+  const notificationList = notificationMenu.querySelector('.notification-list');
+  let knownIds = null;
+  let notificationTimer;
+  const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất chung'}.`;
+  const showNotifications = (newProposals) => {
+    if (!newProposals.length) return;
+    notificationList.innerHTML = newProposals.slice(0, 5).map((proposal) => `<p><b>Đề xuất mới</b><span>${formatProposal(proposal)}</span></p>`).join('');
+    if (notificationCount) {
+      notificationCount.textContent = String(newProposals.length);
+      notificationCount.hidden = false;
+    }
+    notificationMenu.hidden = false;
+    notificationButton.classList.remove('is-notifying');
+    void notificationButton.offsetWidth;
+    notificationButton.classList.add('is-notifying');
+    clearTimeout(notificationTimer);
+    notificationTimer = setTimeout(() => {
+      notificationMenu.hidden = true;
+      if (notificationCount) notificationCount.hidden = true;
+      notificationButton.classList.remove('is-notifying');
+    }, 5000);
+    if ('Notification' in window && Notification.permission === 'granted') new Notification('Có đề xuất mới', { body: formatProposal(newProposals[0]), tag: 'gusa-proposal' });
+  };
+  notificationButton.addEventListener('click', () => {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  });
+  const poll = async () => {
+    const response = await fetch(`/api/proposals?scope=all&refresh=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) return;
+    const nextProposals = (await response.json()).proposals || [];
+    const nextIds = new Set(nextProposals.map((proposal) => proposal.id));
+    const newProposals = knownIds ? nextProposals.filter((proposal) => !knownIds.has(proposal.id)) : [];
+    knownIds = nextIds;
+    showNotifications(newProposals);
+  };
+  if (notificationCount) notificationCount.hidden = true;
+  poll().catch(() => {});
+  setInterval(() => poll().catch(() => {}), 15000);
+}
+
 if (sidebarScroll) {
   sidebarScroll.innerHTML = `
     <p class="menu-label">DANH MỤC</p>
@@ -107,6 +153,7 @@ if (sidebarScroll) {
           link.hidden = true;
         });
       }
+      if (isAdmin) initializeSharedProposalNotifications();
     })
     .catch(() => {
       sidebarScroll.querySelector('[data-admin-menu]').hidden = true;

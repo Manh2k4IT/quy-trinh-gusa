@@ -849,6 +849,19 @@ body[data-theme="dark"] .top-icon {
   font-weight: 700;
 }
 
+.notification-icon.is-notifying {
+  animation: gusa-notification-shake 1.2s ease-in-out;
+}
+
+@keyframes gusa-notification-shake {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(16deg); }
+  30% { transform: rotate(-14deg); }
+  45% { transform: rotate(11deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+}
+
 .notification-list {
   display: grid;
   gap: 0.55rem;
