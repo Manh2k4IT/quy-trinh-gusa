@@ -7,7 +7,39 @@ const downloadButton = document.querySelector('[data-download-template]');
 const adminTemplateTools = document.querySelector('[data-admin-template]');
 const adminTemplateFile = document.querySelector('[data-admin-template-file]');
 const adminTemplateStatus = document.querySelector('[data-admin-template-status]');
+const paymentButton = document.querySelector('[data-open-payment]');
+const paymentReview = document.querySelector('[data-payment-review]');
 let currentTemplate = { fileName: 'payment-template.html', fileData: 'payment-template.html' };
+let currentProposal = null;
+
+function isPastProposalDate(proposal) {
+  return proposal.date < new Date().toISOString().slice(0, 10);
+}
+
+function setPaymentButton(proposal) {
+  currentProposal = proposal && !(proposal.status === 'pending' && isPastProposalDate(proposal)) ? proposal : null;
+  paymentButton.classList.remove('is-approved', 'is-rejected', 'is-pending');
+  paymentButton.disabled = false;
+  if (!currentProposal) {
+    paymentButton.textContent = 'ĐỀ XUẤT';
+  } else if (currentProposal.status === 'approved') {
+    paymentButton.textContent = 'ĐÃ DUYỆT';
+    paymentButton.classList.add('is-approved');
+  } else if (currentProposal.status === 'rejected') {
+    paymentButton.textContent = 'TỪ CHỐI';
+    paymentButton.classList.add('is-rejected');
+  } else {
+    paymentButton.textContent = 'XEM LẠI ĐỀ XUẤT';
+    paymentButton.classList.add('is-pending');
+  }
+}
+
+async function loadPaymentProposal() {
+  const response = await fetch('/api/proposals', { cache: 'no-store' });
+  if (!response.ok) return;
+  const data = await response.json();
+  setPaymentButton((data.proposals || []).find((proposal) => proposal.type === 'payment'));
+}
 
 function applyTemplate(template) {
   if (!template?.fileData) return;
@@ -26,11 +58,23 @@ async function loadTemplate() {
 function closePaymentModal() {
   modal.hidden = true;
   form.reset();
+  form.hidden = false;
+  paymentReview.hidden = true;
   status.textContent = '';
 }
 
-document.querySelector('[data-open-payment]').addEventListener('click', () => {
+paymentButton.addEventListener('click', () => {
   modal.hidden = false;
+  if (currentProposal) {
+    form.hidden = true;
+    paymentReview.hidden = false;
+    paymentReview.className = `payment-review is-${currentProposal.status}`;
+    const state = currentProposal.status === 'approved' ? 'ĐÃ DUYỆT' : currentProposal.status === 'rejected' ? 'TỪ CHỐI' : 'ĐANG CHỜ DUYỆT';
+    paymentReview.innerHTML = `<strong>${state}</strong><span>Ngày đề xuất: ${currentProposal.date}</span><span>Hạng mục: ${currentProposal.category}</span><span>Số tiền: ${Number(currentProposal.amount).toLocaleString('vi-VN')} VNĐ</span><a href="${currentProposal.paymentFileData}" download="${currentProposal.paymentFileName || 'bieu-mau-de-xuat'}">Tải lại file đã gửi</a>`;
+    return;
+  }
+  form.hidden = false;
+  paymentReview.hidden = true;
   form.querySelector('[name="date"]').value = new Date().toISOString().slice(0, 10);
   form.querySelector('[name="category"]').focus();
 });
@@ -105,9 +149,11 @@ form.addEventListener('submit', async (event) => {
     if (!response.ok) throw new Error(data.message || 'Không thể gửi đề xuất.');
     status.textContent = 'Đã gửi đề xuất, đang chờ duyệt.';
     form.reset();
+    await loadPaymentProposal();
   } catch (error) {
     status.textContent = error.message;
   }
 });
 
 loadTemplate().catch(() => {});
+loadPaymentProposal().catch(() => {});

@@ -114,6 +114,9 @@
 }
 
 .payment-submit:hover { background: #d9363e; box-shadow: 0 14px 22px rgba(240,68,69,.25); transform: translateY(-2px); }
+.payment-submit.is-approved { background: #16804a; box-shadow: 0 10px 18px rgba(22,128,74,.2); }
+.payment-submit.is-rejected { background: #c23d50; box-shadow: 0 10px 18px rgba(194,61,80,.2); }
+.payment-submit.is-pending { background: #b77909; box-shadow: 0 10px 18px rgba(183,121,9,.2); }
 
 @media (max-width: 760px) {
 	.payment-page { padding: 1.3rem .9rem 2rem; }
@@ -127,6 +130,9 @@
 .payment-file-field { padding: .85rem; border: 1px dashed #b8c9dc; border-radius: 10px; background: #f7fafd; }
 .payment-file-field input { padding: .55rem; background: #fff; }
 .payment-file-field small { color: #66778d; font-size: .68rem; font-weight: 500; }
+.payment-review { display: grid; gap: .55rem; margin-bottom: .8rem; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 9px; color: #526278; background: #f7fafd; font-size: .78rem; }
+.payment-review[hidden] { display: none; }
+.payment-review strong { font-size: .95rem; }.payment-review.is-approved strong { color: #16804a; }.payment-review.is-rejected strong { color: #c23d50; }.payment-review.is-pending strong { color: #b77909; }
 .admin-template-tools { display: grid; gap: .45rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dbe6ed; }
 .admin-template-tools[hidden] { display: none; }
 .admin-template-tools label { display: grid; gap: .35rem; color: #183b68; font-size: .75rem; font-weight: 800; }
