@@ -5,6 +5,13 @@ const proposalVoiceAudios = {
 };
 Object.values(proposalVoiceAudios).forEach((audio) => { audio.preload = 'auto'; });
 
+window.playProposalVoiceTest = () => {
+  const audio = proposalVoiceAudios.general;
+  audio.pause();
+  audio.currentTime = 0;
+  return audio.play();
+};
+
 let proposalSpeechUnlocked = false;
 
 function unlockProposalSpeech(fromUserGesture = false) {
@@ -32,26 +39,14 @@ function showProposalPermissionPrompt() {
     const currentNotification = 'Notification' in window ? Notification.permission : 'unsupported';
     if (currentNotification === 'denied') status.textContent = 'Thông báo đang bị chặn. Hãy mở Cài đặt trang web của trình duyệt và cho phép Thông báo, sau đó tải lại trang.';
     else if (currentNotification === 'unsupported') status.textContent = 'Trình duyệt này không hỗ trợ thông báo hệ thống; bảng thông báo trong ứng dụng vẫn hoạt động.';
-    else if ('speechSynthesis' in window && !speechSynthesis.getVoices().some((voice) => /^vi(?:-|_)/i.test(voice.lang))) status.textContent = 'Máy chưa có voice tiếng Việt. Hãy cài thêm Vietnamese voice trong cài đặt giọng nói của Windows rồi tải lại trang.';
     else status.textContent = '';
   };
   const enable = async () => {
     unlockProposalSpeech(true);
     if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
-    if (proposalSpeechUnlocked && 'speechSynthesis' in window) {
-      const voices = speechSynthesis.getVoices().filter((voice) => /^vi(?:-|_)/i.test(voice.lang));
-      const vietnameseVoice = voices.find((voice) => /hoaimy|female|woman|nữ|nu\b/i.test(voice.name)) || voices[0];
-      if (vietnameseVoice) {
-        const test = new SpeechSynthesisUtterance('Đã bật thông báo bằng giọng nữ tiếng Việt.');
-        test.lang = vietnameseVoice.lang;
-        test.voice = vietnameseVoice;
-        speechSynthesis.cancel();
-        speechSynthesis.speak(test);
-      }
-    }
+    window.playProposalVoiceTest?.().catch(() => {});
     updateStatus();
-    const hasVietnameseVoice = 'speechSynthesis' in window && speechSynthesis.getVoices().some((voice) => /^vi(?:-|_)/i.test(voice.lang));
-    if ((!('Notification' in window) || Notification.permission === 'granted') && proposalSpeechUnlocked && hasVietnameseVoice) prompt.remove();
+    if ((!('Notification' in window) || Notification.permission === 'granted') && proposalSpeechUnlocked) prompt.remove();
   };
   prompt.querySelector('.proposal-permission-enable').addEventListener('click', enable);
   updateStatus();

@@ -143,14 +143,13 @@ fetch("/api/me", { cache: "no-store" })
 
 function updateAudioPermissionStatus() {
   const notification = "Notification" in window ? Notification.permission : "unsupported";
-  const hasVietnameseVoice = "speechSynthesis" in window && speechSynthesis.getVoices().some((voice) => /^vi(?:-|_)/i.test(voice.lang));
   if (notification === "denied") audioPermissionStatus.textContent = "Thông báo đang bị chặn trong cài đặt trình duyệt.";
-  else if (!hasVietnameseVoice) audioPermissionStatus.textContent = "Chưa có voice tiếng Việt trên thiết bị.";
-  else if (notification === "granted") audioPermissionStatus.textContent = "Đã sẵn sàng: thông báo và voice tiếng Việt.";
+  else if (notification === "granted") audioPermissionStatus.textContent = "Đã sẵn sàng: thông báo và file voice đã tải lên.";
   else audioPermissionStatus.textContent = "Chưa cấp đủ quyền.";
 }
 
 audioPermissionButton?.addEventListener("click", async () => {
+  window.playProposalVoiceTest?.().catch(() => {});
   window.showProposalPermissionPrompt?.();
   if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
   updateAudioPermissionStatus();
