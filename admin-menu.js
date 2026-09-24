@@ -20,24 +20,35 @@ function showProposalPermissionPrompt() {
   const prompt = document.createElement('div');
   prompt.className = 'proposal-permission-prompt';
   prompt.dataset.proposalPermissionPrompt = '';
-  prompt.innerHTML = `<div class="proposal-permission-card" role="dialog" aria-modal="true" aria-labelledby="proposal-permission-title"><button class="proposal-permission-close" type="button" aria-label="Đóng">×</button><strong id="proposal-permission-title">Bật thông báo đề xuất</strong><p>Cho phép thông báo và giọng nữ tiếng Việt để nhận ngay khi nhân viên gửi đề xuất mới.</p><div class="proposal-permission-status"></div><div class="proposal-permission-actions"><button type="button" class="proposal-permission-enable">Bật quyền</button><button type="button" class="proposal-permission-later">Để sau</button></div></div>`;
+  prompt.innerHTML = `<div class="proposal-permission-card" role="dialog" aria-modal="true" aria-labelledby="proposal-permission-title"><strong id="proposal-permission-title">Bắt buộc bật thông báo đề xuất</strong><p>Admin cần bật thông báo và giọng nữ tiếng Việt để nghe ngay khi nhân viên gửi đề xuất mới.</p><div class="proposal-permission-status"></div><div class="proposal-permission-actions"><button type="button" class="proposal-permission-enable">Bật quyền và nghe thử</button></div></div>`;
   document.body.append(prompt);
   const status = prompt.querySelector('.proposal-permission-status');
   const updateStatus = () => {
     const currentNotification = 'Notification' in window ? Notification.permission : 'unsupported';
     if (currentNotification === 'denied') status.textContent = 'Thông báo đang bị chặn. Hãy mở Cài đặt trang web của trình duyệt và cho phép Thông báo, sau đó tải lại trang.';
     else if (currentNotification === 'unsupported') status.textContent = 'Trình duyệt này không hỗ trợ thông báo hệ thống; bảng thông báo trong ứng dụng vẫn hoạt động.';
+    else if ('speechSynthesis' in window && !speechSynthesis.getVoices().some((voice) => /^vi(?:-|_)/i.test(voice.lang))) status.textContent = 'Máy chưa có voice tiếng Việt. Hãy cài thêm Vietnamese voice trong cài đặt giọng nói của Windows rồi tải lại trang.';
     else status.textContent = '';
   };
   const enable = async () => {
     unlockProposalSpeech(true);
     if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+    if (proposalSpeechUnlocked && 'speechSynthesis' in window) {
+      const voices = speechSynthesis.getVoices().filter((voice) => /^vi(?:-|_)/i.test(voice.lang));
+      const vietnameseVoice = voices.find((voice) => /hoaimy|female|woman|nữ|nu\b/i.test(voice.name)) || voices[0];
+      if (vietnameseVoice) {
+        const test = new SpeechSynthesisUtterance('Đã bật thông báo bằng giọng nữ tiếng Việt.');
+        test.lang = vietnameseVoice.lang;
+        test.voice = vietnameseVoice;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(test);
+      }
+    }
     updateStatus();
-    if ((!('Notification' in window) || Notification.permission === 'granted') && proposalSpeechUnlocked) prompt.remove();
+    const hasVietnameseVoice = 'speechSynthesis' in window && speechSynthesis.getVoices().some((voice) => /^vi(?:-|_)/i.test(voice.lang));
+    if ((!('Notification' in window) || Notification.permission === 'granted') && proposalSpeechUnlocked && hasVietnameseVoice) prompt.remove();
   };
   prompt.querySelector('.proposal-permission-enable').addEventListener('click', enable);
-  prompt.querySelector('.proposal-permission-close').addEventListener('click', () => prompt.remove());
-  prompt.querySelector('.proposal-permission-later').addEventListener('click', () => prompt.remove());
   updateStatus();
 }
 
