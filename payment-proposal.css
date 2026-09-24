@@ -13,9 +13,12 @@
 /* Refined payment form layout */
 .payment-page {
 	overflow: auto;
+	scrollbar-width: none;
 	padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 5vw, 5rem);
 	background: #f4f7fb;
 }
+
+.payment-page::-webkit-scrollbar { display: none; }
 
 .payment-ribbon {
 	position: relative;
