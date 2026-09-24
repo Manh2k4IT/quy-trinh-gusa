@@ -1,5 +1,20 @@
 const sidebarScroll = document.querySelector('.sidebar-scroll');
 
+window.speakProposalNotification = (proposal) => {
+  if (!('speechSynthesis' in window) || !proposal) return;
+  const person = proposal.userName || proposal.email || 'một nhân sự';
+  const category = proposal.category ? ` danh mục ${proposal.category}` : ' một danh mục mới';
+  const message = `Nhân sự ${person} vừa đề xuất${category} trong đề xuất chung.`;
+  window.speechSynthesis.cancel();
+  for (let repeat = 0; repeat < 2; repeat += 1) {
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = 'vi-VN';
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+};
+
 function initializeSharedProposalNotifications() {
   if (document.querySelector('.proposal-notification-trigger')) return;
   const notificationButton = document.querySelector('[data-notification-trigger]');
@@ -22,6 +37,7 @@ function initializeSharedProposalNotifications() {
     notificationButton.classList.remove('is-notifying');
     void notificationButton.offsetWidth;
     notificationButton.classList.add('is-notifying');
+    window.speakProposalNotification(newProposals[0]);
     clearTimeout(notificationTimer);
     notificationTimer = setTimeout(() => {
       notificationMenu.hidden = true;
@@ -49,7 +65,7 @@ function initializeSharedProposalNotifications() {
   };
   if (notificationCount) notificationCount.hidden = true;
   poll().catch(() => {});
-  setInterval(() => poll().catch(() => {}), 15000);
+  setInterval(() => poll().catch(() => {}), 3000);
 }
 
 if (sidebarScroll) {

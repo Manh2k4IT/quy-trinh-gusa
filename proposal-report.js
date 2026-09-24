@@ -43,6 +43,7 @@ function showProposalNotification(newProposals) {
   notificationButton.classList.remove('is-notifying');
   void notificationButton.offsetWidth;
   notificationButton.classList.add('is-notifying');
+  window.speakProposalNotification?.(newProposals[0]);
   clearTimeout(notificationTimer);
   notificationTimer = setTimeout(() => {
     notificationPanel.hidden = true;
@@ -144,4 +145,4 @@ typeTabs.forEach((tab) => tab.addEventListener('click', () => {
 }));
 refreshButton.addEventListener('click', () => load(true).catch((error) => { list.innerHTML = `<p>${error.message}</p>`; }));
 load().catch((error) => { list.innerHTML = `<p>${error.message}</p>`; });
-setInterval(() => load().catch(() => {}), 15000);
+setInterval(() => load().catch(() => {}), 3000);
