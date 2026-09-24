@@ -2,7 +2,7 @@ const list = document.querySelector('[data-proposal-list]');
 const search = document.querySelector('[data-proposal-search]');
 const filter = document.querySelector('[data-proposal-status-filter]');
 const refreshButton = document.querySelector('[data-proposal-refresh]');
-const labels = { late: 'Đi trễ', 'early-leave': 'Về sớm', 'half-day': 'Làm 1/2 ngày', leave: 'Nghỉ phép', 'unauthorized-leave': 'Nghỉ không phép' };
+const labels = { late: 'Đi trễ', 'early-leave': 'Về sớm', 'half-day': 'Làm 1/2 ngày', leave: 'Nghỉ phép', 'unauthorized-leave': 'Nghỉ không phép', payment: 'Thanh toán' };
 let proposals = [];
 
 function dateText(proposal) {
@@ -12,8 +12,8 @@ function dateText(proposal) {
 
 function render() {
   const query = search.value.trim().toLowerCase();
-  const visible = proposals.filter((proposal) => (filter.value === 'all' || proposal.status === filter.value) && (!query || `${proposal.userName} ${proposal.reason}`.toLowerCase().includes(query)));
-  list.innerHTML = visible.length ? visible.map((proposal) => `<article class="report-item"><div class="report-item-main"><span class="report-type">${labels[proposal.type] || 'Đề xuất'}</span><h2>${proposal.userName}</h2><p><b>Thời gian:</b> ${dateText(proposal)}${proposal.time ? ` · ${proposal.time}` : ''}</p><p><b>Lý do:</b> ${proposal.reason}</p>${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><div class="report-actions"><strong class="report-status is-${proposal.status}">${proposal.status === 'pending' ? 'Chờ duyệt' : proposal.status === 'approved' ? 'Đã duyệt' : 'Từ chối'}</strong>${proposal.status === 'pending' ? `<button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button>` : ''}</div></article>`).join('') : '<p>Chưa có đề xuất phù hợp.</p>';
+  const visible = proposals.filter((proposal) => (filter.value === 'all' || proposal.status === filter.value) && (!query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''}`.toLowerCase().includes(query)));
+  list.innerHTML = visible.length ? visible.map((proposal) => `<article class="report-item"><div class="report-item-main"><span class="report-type">${labels[proposal.type] || 'Đề xuất'}</span><h2>${proposal.userName}</h2><p><b>Thời gian:</b> ${dateText(proposal)}${proposal.time ? ` · ${proposal.time}` : ''}</p>${proposal.category ? `<p><b>Hạng mục:</b> ${proposal.category} · <b>Số tiền:</b> ${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</p>` : ''}<p><b>Lý do:</b> ${proposal.reason}</p>${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><div class="report-actions"><strong class="report-status is-${proposal.status}">${proposal.status === 'pending' ? 'Chờ duyệt' : proposal.status === 'approved' ? 'Đã duyệt' : 'Từ chối'}</strong>${proposal.status === 'pending' ? `<button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button>` : ''}</div></article>`).join('') : '<p>Chưa có đề xuất phù hợp.</p>';
 }
 
 async function load(showFeedback = false) {

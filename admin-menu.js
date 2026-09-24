@@ -22,7 +22,7 @@ if (sidebarScroll) {
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">
       <a class="menu-item" href="proposals.html"><span class="menu-icon">☷</span><span>Đề xuất chung</span></a>
-      <a class="menu-item" href="#"><span class="menu-icon">₫</span><span>Đề xuất thanh toán</span></a>
+      <a class="menu-item" href="payment-proposal.html"><span class="menu-icon">₫</span><span>Đề xuất thanh toán</span></a>
       <a class="menu-item" href="proposal-report.html" data-admin-proposal-report><span class="menu-icon">▥</span><span>Báo cáo đề xuất</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
