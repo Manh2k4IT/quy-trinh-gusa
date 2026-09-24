@@ -1,14 +1,33 @@
 const sidebarScroll = document.querySelector('.sidebar-scroll');
 
+let proposalSpeechUnlocked = false;
+
+function unlockProposalSpeech(fromUserGesture = false) {
+  if (proposalSpeechUnlocked || !('speechSynthesis' in window)) return;
+  if (!fromUserGesture) return;
+  proposalSpeechUnlocked = true;
+  const unlock = new SpeechSynthesisUtterance(' ');
+  unlock.volume = 0;
+  unlock.lang = 'vi-VN';
+  window.speechSynthesis.speak(unlock);
+}
+
+document.addEventListener('pointerdown', () => unlockProposalSpeech(true), { once: true });
+document.addEventListener('keydown', () => unlockProposalSpeech(true), { once: true });
+
 window.speakProposalNotification = (proposal) => {
   if (!('speechSynthesis' in window) || !proposal) return;
+  if (!proposalSpeechUnlocked) return;
   const person = proposal.userName || proposal.email || 'một nhân sự';
   const category = proposal.category ? ` danh mục ${proposal.category}` : ' một danh mục mới';
   const message = `Nhân sự ${person} vừa đề xuất${category} trong đề xuất chung.`;
   window.speechSynthesis.cancel();
+  const voices = window.speechSynthesis.getVoices();
+  const vietnameseVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith('vi'));
   for (let repeat = 0; repeat < 2; repeat += 1) {
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.lang = 'vi-VN';
+    if (vietnameseVoice) utterance.voice = vietnameseVoice;
     utterance.rate = 0.9;
     utterance.pitch = 1;
     window.speechSynthesis.speak(utterance);
