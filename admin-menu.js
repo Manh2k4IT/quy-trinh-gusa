@@ -1,6 +1,9 @@
 const sidebarScroll = document.querySelector('.sidebar-scroll');
-const proposalVoiceAudio = new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3');
-proposalVoiceAudio.preload = 'auto';
+const proposalVoiceAudios = {
+  general: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3'),
+  payment: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3'),
+};
+Object.values(proposalVoiceAudios).forEach((audio) => { audio.preload = 'auto'; });
 
 let proposalSpeechUnlocked = false;
 
@@ -61,6 +64,7 @@ document.addEventListener('keydown', () => unlockProposalSpeech(true), { once: t
 
 window.speakProposalNotification = (proposal) => {
   if (!proposal) return;
+  const proposalVoiceAudio = proposal.type === 'payment' ? proposalVoiceAudios.payment : proposalVoiceAudios.general;
   proposalVoiceAudio.pause();
   proposalVoiceAudio.currentTime = 0;
   let repeats = 0;
