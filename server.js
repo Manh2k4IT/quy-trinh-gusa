@@ -304,6 +304,19 @@ async function updateUserStatus(req, res, userId) {
   res.end(JSON.stringify({ user }));
 }
 
+async function deleteUser(req, res, userId) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
+  const user = users.get(userId);
+  if (!user) return send(res, 404, "Không tìm thấy tài khoản");
+  if (user.id === currentUser.id || normalizeEmail(user.email) === fixedAdminEmail || ["admin", "ceo"].includes(user.role)) {
+    return send(res, 400, "Không thể xóa tài khoản quản trị hoặc tài khoản đang đăng nhập.");
+  }
+  users.delete(userId);
+  saveUsers();
+  sendJson(res, 200, { deleted: userId });
+}
+
 async function inviteUser(req, res) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
@@ -722,6 +735,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/api/payment-template") return servePaymentTemplate(req, res);
     if (req.method === "POST" && req.url === "/api/payment-template") return await updatePaymentTemplate(req, res);
     if (req.url === "/api/users") return serveUsers(req, res);
+    if (req.method === "DELETE" && req.url.startsWith("/api/users/")) {
+      return await deleteUser(req, res, decodeURIComponent(req.url.slice("/api/users/".length)));
+    }
     if (req.method === "GET" && req.url === "/api/organization-chart") return serveOrganizationChart(req, res);
     if (req.method === "POST" && req.url === "/api/organization-chart") return await updateOrganizationChart(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/organization-profiles/")) {

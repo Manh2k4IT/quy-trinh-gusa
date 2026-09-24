@@ -304,6 +304,8 @@ async function loadUserManagement() {
     updated.textContent = new Date(user.updatedAt).toLocaleDateString("vi-VN");
     const actions = document.createElement("td");
     if (user.role !== "admin" && user.role !== "ceo") {
+      const actionGroup = document.createElement("div");
+      actionGroup.className = "user-actions";
       const action = document.createElement("button");
       action.className = "user-action";
       action.type = "button";
@@ -318,7 +320,21 @@ async function loadUserManagement() {
         user.status = nextStatus;
         render();
       });
-      actions.append(action);
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "user-action user-action-delete";
+      deleteButton.type = "button";
+      deleteButton.textContent = "Xóa";
+      deleteButton.addEventListener("click", async () => {
+        if (!window.confirm(`Bạn có chắc muốn xóa tài khoản ${user.email}?`)) return;
+        const response = await fetch(`/api/users/${encodeURIComponent(user.id)}`, { method: "DELETE" });
+        if (!response.ok) {
+          status.textContent = await response.text();
+          return;
+        }
+        await loadUserManagement();
+      });
+      actionGroup.append(action, deleteButton);
+      actions.append(actionGroup);
     }
     row.append(userCell, role, state, updated, actions);
     return row;

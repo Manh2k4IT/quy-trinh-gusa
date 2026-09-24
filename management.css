@@ -3325,6 +3325,9 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
   font-weight: 600;
 }
 
+.user-actions { display: flex; gap: .55rem; justify-content: flex-end; }
+.user-action-delete { color: #b42318; }
+
 .table-empty {
   margin: 0;
   padding: 1.5rem;
