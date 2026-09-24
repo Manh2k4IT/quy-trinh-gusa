@@ -50,7 +50,13 @@ window.speakProposalNotification = (proposal) => {
   const proposalVoiceAudio = proposal.type === 'payment' ? proposalVoiceAudios.payment : proposalVoiceAudios.general;
   proposalVoiceAudio.pause();
   proposalVoiceAudio.currentTime = 0;
-  proposalVoiceAudio.onended = null;
+  let remainingPlays = 1;
+  proposalVoiceAudio.onended = () => {
+    if (!remainingPlays) return;
+    remainingPlays -= 1;
+    proposalVoiceAudio.currentTime = 0;
+    proposalVoiceAudio.play().catch(() => {});
+  };
   proposalVoiceAudio.play().catch(() => { proposalAudioEnabled = false; localStorage.removeItem('gusa-proposal-audio-enabled'); });
 };
 
