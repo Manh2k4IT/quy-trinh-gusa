@@ -10,6 +10,59 @@ const summaryPayment = document.querySelector('[data-report-payment]');
 const labels = { late: 'Đi trễ', 'early-leave': 'Về sớm', 'half-day': 'Làm 1/2 ngày', leave: 'Nghỉ phép', 'unauthorized-leave': 'Nghỉ không phép', payment: 'Thanh toán' };
 let proposals = [];
 let selectedType = 'all';
+let notificationInitialized = false;
+let notificationTimer;
+
+const topbar = document.querySelector('.topbar');
+const notificationButton = document.createElement('button');
+notificationButton.className = 'top-icon notification-icon proposal-notification-trigger';
+notificationButton.type = 'button';
+notificationButton.setAttribute('aria-label', 'Thông báo đề xuất mới');
+notificationButton.innerHTML = '<svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-3-3-9M10 21h4" /></svg><b data-proposal-notification-count hidden>0</b>';
+topbar?.append(notificationButton);
+
+const notificationPanel = document.createElement('div');
+notificationPanel.className = 'notification-menu proposal-notification-menu';
+notificationPanel.hidden = true;
+notificationPanel.innerHTML = '<strong>Thông báo</strong><div class="notification-list" data-proposal-notification-list><p>Chưa có đề xuất mới.</p></div>';
+document.querySelector('.workspace')?.append(notificationPanel);
+const notificationCount = notificationButton.querySelector('[data-proposal-notification-count]');
+const notificationList = notificationPanel.querySelector('[data-proposal-notification-list]');
+
+function proposalNotificationText(proposal) {
+  const type = proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất chung';
+  return `${proposal.userName || 'Nhân viên'} vừa gửi ${type}.`;
+}
+
+function showProposalNotification(newProposals) {
+  if (!newProposals.length) return;
+  notificationList.innerHTML = newProposals.slice(0, 5).map((proposal) => `<p><b>Đề xuất mới</b><span>${proposalNotificationText(proposal)}</span></p>`).join('');
+  notificationCount.textContent = String(newProposals.length);
+  notificationCount.hidden = false;
+  notificationPanel.hidden = false;
+  notificationButton.classList.remove('is-notifying');
+  void notificationButton.offsetWidth;
+  notificationButton.classList.add('is-notifying');
+  clearTimeout(notificationTimer);
+  notificationTimer = setTimeout(() => {
+    notificationPanel.hidden = true;
+    notificationCount.hidden = true;
+    notificationButton.classList.remove('is-notifying');
+  }, 5000);
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Có đề xuất mới', { body: proposalNotificationText(newProposals[0]), tag: 'gusa-proposal' });
+  }
+}
+
+notificationButton.addEventListener('click', () => {
+  notificationPanel.hidden = !notificationPanel.hidden;
+  if (!notificationPanel.hidden) {
+    notificationCount.hidden = true;
+    clearTimeout(notificationTimer);
+  }
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+});
 
 function dateText(proposal) {
   const format = (value) => value ? value.split('-').reverse().join('/') : '';
@@ -50,9 +103,14 @@ async function load(showFeedback = false) {
   try {
     const response = await fetch(`/api/proposals?scope=all&refresh=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) throw new Error('Không có quyền xem báo cáo đề xuất.');
-    proposals = (await response.json()).proposals || [];
+    const nextProposals = (await response.json()).proposals || [];
+    const knownIds = new Set(proposals.map((proposal) => proposal.id));
+    const newProposals = notificationInitialized ? nextProposals.filter((proposal) => !knownIds.has(proposal.id)) : [];
+    proposals = nextProposals;
+    notificationInitialized = true;
     renderSummary();
     render();
+    showProposalNotification(newProposals);
     if (showFeedback) refreshButton.textContent = 'Đã cập nhật';
   } catch (error) {
     if (showFeedback) refreshButton.textContent = 'Thử lại';
@@ -86,3 +144,4 @@ typeTabs.forEach((tab) => tab.addEventListener('click', () => {
 }));
 refreshButton.addEventListener('click', () => load(true).catch((error) => { list.innerHTML = `<p>${error.message}</p>`; }));
 load().catch((error) => { list.innerHTML = `<p>${error.message}</p>`; });
+setInterval(() => load().catch(() => {}), 15000);
