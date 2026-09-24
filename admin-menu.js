@@ -20,7 +20,7 @@ function showProposalPermissionPrompt() {
   const prompt = document.createElement('div');
   prompt.className = 'proposal-permission-prompt';
   prompt.dataset.proposalPermissionPrompt = '';
-  prompt.innerHTML = `<div class="proposal-permission-card" role="dialog" aria-modal="true" aria-labelledby="proposal-permission-title"><button class="proposal-permission-close" type="button" aria-label="Đóng">×</button><strong id="proposal-permission-title">Bật thông báo đề xuất</strong><p>Cho phép thông báo và âm thanh để nhận ngay khi nhân viên gửi đề xuất mới.</p><div class="proposal-permission-status"></div><div class="proposal-permission-actions"><button type="button" class="proposal-permission-enable">Bật quyền</button><button type="button" class="proposal-permission-later">Để sau</button></div></div>`;
+  prompt.innerHTML = `<div class="proposal-permission-card" role="dialog" aria-modal="true" aria-labelledby="proposal-permission-title"><button class="proposal-permission-close" type="button" aria-label="Đóng">×</button><strong id="proposal-permission-title">Bật thông báo đề xuất</strong><p>Cho phép thông báo và giọng nữ tiếng Việt để nhận ngay khi nhân viên gửi đề xuất mới.</p><div class="proposal-permission-status"></div><div class="proposal-permission-actions"><button type="button" class="proposal-permission-enable">Bật quyền</button><button type="button" class="proposal-permission-later">Để sau</button></div></div>`;
   document.body.append(prompt);
   const status = prompt.querySelector('.proposal-permission-status');
   const updateStatus = () => {
@@ -52,7 +52,9 @@ window.speakProposalNotification = (proposal) => {
   const message = `Nhân sự ${person} vừa đề xuất${category} trong đề xuất chung.`;
   window.speechSynthesis.cancel();
   const voices = window.speechSynthesis.getVoices();
-  const vietnameseVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith('vi'));
+  const vietnameseVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith('vi'));
+  const femaleVietnameseVoice = vietnameseVoices.find((voice) => /hoaimy|female|woman|nữ|nu\b/i.test(voice.name));
+  const vietnameseVoice = femaleVietnameseVoice || vietnameseVoices[0];
   for (let repeat = 0; repeat < 2; repeat += 1) {
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.lang = 'vi-VN';
