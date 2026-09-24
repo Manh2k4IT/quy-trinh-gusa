@@ -104,7 +104,19 @@ function initializeSharedProposalNotifications() {
   };
   if (notificationCount) notificationCount.hidden = true;
   poll().catch(() => {});
-  setInterval(() => poll().catch(() => {}), 3000);
+  if ('EventSource' in window) {
+    const proposalEvents = new EventSource('/api/proposals/events');
+    proposalEvents.addEventListener('proposal', (event) => {
+      try {
+        const proposal = JSON.parse(event.data);
+        if (proposal.status !== 'pending') return;
+        knownIds.add(proposal.id);
+        localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...knownIds]));
+        showNotifications([proposal]);
+      } catch {}
+    });
+  }
+  setInterval(() => poll().catch(() => {}), 30000);
 }
 
 if (sidebarScroll) {

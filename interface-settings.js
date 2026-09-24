@@ -144,14 +144,21 @@ fetch("/api/me", { cache: "no-store" })
 function updateAudioPermissionStatus() {
   const notification = "Notification" in window ? Notification.permission : "unsupported";
   const audioEnabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
+  audioPermissionButton?.setAttribute("aria-checked", String(audioEnabled));
+  audioPermissionButton?.classList.toggle("is-on", audioEnabled);
   if (notification === "denied") audioPermissionStatus.textContent = "Thông báo đang bị chặn trong cài đặt trình duyệt.";
   else if (audioEnabled) audioPermissionStatus.textContent = "Đã bật: file voice sẽ phát khi có đề xuất mới.";
   else audioPermissionStatus.textContent = "Chưa bật âm thanh trên thiết bị này.";
 }
 
 audioPermissionButton?.addEventListener("click", async () => {
-  window.showProposalPermissionPrompt?.();
-  window.setTimeout(updateAudioPermissionStatus, 300);
+  const enabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
+  if (enabled) localStorage.removeItem("gusa-proposal-audio-enabled");
+  else {
+    if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
+    localStorage.setItem("gusa-proposal-audio-enabled", "true");
+  }
+  updateAudioPermissionStatus();
 });
 if (location.hash === "#audio-permission") document.querySelector("#audio-permission")?.scrollIntoView({ behavior: "smooth", block: "center" });
 updateAudioPermissionStatus();

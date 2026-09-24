@@ -30,6 +30,7 @@ const paymentTemplatePath = dataPath("payment-template.json");
 const usersPath = dataPath("users.json");
 const users = new Map();
 const sessions = new Map();
+const proposalEventClients = new Set();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
 
 function normalizeEmail(email) {
@@ -409,6 +410,20 @@ function serveProposals(req, res) {
   sendJson(res, 200, { proposals });
 }
 
+function serveProposalEvents(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+  res.write("event: connected\ndata: {}\n\n");
+  proposalEventClients.add(res);
+  req.on("close", () => proposalEventClients.delete(res));
+}
+
+function publishProposalEvent(proposal) {
+  const payload = `event: proposal\ndata: ${JSON.stringify(proposal)}\n\n`;
+  proposalEventClients.forEach((client) => client.write(payload));
+}
+
 async function updateProposalStatus(req, res) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -464,6 +479,7 @@ async function createProposal(req, res) {
   const proposals = getProposals();
   proposals.unshift(proposal);
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
+  publishProposalEvent(proposal);
   sendJson(res, 201, { proposal });
 }
 
@@ -726,6 +742,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/attendance-overview/status") return await updateAttendanceOverviewStatus(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/attendance")) return serveAttendance(req, res);
     if (req.method === "POST" && req.url === "/api/attendance") return await updateAttendance(req, res);
+    if (req.method === "GET" && req.url === "/api/proposals/events") return serveProposalEvents(req, res);
     if (req.method === "GET" && req.url === "/api/proposals") return serveProposals(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/proposals?")) return serveProposals(req, res);
     if (req.method === "POST" && req.url === "/api/proposals") return await createProposal(req, res);
