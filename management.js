@@ -303,8 +303,7 @@ async function loadUserManagement() {
     const updated = document.createElement("td");
     updated.textContent = new Date(user.updatedAt).toLocaleDateString("vi-VN");
     const actions = document.createElement("td");
-    if (user.role !== "admin") {
-        if (user.role !== "admin" && user.role !== "ceo") {
+    if (user.role !== "admin" && user.role !== "ceo") {
       const action = document.createElement("button");
       action.className = "user-action";
       action.type = "button";

@@ -1,5 +1,9 @@
-fetch('/api/me', { cache: 'no-store' }).then((r) => r.json()).then(({ user }) => { const isAdmin = user?.role === 'admin' || user?.role === 'ceo';
 const appShell = document.querySelector('.app-shell');
+fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(({ user }) => {
+	if (user?.role !== 'ceo') return;
+	document.querySelectorAll('a[href="attendance.html?view=days"]').forEach((link) => { link.hidden = true; });
+	document.querySelectorAll('a[href="attendance-overview.html"], a[href="attendance-overview.html?report=online"], a[href="attendance-overview.html?report=late"]').forEach((link) => { link.hidden = false; });
+}).catch(() => {});
 const mobileMenuToggle = document.querySelector('[data-mobile-menu-toggle]');
 const mobileMenuBackdrop = document.querySelector('[data-mobile-menu-backdrop]');
 const adminMenu = document.querySelector('[data-admin-menu]');
