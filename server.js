@@ -12,15 +12,10 @@ const organizationProfilesPath = path.join(process.cwd(), "organization-profiles
 const organizationMembersPath = path.join(process.cwd(), "organization-members.json");
 const attendancePath = path.join(process.cwd(), "attendance.json");
 const proposalsPath = path.join(process.cwd(), "proposals.json");
-const zaloTokensPath = path.join(process.cwd(), "zalo-tokens.json");
-const zaloUsersPath = path.join(process.cwd(), "zalo-users.json");
 const usersPath = path.join(process.cwd(), "users.json");
 const users = new Map();
 const sessions = new Map();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
-const zaloAppId = String(process.env.ZALO_APP_ID || "").trim();
-const zaloAppSecret = String(process.env.ZALO_APP_SECRET || "").trim();
-const zaloRedirectUri = String(process.env.ZALO_REDIRECT_URI || `https://${process.env.RENDER_EXTERNAL_HOSTNAME || `localhost:${port}`}/zalo/oauth/callback`).trim();
 
 loadUsers();
 
@@ -102,93 +97,6 @@ function verifyOauthPayload(value) {
 
 function oauthIsConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-}
-
-function zaloIsConfigured() {
-  return Boolean(zaloAppId && zaloAppSecret && !zaloAppId.startsWith("replace-"));
-}
-
-function zaloSecretFingerprint() {
-  return crypto.createHash("sha256").update(zaloAppSecret).digest("hex").slice(0, 12);
-}
-
-function readZaloTokens() {
-  try { return JSON.parse(fs.readFileSync(zaloTokensPath, "utf8")); } catch {
-    return process.env.ZALO_ACCESS_TOKEN ? { access_token: String(process.env.ZALO_ACCESS_TOKEN).trim(), refresh_token: String(process.env.ZALO_REFRESH_TOKEN || "").trim() } : {};
-  }
-}
-
-function saveZaloTokens(tokens) {
-  fs.writeFileSync(zaloTokensPath, JSON.stringify(tokens, null, 2));
-}
-
-function startZaloAuth(req, res) {
-  if (!zaloIsConfigured()) return send(res, 503, "Zalo OAuth chua duoc cau hinh. Hay them ZALO_APP_ID va ZALO_APP_SECRET.");
-  const state = crypto.randomBytes(24).toString("hex");
-  const params = new URLSearchParams({ app_id: zaloAppId, redirect_uri: zaloRedirectUri, state });
-  redirect(res, `https://oauth.zaloapp.com/v4/oa/permission?${params}`, [cookie("zalo_oauth_state", state, { maxAge: 600 })]);
-}
-
-async function completeZaloAuth(req, res) {
-  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-  const returnedState = requestUrl.searchParams.get("state");
-  const savedState = parseCookies(req).zalo_oauth_state;
-  if (!savedState || (returnedState && returnedState !== savedState)) return send(res, 400, "Zalo OAuth state khong hop le hoac da het han. Hay bat dau lai tai /zalo/oauth/start.");
-  if (requestUrl.searchParams.get("error")) return send(res, 400, `Zalo tu choi cap quyen: ${requestUrl.searchParams.get("error")}`);
-  const code = requestUrl.searchParams.get("code");
-  if (!code) return send(res, 400, "Zalo khong tra ve authorization code.");
-  console.log(`Zalo OAuth token exchange: app_id=${zaloAppId}, secret_length=${zaloAppSecret.length}, secret_sha256_12=${zaloSecretFingerprint()}, redirect_uri=${zaloRedirectUri}`);
-  let tokenResponse;
-  let tokens;
-  try {
-    tokenResponse = await fetch("https://oauth.zaloapp.com/v4/oa/access_token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ app_id: zaloAppId, app_secret: zaloAppSecret, code, grant_type: "authorization_code", redirect_uri: zaloRedirectUri }), signal: AbortSignal.timeout(15000) });
-    const tokenBody = await tokenResponse.text();
-    try { tokens = JSON.parse(tokenBody); } catch { tokens = { error_name: tokenBody }; }
-  } catch (error) {
-    console.error("Zalo token exchange failed:", error);
-    return send(res, 502, "Khong ket noi duoc Zalo de doi access token. Hay thu lai sau khi Render deploy on dinh.");
-  }
-  if (!tokenResponse.ok || !tokens.access_token) return send(res, 400, `Zalo tu choi doi access token (HTTP ${tokenResponse.status}): ${tokens.error_name || tokens.error || tokens.message || "unknown error"}`);
-  saveZaloTokens({ ...tokens, savedAt: new Date().toISOString() });
-  send(res, 200, "Da ket noi Zalo OA thanh cong. Ban co the dong trang nay.", { "Set-Cookie": cookie("zalo_oauth_state", "", { maxAge: 0 }) });
-}
-
-function serveZaloWebhook(req, res) {
-  let body = "";
-  req.on("data", (chunk) => { body += chunk; });
-  req.on("end", () => {
-    try {
-      const payload = JSON.parse(body || "{}");
-      const userId = payload.user_id_by_app || payload.sender?.id || payload.user?.user_id_by_app;
-      if (userId) {
-        let users = [];
-        try { users = JSON.parse(fs.readFileSync(zaloUsersPath, "utf8")); } catch { users = []; }
-        if (!users.some((user) => user.userId === String(userId))) {
-          users.push({ userId: String(userId), receivedAt: new Date().toISOString() });
-          fs.writeFileSync(zaloUsersPath, JSON.stringify(users, null, 2));
-        }
-      }
-    } catch (error) {
-      console.error("Zalo webhook payload error:", error.message);
-    }
-    send(res, 200, "OK");
-  });
-}
-
-function serveZaloUsers(req, res) {
-  const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.role !== "admin") return send(res, 403, "Forbidden");
-  try { return sendJson(res, 200, { users: JSON.parse(fs.readFileSync(zaloUsersPath, "utf8")) }); } catch { return sendJson(res, 200, { users: [] }); }
-}
-
-async function sendZaloPrivateProposal(proposal) {
-  const tokens = readZaloTokens();
-  const adminUserIds = String(process.env.ZALO_ADMIN_USER_IDS || "").split(",").map((value) => value.trim()).filter(Boolean);
-  console.log(`Zalo private notification: token=${Boolean(tokens.access_token)}, admin_count=${adminUserIds.length}`);
-  if (!tokens.access_token || !adminUserIds.length) return;
-  const text = `Đề xuất mới: ${proposal.userName}\nLoại: ${proposal.type}\nNgày: ${proposal.dateFrom && proposal.dateTo ? `${proposal.dateFrom} - ${proposal.dateTo}` : proposal.date}\nLý do: ${proposal.reason}\nXem và xử lý: ${process.env.RENDER_EXTERNAL_URL || "https://quytrinh.gusa.vn"}/proposal-report.html`;
-  const responses = await Promise.all(adminUserIds.map((userId) => fetch(`https://openapi.zalo.me/v3.0/oa/message/cs?access_token=${encodeURIComponent(tokens.access_token)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: { user_id: userId }, message: { text } }) })));
-  for (const response of responses) console.log(`Zalo private notification response: HTTP ${response.status} ${await response.text()}`);
 }
 
 function getCurrentUser(req) {
@@ -463,7 +371,6 @@ async function createProposal(req, res) {
   const proposals = getProposals();
   proposals.unshift(proposal);
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
-  sendZaloPrivateProposal(proposal).catch((error) => console.error("Zalo private notification failed:", error.message));
   sendJson(res, 201, { proposal });
 }
 
@@ -718,10 +625,6 @@ async function updateOrganizationChart(req, res) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.url === "/zalo/oauth/start") return startZaloAuth(req, res);
-    if (req.url.startsWith("/zalo/oauth/callback")) return await completeZaloAuth(req, res);
-    if (req.method === "POST" && req.url === "/zalo/webhook") return serveZaloWebhook(req, res);
-    if (req.method === "GET" && req.url === "/api/zalo/users") return serveZaloUsers(req, res);
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
     if (req.url === "/auth/logout") return logout(res);
