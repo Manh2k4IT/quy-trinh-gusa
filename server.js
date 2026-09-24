@@ -13,6 +13,7 @@ const organizationProfilesPath = path.join(process.cwd(), "organization-profiles
 const organizationMembersPath = path.join(process.cwd(), "organization-members.json");
 const attendancePath = path.join(process.cwd(), "attendance.json");
 const proposalsPath = path.join(process.cwd(), "proposals.json");
+const paymentTemplatePath = path.join(process.cwd(), "payment-template.json");
 const usersPath = path.join(process.cwd(), "users.json");
 const users = new Map();
 const sessions = new Map();
@@ -52,6 +53,37 @@ function loadUsers() {
 
 function saveUsers() {
   fs.writeFileSync(usersPath, JSON.stringify(Object.fromEntries(users), null, 2));
+}
+
+function getPaymentTemplate() {
+  try {
+    return JSON.parse(fs.readFileSync(paymentTemplatePath, "utf8"));
+  } catch (error) {
+    if (error.code !== "ENOENT") console.error(error);
+    return { fileName: "", fileType: "", fileData: "", updatedAt: "" };
+  }
+}
+
+function servePaymentTemplate(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const template = getPaymentTemplate();
+  sendJson(res, 200, { template });
+}
+
+async function updatePaymentTemplate(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.role !== "admin" || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  const payload = JSON.parse(body || "{}");
+  const fileName = String(payload.fileName || "").trim().slice(0, 180);
+  const fileType = String(payload.fileType || "").trim().slice(0, 120);
+  const fileData = typeof payload.fileData === "string" ? payload.fileData : "";
+  if (!fileName || !fileData.startsWith("data:") || fileData.length > 9.5 * 1024 * 1024) return send(res, 400, "File mẫu không hợp lệ hoặc vượt quá 7 MB.");
+  const template = { fileName, fileType, fileData, updatedAt: new Date().toISOString() };
+  fs.writeFileSync(paymentTemplatePath, JSON.stringify(template, null, 2));
+  sendJson(res, 200, { template });
 }
 
 function send(res, status, body, headers = {}) {
@@ -646,6 +678,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url.startsWith("/api/proposals?")) return serveProposals(req, res);
     if (req.method === "POST" && req.url === "/api/proposals") return await createProposal(req, res);
     if (req.method === "POST" && req.url === "/api/proposals/status") return await updateProposalStatus(req, res);
+    if (req.method === "GET" && req.url === "/api/payment-template") return servePaymentTemplate(req, res);
+    if (req.method === "POST" && req.url === "/api/payment-template") return await updatePaymentTemplate(req, res);
     if (req.url === "/api/users") return serveUsers(req, res);
     if (req.method === "GET" && req.url === "/api/organization-chart") return serveOrganizationChart(req, res);
     if (req.method === "POST" && req.url === "/api/organization-chart") return await updateOrganizationChart(req, res);

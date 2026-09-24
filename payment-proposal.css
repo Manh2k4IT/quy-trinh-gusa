@@ -127,3 +127,8 @@
 .payment-file-field { padding: .85rem; border: 1px dashed #b8c9dc; border-radius: 10px; background: #f7fafd; }
 .payment-file-field input { padding: .55rem; background: #fff; }
 .payment-file-field small { color: #66778d; font-size: .68rem; font-weight: 500; }
+.admin-template-tools { display: grid; gap: .45rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dbe6ed; }
+.admin-template-tools[hidden] { display: none; }
+.admin-template-tools label { display: grid; gap: .35rem; color: #183b68; font-size: .75rem; font-weight: 800; }
+.admin-template-tools input { width: 100%; padding: .5rem; border: 1px dashed #9bb4ca; border-radius: 8px; background: #fff; font: inherit; font-size: .72rem; }
+.admin-template-tools small { color: #66778d; font-size: .68rem; }
