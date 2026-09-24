@@ -146,10 +146,10 @@ function setAdminVisibility(isAdmin) {
   lateReportMenuItem.hidden = !isAdmin;
   workdayOverviewMenuItem.hidden = isAdmin;
   document.querySelectorAll('.role-chip').forEach((button) => {
-    const roleText = button.textContent.trim();
-    const targetLabel = roleText === 'CEO' ? 'CEO' : isAdmin ? 'Quản trị' : 'Nhân viên';
-    button.textContent = targetLabel;
-    const current = button.textContent.trim() === targetLabel;
+    const originalRole = button.dataset.role || button.textContent.trim();
+    button.dataset.role = originalRole;
+    const current = isAdmin ? originalRole === 'Quản trị' || originalRole === 'CEO' : originalRole === 'Nhân viên';
+    button.textContent = current ? (isAdmin && originalRole === 'CEO' ? 'CEO' : isAdmin ? 'Quản trị' : 'Nhân viên') : originalRole;
     button.hidden = !current;
     button.classList.toggle('is-selected', current);
   });
@@ -158,6 +158,23 @@ function updateClock() { const now = new Date(); currentTime.textContent = now.t
 function formatTime(value) { return value ? new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'; }
 function todayKey() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; }
 function setStatus(record) { const today = record?.[todayKey()]; const now = new Date(); const currentMinutes = now.getHours() * 60 + now.getMinutes(); const checkoutMinutes = today?.attendanceType === 'half-day-morning' ? 12 * 60 : 17 * 60 + 25; const checkoutAvailable = currentMinutes >= checkoutMinutes; status.className = 'attendance-status'; if (attendanceTypeChoice) { attendanceTypeChoice.querySelectorAll('input').forEach((input) => { input.disabled = Boolean(today?.checkIn); if (today?.attendanceType) input.checked = input.value === today.attendanceType; }); } if (!today?.checkIn) { status.textContent = 'Chưa vào ca'; checkIn.disabled = isOnlineAttendance ? !onlineProof?.photoCapturedAt || onlineProof.latitude === undefined : false; checkOut.disabled = true; updateOnlineCheckIn(); return; } if (!today.checkOut) { status.classList.add('is-working'); status.textContent = today.late ? `Đi muộn, đang làm việc từ ${formatTime(today.checkIn)}` : `Đang làm việc từ ${formatTime(today.checkIn)}`; checkIn.disabled = true; checkOut.disabled = !checkoutAvailable; if (!checkoutAvailable) status.textContent += ` - Check-out mở lúc ${today.attendanceType === 'half-day-morning' ? '12:00' : '17:30'}`; return; } status.classList.add('is-completed'); status.textContent = `Đã hoàn thành lúc ${formatTime(today.checkOut)}`; checkIn.disabled = true; checkOut.disabled = true; }
+function applyUserAvatar(element, src, name) {
+  const fallbackText = (name || 'U').trim().charAt(0).toUpperCase() || 'U';
+  const image = document.createElement('img');
+  image.src = src;
+  image.alt = `Ảnh đại diện Gmail của ${name || 'người dùng'}`;
+  image.referrerPolicy = 'no-referrer';
+  image.crossOrigin = 'anonymous';
+  image.loading = 'eager';
+  image.decoding = 'async';
+  image.onerror = () => {
+    const fallback = document.createElement('span');
+    fallback.className = 'avatar-fallback';
+    fallback.textContent = fallbackText;
+    element.replaceChildren(fallback);
+  };
+  element.replaceChildren(image);
+}
 function getStatusMeta(record, date) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -267,4 +284,4 @@ async function submitAttendance(action) { checkIn.disabled = true; checkOut.disa
 const today = new Date(); for (let offset = 0; offset < 12; offset += 1) { const date = new Date(today.getFullYear(), today.getMonth() - offset, 1); const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; monthSelect.append(new Option(date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }), value)); }
 monthSelect.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 monthSelect.addEventListener('change', loadAttendance); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => submitAttendance('check-out')); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
-fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const roleText = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên'; if (button.textContent.trim() === 'Quản trị' || button.textContent.trim() === 'Nhân viên') button.textContent = roleText; if (button.textContent.trim() === roleText) { button.hidden = false; button.classList.add('is-selected'); } else { button.hidden = true; button.classList.remove('is-selected'); } }); if (user.picture) { document.querySelectorAll('[data-user-avatar]').forEach((element) => { const image = document.createElement('img'); image.src = user.picture; image.alt = `Ảnh đại diện của ${user.name || user.email}`; element.replaceChildren(image); }); } await loadAttendance(); }).catch((error) => { message.textContent = error.message; });
+fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'employee' ? originalRole === 'Nhân viên' : originalRole === 'Quản trị' || originalRole === 'CEO'; const roleLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên'; button.textContent = current ? roleLabel : originalRole; button.hidden = !current; button.classList.toggle('is-selected', current); }); if (user.picture) { document.querySelectorAll('[data-user-avatar]').forEach((element) => { const image = document.createElement('img'); image.src = user.picture; image.alt = `Ảnh đại diện của ${user.name || user.email}`; element.replaceChildren(image); }); } await loadAttendance(); }).catch((error) => { message.textContent = error.message; });

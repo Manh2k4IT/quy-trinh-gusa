@@ -57,11 +57,14 @@ if (sidebarScroll) {
         });
         const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên';
         document.querySelectorAll('.role-chip').forEach((button) => {
-          const targetLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên';
-          button.textContent = targetLabel;
-          const isCurrentRole = button.textContent.trim() === targetLabel;
-          button.hidden = !isCurrentRole;
-          button.classList.toggle('is-selected', isCurrentRole);
+          const originalRole = button.dataset.role || button.textContent.trim();
+          button.dataset.role = originalRole;
+          const matchesRole = user.role === 'employee'
+            ? originalRole === 'Nhân viên'
+            : originalRole === 'Quản trị' || originalRole === 'CEO';
+          button.textContent = matchesRole ? roleChipLabel : originalRole;
+          button.hidden = !matchesRole;
+          button.classList.toggle('is-selected', matchesRole);
         });
         if (user.picture) {
           document.querySelectorAll('[data-user-avatar], [data-top-avatar], [data-profile-avatar]').forEach((element) => {
@@ -69,6 +72,14 @@ if (sidebarScroll) {
             image.src = user.picture;
             image.referrerPolicy = 'no-referrer';
             image.alt = `Ảnh đại diện Gmail của ${user.name || user.email || 'người dùng'}`;
+            image.loading = 'eager';
+            image.decoding = 'async';
+            image.onerror = () => {
+              const fallback = document.createElement('span');
+              fallback.className = 'avatar-fallback';
+              fallback.textContent = (user.name || user.email || 'U').charAt(0).toUpperCase();
+              element.replaceChildren(fallback);
+            };
             element.replaceChildren(image);
           });
         }
