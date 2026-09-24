@@ -1,7 +1,7 @@
 document.querySelectorAll("[data-action]").forEach((button) => {
   button.addEventListener("click", () => {
     const mode = button.dataset.action === "register" ? "register" : "login";
-    window.location.href = `/auth/google?mode=${mode}&returnTo=/user-management.html`;
+    window.location.href = `/auth/google?mode=${mode}&returnTo=/organization-chart.html`;
   });
 });
 

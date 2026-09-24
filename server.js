@@ -156,8 +156,8 @@ function startGoogleAuth(req, res) {
 
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   const state = crypto.randomBytes(24).toString("hex");
-  const requestedReturnTo = requestUrl.searchParams.get("returnTo") || "/user-management.html";
-  const returnTo = requestedReturnTo.startsWith("/") ? requestedReturnTo : "/user-management.html";
+  const requestedReturnTo = requestUrl.searchParams.get("returnTo") || "/organization-chart.html";
+  const returnTo = requestedReturnTo.startsWith("/") ? requestedReturnTo : "/organization-chart.html";
   const loginHint = requestUrl.searchParams.get("loginHint") || "";
   const mode = requestUrl.searchParams.get("mode") === "register" ? "register" : "login";
   const params = new URLSearchParams({
