@@ -1,3 +1,4 @@
+fetch('/api/me', { cache: 'no-store' }).then((r) => r.json()).then(({ user }) => { const isAdmin = user?.role === 'admin' || user?.role === 'ceo';
 const appShell = document.querySelector('.app-shell');
 const mobileMenuToggle = document.querySelector('[data-mobile-menu-toggle]');
 const mobileMenuBackdrop = document.querySelector('[data-mobile-menu-backdrop]');
