@@ -184,9 +184,11 @@ function serveZaloUsers(req, res) {
 async function sendZaloPrivateProposal(proposal) {
   const tokens = readZaloTokens();
   const adminUserIds = String(process.env.ZALO_ADMIN_USER_IDS || "").split(",").map((value) => value.trim()).filter(Boolean);
+  console.log(`Zalo private notification: token=${Boolean(tokens.access_token)}, admin_count=${adminUserIds.length}`);
   if (!tokens.access_token || !adminUserIds.length) return;
   const text = `Đề xuất mới: ${proposal.userName}\nLoại: ${proposal.type}\nNgày: ${proposal.dateFrom && proposal.dateTo ? `${proposal.dateFrom} - ${proposal.dateTo}` : proposal.date}\nLý do: ${proposal.reason}\nXem và xử lý: ${process.env.RENDER_EXTERNAL_URL || "https://quytrinh.gusa.vn"}/proposal-report.html`;
-  await Promise.all(adminUserIds.map((userId) => fetch(`https://openapi.zalo.me/v3.0/oa/message/cs?access_token=${encodeURIComponent(tokens.access_token)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: { user_id: userId }, message: { text } }) })));
+  const responses = await Promise.all(adminUserIds.map((userId) => fetch(`https://openapi.zalo.me/v3.0/oa/message/cs?access_token=${encodeURIComponent(tokens.access_token)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: { user_id: userId }, message: { text } }) })));
+  for (const response of responses) console.log(`Zalo private notification response: HTTP ${response.status} ${await response.text()}`);
 }
 
 function getCurrentUser(req) {
