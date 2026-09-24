@@ -8,13 +8,26 @@ loadEnvFile();
 const port = Number(process.env.PORT || 5500);
 const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${port}/auth/callback`;
 const fixedAdminEmail = "manh98627@gmail.com";
-const organizationChartPath = path.join(process.cwd(), "organization-chart.json");
-const organizationProfilesPath = path.join(process.cwd(), "organization-profiles.json");
-const organizationMembersPath = path.join(process.cwd(), "organization-members.json");
-const attendancePath = path.join(process.cwd(), "attendance.json");
-const proposalsPath = path.join(process.cwd(), "proposals.json");
-const paymentTemplatePath = path.join(process.cwd(), "payment-template.json");
-const usersPath = path.join(process.cwd(), "users.json");
+const dataDirectory = process.env.DATA_DIR || (process.env.RENDER ? "/var/data" : process.cwd());
+
+if (!fs.existsSync(dataDirectory)) fs.mkdirSync(dataDirectory, { recursive: true });
+
+function dataPath(fileName) {
+  const targetPath = path.join(dataDirectory, fileName);
+  const seedPath = path.join(process.cwd(), fileName);
+  if (!fs.existsSync(targetPath) && fs.existsSync(seedPath) && path.resolve(targetPath) !== path.resolve(seedPath)) {
+    fs.copyFileSync(seedPath, targetPath);
+  }
+  return targetPath;
+}
+
+const organizationChartPath = dataPath("organization-chart.json");
+const organizationProfilesPath = dataPath("organization-profiles.json");
+const organizationMembersPath = dataPath("organization-members.json");
+const attendancePath = dataPath("attendance.json");
+const proposalsPath = dataPath("proposals.json");
+const paymentTemplatePath = dataPath("payment-template.json");
+const usersPath = dataPath("users.json");
 const users = new Map();
 const sessions = new Map();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
