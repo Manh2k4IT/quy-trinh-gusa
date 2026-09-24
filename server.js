@@ -161,11 +161,12 @@ function startGoogleAuth(req, res) {
   }
 
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-  const state = crypto.randomBytes(24).toString("hex");
+  const nonce = crypto.randomBytes(24).toString("hex");
   const requestedReturnTo = requestUrl.searchParams.get("returnTo") || "/organization-chart.html";
   const returnTo = requestedReturnTo.startsWith("/") ? requestedReturnTo : "/organization-chart.html";
   const loginHint = requestUrl.searchParams.get("loginHint") || "";
   const mode = requestUrl.searchParams.get("mode") === "register" ? "register" : "login";
+  const oauthData = signOauthPayload({ nonce, returnTo, mode, createdAt: Date.now() });
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
@@ -173,20 +174,19 @@ function startGoogleAuth(req, res) {
     scope: "openid email profile",
     access_type: "offline",
     prompt: "select_account",
-    state,
+    state: oauthData,
   });
   if (loginHint) params.set("login_hint", loginHint);
 
-  const oauthData = signOauthPayload({ state, returnTo, mode, createdAt: Date.now() });
-  redirect(res, `https://accounts.google.com/o/oauth2/v2/auth?${params}`, [cookie("google_oauth_state", oauthData, { maxAge: 600 })]);
+  redirect(res, `https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 }
 
 async function completeGoogleAuth(req, res) {
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   const returnedState = requestUrl.searchParams.get("state");
-  const stateData = verifyOauthPayload(parseCookies(req).google_oauth_state);
+  const stateData = verifyOauthPayload(returnedState);
 
-  if (!stateData || !returnedState || returnedState !== stateData.state || Date.now() - stateData.createdAt > 10 * 60 * 1000) {
+  if (!stateData || Date.now() - stateData.createdAt > 10 * 60 * 1000) {
     return send(res, 400, "OAuth state khong hop le hoac da het han.");
   }
   if (requestUrl.searchParams.get("error")) return send(res, 400, "Google tu choi dang nhap.");
