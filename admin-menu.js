@@ -16,12 +16,14 @@ window.playProposalVoiceTest = () => {
   });
 };
 
-function showProposalPermissionPrompt() {
-  if (document.querySelector('[data-proposal-permission-prompt]') || localStorage.getItem('gusa-proposal-permission-prompt-seen') === 'true') return;
+function showProposalPermissionPrompt(user) {
+  const accountKey = user?.id || user?.email || 'default';
+  const promptSeenKey = `gusa-proposal-permission-prompt-seen:${accountKey}`;
+  if (document.querySelector('[data-proposal-permission-prompt]') || localStorage.getItem(promptSeenKey) === 'true') return;
   const notificationState = 'Notification' in window ? Notification.permission : 'unsupported';
   const soundState = proposalAudioEnabled ? 'granted' : 'default';
   if (notificationState === 'granted' && soundState === 'granted') return;
-  localStorage.setItem('gusa-proposal-permission-prompt-seen', 'true');
+  localStorage.setItem(promptSeenKey, 'true');
   const prompt = document.createElement('div');
   prompt.className = 'proposal-permission-prompt';
   prompt.dataset.proposalPermissionPrompt = '';
@@ -103,10 +105,12 @@ function initializeSharedProposalNotifications() {
     if (!response.ok) return;
     const nextProposals = (await response.json()).proposals || [];
     const nextIds = new Set(nextProposals.map((proposal) => proposal.id));
+    const storedIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
+    const handledIds = new Set([...knownIds, ...storedIds]);
     const newProposals = hasLoadedOnce
-      ? nextProposals.filter((proposal) => !knownIds.has(proposal.id) && proposal.status === 'pending')
+      ? nextProposals.filter((proposal) => !handledIds.has(proposal.id) && proposal.status === 'pending')
       : [];
-    knownIds = nextIds;
+    knownIds = new Set([...handledIds, ...nextIds]);
     hasLoadedOnce = true;
     localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...knownIds]));
     showNotifications(newProposals);
@@ -246,7 +250,7 @@ if (sidebarScroll) {
       }
       if (isAdmin) {
         initializeSharedProposalNotifications();
-        showProposalPermissionPrompt();
+        showProposalPermissionPrompt(user);
       }
     })
     .catch(() => {
