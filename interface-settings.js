@@ -147,7 +147,7 @@ fetch("/api/me", { cache: "no-store" })
 
 function updateAudioPermissionStatus() {
   const notification = "Notification" in window ? Notification.permission : "unsupported";
-  const appAudioEnabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
+  const appAudioEnabled = localStorage.getItem("gusa-proposal-audio-enabled") !== "false";
   const effectiveEnabled = appAudioEnabled;
 
   audioPermissionButton?.setAttribute("aria-checked", String(effectiveEnabled));
@@ -171,9 +171,8 @@ audioPermissionButton?.addEventListener("click", async () => {
     if (result !== "granted" && result !== "denied") return;
   }
 
-  const enabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
-  if (enabled) localStorage.removeItem("gusa-proposal-audio-enabled");
-  else localStorage.setItem("gusa-proposal-audio-enabled", "true");
+  const enabled = localStorage.getItem("gusa-proposal-audio-enabled") !== "false";
+  localStorage.setItem("gusa-proposal-audio-enabled", enabled ? "false" : "true");
   updateAudioPermissionStatus();
 });
 function syncSettingsPanels() {

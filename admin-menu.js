@@ -4,7 +4,7 @@ const proposalVoiceAudios = {
   payment: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3'),
 };
 Object.values(proposalVoiceAudios).forEach((audio) => { audio.preload = 'auto'; });
-let proposalAudioEnabled = localStorage.getItem('gusa-proposal-audio-enabled') === 'true';
+let proposalAudioEnabled = localStorage.getItem('gusa-proposal-audio-enabled') !== 'false';
 
 window.playProposalVoiceTest = () => {
   const audio = proposalVoiceAudios.general;
@@ -60,7 +60,7 @@ window.speakProposalNotification = (proposal) => {
   };
   proposalVoiceAudio.play().catch(() => {
     proposalAudioEnabled = false;
-    localStorage.removeItem('gusa-proposal-audio-enabled');
+    localStorage.setItem('gusa-proposal-audio-enabled', 'false');
     showProposalPermissionPrompt(undefined, true);
   });
 };
