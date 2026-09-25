@@ -70,6 +70,20 @@ window.speakProposalNotification = (proposal) => {
   });
 };
 
+window.claimProposalNotification = async (proposalId) => {
+  const claim = async () => {
+    const handledIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
+    if (handledIds.has(proposalId)) return false;
+    handledIds.add(proposalId);
+    localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...handledIds]));
+    return true;
+  };
+  if (navigator.locks?.request) {
+    return navigator.locks.request(`gusa-proposal-notification:${proposalId}`, { ifAvailable: true }, async (lock) => lock ? claim() : false);
+  }
+  return claim();
+};
+
 function initializeSharedProposalNotifications() {
   if (document.querySelector('.proposal-notification-trigger')) return;
   const notificationButton = document.querySelector('[data-notification-trigger]');
@@ -81,22 +95,9 @@ function initializeSharedProposalNotifications() {
   let hasLoadedOnce = false;
   let notificationTimer;
   const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất chung'}.`;
-  const claimProposalNotification = async (proposalId) => {
-    const claim = async () => {
-      const handledIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
-      if (handledIds.has(proposalId)) return false;
-      handledIds.add(proposalId);
-      localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...handledIds]));
-      return true;
-    };
-    if (navigator.locks?.request) {
-      return navigator.locks.request(`gusa-proposal-notification:${proposalId}`, { ifAvailable: true }, async (lock) => lock ? claim() : false);
-    }
-    return claim();
-  };
   const showNotifications = async (newProposals) => {
     if (!newProposals.length) return;
-    if (!(await claimProposalNotification(newProposals[0].id))) return;
+    if (!(await window.claimProposalNotification(newProposals[0].id))) return;
     notificationList.innerHTML = newProposals.slice(0, 5).map((proposal) => `<p><b>Đề xuất mới</b><span>${formatProposal(proposal)}</span></p>`).join('');
     if (notificationCount) {
       notificationCount.textContent = String(newProposals.length);

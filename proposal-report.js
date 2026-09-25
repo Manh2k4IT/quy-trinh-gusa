@@ -34,8 +34,9 @@ function proposalNotificationText(proposal) {
   return `${proposal.userName || 'Nhân viên'} vừa gửi ${type}.`;
 }
 
-function showProposalNotification(newProposals) {
+async function showProposalNotification(newProposals) {
   if (!newProposals.length) return;
+  if (window.claimProposalNotification && !(await window.claimProposalNotification(newProposals[0].id))) return;
   notificationList.innerHTML = newProposals.slice(0, 5).map((proposal) => `<p><b>Đề xuất mới</b><span>${proposalNotificationText(proposal)}</span></p>`).join('');
   notificationCount.textContent = String(newProposals.length);
   notificationCount.hidden = false;
@@ -111,7 +112,7 @@ async function load(showFeedback = false) {
     notificationInitialized = true;
     renderSummary();
     render();
-    showProposalNotification(newProposals);
+    await showProposalNotification(newProposals);
     if (showFeedback) refreshButton.textContent = 'Đã cập nhật';
   } catch (error) {
     if (showFeedback) refreshButton.textContent = 'Thử lại';
