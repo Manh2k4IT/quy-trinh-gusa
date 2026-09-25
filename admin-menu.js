@@ -20,7 +20,6 @@ function showProposalPermissionPrompt(user, force = false) {
   const accountKey = user?.email || 'default';
   const promptSeenKey = `gusa-proposal-permission-prompt-seen:${accountKey}`;
   if (document.querySelector('[data-proposal-permission-prompt]') || localStorage.getItem(promptSeenKey) === 'true') return;
-  const notificationState = 'Notification' in window ? Notification.permission : 'unsupported';
   const soundState = proposalAudioEnabled ? 'granted' : 'default';
   if (soundState === 'granted' && !force) return;
   localStorage.setItem(promptSeenKey, 'true');
@@ -31,13 +30,9 @@ function showProposalPermissionPrompt(user, force = false) {
   document.body.append(prompt);
   const status = prompt.querySelector('.proposal-permission-status');
   const updateStatus = () => {
-    const currentNotification = 'Notification' in window ? Notification.permission : 'unsupported';
-    if (currentNotification === 'denied') status.textContent = 'Thông báo đang bị chặn. Hãy mở Cài đặt trang web của trình duyệt và cho phép Thông báo, sau đó tải lại trang.';
-    else if (currentNotification === 'unsupported') status.textContent = 'Trình duyệt này không hỗ trợ thông báo hệ thống; bảng thông báo trong ứng dụng vẫn hoạt động.';
-    else status.textContent = '';
+    status.textContent = 'Âm thanh của website đang bị tắt hoặc trình duyệt đang chặn phát voice. Hãy bật mục Âm thanh trong Cài đặt trang web rồi thử lại.';
   };
   const enable = async () => {
-    if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
     try { await window.playProposalVoiceTest?.(); } catch { status.textContent = 'Trình duyệt đang chặn âm thanh. Hãy kiểm tra biểu tượng loa trên tab hoặc cài đặt trang web.'; return; }
     updateStatus();
     if (proposalAudioEnabled) prompt.remove();
