@@ -2867,6 +2867,10 @@ body[data-theme="dark"] .interface-setting-row {
   margin-top: 1.35rem;
 }
 
+.interface-settings-page[hidden] {
+  display: none !important;
+}
+
 .interface-page-setting {
   display: flex;
   min-height: 92px;
