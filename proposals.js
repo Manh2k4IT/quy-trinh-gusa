@@ -16,6 +16,12 @@ const lateProof = form.querySelector('[data-late-proof]');
 const latePhotoInput = form.querySelector('[name="latePhoto"]');
 const locationButton = form.querySelector('[data-proposal-location]');
 const locationStatus = form.querySelector('[data-proposal-location-status]');
+const proposalListPanel = document.querySelector('[data-proposal-list-panel]');
+const proposalCards = document.querySelector('[data-proposal-cards]');
+const proposalList = document.querySelector('[data-proposal-list]');
+const proposalListCount = document.querySelector('[data-proposal-list-count]');
+const showProposalListButton = document.querySelector('[data-show-proposal-list]');
+const showProposalFormButton = document.querySelector('[data-show-proposal-form]');
 let latePhotoData = '';
 let lateLocation = null;
 let proposals = [];
@@ -63,7 +69,34 @@ const typeLabels = {
   'unauthorized-leave': 'Đề xuất nghỉ không phép',
 };
 
+const proposalStatusLabels = { pending: 'Đang chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', canceled: 'Đã hủy' };
+
+function renderProposalList(items) {
+  if (!proposalList) return;
+  proposalListCount.textContent = `${items.length} đề xuất`;
+  proposalList.innerHTML = items.length
+    ? items.slice().sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date)).map((proposal) => `<article class="proposal-list-item"><div><span class="proposal-list-type">${typeLabels[proposal.type] || 'Đề xuất'}</span><strong>${proposal.reason || 'Không có lý do'}</strong><small>${formatProposalDate(proposal.date)}${proposal.time ? ` · ${proposal.time}` : ''}</small></div><div class="proposal-list-actions"><span class="proposal-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</span>${proposal.status === 'pending' ? `<button type="button" class="proposal-list-cancel" data-list-cancel="${proposal.id}">Hủy đề xuất</button>` : ''}</div></article>`).join('')
+    : '<p class="proposal-list-empty">Chưa có đề xuất nào.</p>';
+}
+
+function showProposalView(view) {
+  const listView = view === 'list';
+  proposalListPanel.hidden = !listView;
+  proposalCards.hidden = listView;
+  showProposalListButton.classList.toggle('is-active', listView);
+  showProposalFormButton.classList.toggle('is-active', !listView);
+}
+
+showProposalListButton?.addEventListener('click', () => showProposalView('list'));
+showProposalFormButton?.addEventListener('click', () => showProposalView('form'));
+proposalList?.addEventListener('click', (event) => {
+  const cancelButton = event.target.closest('[data-list-cancel]');
+  if (!cancelButton) return;
+  cancelProposal(cancelButton.dataset.listCancel, cancelButton).catch(() => {});
+});
+
 function renderProposals(proposals) {
+  renderProposalList(proposals);
   if (!proposals.length) return;
   proposals.forEach((proposal) => {
     const button = document.querySelector(`[data-open-proposal="${proposal.type}"]`);

@@ -28,6 +28,30 @@
 .proposal-note strong { color: #ff3035; font-size: .72rem; }
 .proposal-note ul { margin: .25rem 0 0; padding-left: 1.05rem; }
 .proposal-note li { margin: .08rem 0; }
+.proposal-view-actions { display: flex; justify-content: space-between; gap: .8rem; margin: 1rem 0 1.25rem; }
+.proposal-view-button { min-height: 44px; border: 1px solid #d8e2ee; border-radius: 8px; padding: 0 1.1rem; color: #31506f; background: #fff; cursor: pointer; font: inherit; font-size: .82rem; font-weight: 800; }
+.proposal-view-button:last-child { color: #fff; border-color: #1557a6; background: #1557a6; }
+.proposal-view-button.is-active { box-shadow: 0 0 0 3px rgba(21,87,166,.12); }
+.proposal-view-button:first-child.is-active { color: #fff; border-color: #31506f; background: #31506f; }
+.proposal-list-panel { border: 1px solid #dbe5ef; border-radius: 10px; padding: 1.2rem; background: #fff; }
+.proposal-list-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: .9rem; }
+.proposal-list-heading h2 { margin: .25rem 0 0; color: #173f78; font-size: 1.1rem; }
+.proposal-list-count { color: #72839a; font-size: .78rem; font-weight: 700; }
+.proposal-list { display: grid; gap: .65rem; }
+.proposal-list-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid #e1e8f0; border-radius: 8px; padding: .85rem 1rem; }
+.proposal-list-item > div:first-child { display: grid; gap: .2rem; min-width: 0; }
+.proposal-list-type { color: #6d7e91; font-size: .68rem; font-weight: 800; text-transform: uppercase; }
+.proposal-list-item strong { color: #243b53; font-size: .86rem; }
+.proposal-list-item small { color: #8290a1; font-size: .72rem; }
+.proposal-list-actions { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; justify-content: end; }
+.proposal-status { border-radius: 999px; padding: .35rem .6rem; color: #6d7e91; background: #eef2f6; font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.proposal-status.is-pending { color: #996a06; background: #fff3cf; }
+.proposal-status.is-approved { color: #167247; background: #d7f3e2; }
+.proposal-status.is-rejected, .proposal-status.is-canceled { color: #a52f42; background: #fde1e5; }
+.proposal-list-cancel { border: 1px solid #e5aeb8; border-radius: 6px; padding: .35rem .55rem; color: #a52f42; background: #fff; cursor: pointer; font: inherit; font-size: .7rem; font-weight: 800; }
+.proposal-list-cancel:hover { color: #fff; background: #a52f42; }
+.proposal-list-empty { margin: 0; color: #72839a; font-size: .85rem; }
+.proposal-list-panel[hidden], .proposal-cards[hidden] { display: none; }
 .proposal-card-actions { position: absolute; top: 50%; right: 5%; z-index: 2; display: flex; align-items: center; gap: .55rem; width: auto; transform: translateY(-50%); }
 .proposal-cta { position: static; min-width: 178px; min-height: 47px; border: 0; color: #fff; background: linear-gradient(100deg, #ff3035, #ff9142); cursor: pointer; font: inherit; font-size: 1.3rem; font-weight: 800; }
 .proposal-cancel-button { min-height: 47px; border: 1px solid #ffc6c6; border-radius: 7px; padding: 0 .9rem; color: #a52f42; background: #fff4f4; cursor: pointer; font: inherit; font-size: .75rem; font-weight: 800; white-space: nowrap; }
