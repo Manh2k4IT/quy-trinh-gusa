@@ -59,8 +59,6 @@ window.speakProposalNotification = (proposal) => {
     proposalVoiceAudio.play().catch(() => {});
   };
   proposalVoiceAudio.play().catch(() => {
-    proposalAudioEnabled = false;
-    localStorage.setItem('gusa-proposal-audio-enabled', 'false');
     showProposalPermissionPrompt(undefined, true);
   });
 };
