@@ -152,20 +152,6 @@ async function cancelProposal(proposalId, button) {
   button.disabled = true;
   button.textContent = 'ĐANG HỦY...';
   try {
-    const latestResponse = await fetch(`/api/proposals?refresh=${Date.now()}`, { cache: 'no-store' });
-    if (!latestResponse.ok) throw new Error('Không thể đồng bộ đề xuất. Hãy tải lại trang.');
-    const latestProposals = (await latestResponse.json()).proposals || [];
-    const latestProposal = latestProposals.find((proposal) => proposal.id === proposalId);
-    if (!latestProposal) {
-      proposals = latestProposals;
-      renderProposals(proposals);
-      throw new Error('Đề xuất này đã được cập nhật hoặc không còn tồn tại.');
-    }
-    if (latestProposal.status !== 'pending') {
-      proposals = latestProposals;
-      renderProposals(proposals);
-      throw new Error('Chỉ có thể hủy đề xuất đang chờ duyệt.');
-    }
     const response = await fetch(`/api/proposals/${encodeURIComponent(proposalId)}/cancel`, { method: 'POST' });
     const responseText = await response.text();
     let data = {};
