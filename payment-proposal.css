@@ -118,6 +118,9 @@
 
 .payment-submit:hover { background: #d9363e; box-shadow: 0 14px 22px rgba(240,68,69,.25); transform: translateY(-2px); }
 .payment-submit.is-approved { background: #16804a; box-shadow: 0 10px 18px rgba(22,128,74,.2); }
+.payment-new-proposal { min-height: 47px; border: 1px solid #1557a6; border-radius: 7px; padding: 0 1rem; color: #1557a6; background: #fff; cursor: pointer; font: inherit; font-weight: 800; }
+.payment-new-proposal:hover { color: #fff; background: #1557a6; }
+.payment-new-proposal[hidden] { display: none; }
 .payment-submit.is-rejected { background: #c23d50; box-shadow: 0 10px 18px rgba(194,61,80,.2); }
 .payment-submit.is-pending { background: #b77909; box-shadow: 0 10px 18px rgba(183,121,9,.2); }
 .payment-submit-group { display: grid; align-content: center; gap: .7rem; }

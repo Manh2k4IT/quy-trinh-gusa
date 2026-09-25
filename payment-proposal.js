@@ -13,6 +13,16 @@ const cancelButton = document.querySelector('[data-cancel-payment]');
 const cancelMainButton = document.querySelector('[data-cancel-payment-main]');
 let currentTemplate = { fileName: 'payment-template.html', fileData: 'payment-template.html' };
 let currentProposal = null;
+const newPaymentButton = document.createElement('button');
+newPaymentButton.type = 'button';
+newPaymentButton.className = 'payment-new-proposal';
+newPaymentButton.textContent = 'ĐỀ XUẤT';
+newPaymentButton.hidden = true;
+paymentButton.after(newPaymentButton);
+newPaymentButton.addEventListener('click', () => {
+  setPaymentButton(null);
+  paymentButton.click();
+});
 
 function isPastProposalDate(proposal) {
   return proposal.date < new Date().toISOString().slice(0, 10);
@@ -23,11 +33,13 @@ function setPaymentButton(proposal) {
   paymentButton.classList.remove('is-approved', 'is-rejected', 'is-pending');
   paymentButton.disabled = false;
   cancelMainButton.hidden = true;
+  newPaymentButton.hidden = true;
   if (!currentProposal) {
     paymentButton.textContent = 'ĐỀ XUẤT';
   } else if (currentProposal.status === 'approved') {
     paymentButton.textContent = 'ĐÃ DUYỆT';
     paymentButton.classList.add('is-approved');
+    newPaymentButton.hidden = false;
   } else if (currentProposal.status === 'rejected') {
     paymentButton.textContent = 'TỪ CHỐI';
     paymentButton.classList.add('is-rejected');

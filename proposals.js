@@ -87,12 +87,30 @@ function renderProposals(proposals) {
         actions.append(cancelButton);
       }
       const cancelButton = actions.querySelector('[data-cancel-proposal]');
+      let newProposalButton = actions.querySelector('[data-new-proposal]');
+      if (!newProposalButton) {
+        newProposalButton = document.createElement('button');
+        newProposalButton.type = 'button';
+        newProposalButton.className = 'proposal-new-button';
+        newProposalButton.textContent = 'ĐỀ XUẤT';
+        newProposalButton.dataset.newProposal = '';
+        newProposalButton.addEventListener('click', () => {
+          delete button.dataset.proposalId;
+          button.disabled = false;
+          button.textContent = 'ĐỀ XUẤT';
+          button.classList.remove('is-approved', 'is-rejected');
+          newProposalButton.hidden = true;
+          button.click();
+        });
+        actions.append(newProposalButton);
+      }
       if (isProposalExpired(proposal)) {
         button.textContent = 'ĐỀ XUẤT';
         button.disabled = false;
         button.classList.remove('is-approved');
         delete button.dataset.proposalId;
         cancelButton.hidden = true;
+        newProposalButton.hidden = true;
       } else if (proposal.status === 'approved') {
         button.textContent = 'ĐÃ DUYỆT';
         button.disabled = true;
@@ -100,6 +118,7 @@ function renderProposals(proposals) {
         button.classList.remove('is-rejected');
         button.dataset.proposalId = proposal.id;
         cancelButton.hidden = true;
+        newProposalButton.hidden = false;
       } else if (proposal.status === 'rejected') {
         button.textContent = 'TỪ CHỐI';
         button.disabled = true;
@@ -107,12 +126,14 @@ function renderProposals(proposals) {
         button.classList.remove('is-approved');
         button.dataset.proposalId = proposal.id;
         cancelButton.hidden = true;
+        newProposalButton.hidden = true;
       } else if (proposal.status === 'canceled') {
         button.textContent = 'ĐỀ XUẤT';
         button.disabled = false;
         button.classList.remove('is-approved', 'is-rejected');
         delete button.dataset.proposalId;
         cancelButton.hidden = true;
+        newProposalButton.hidden = true;
       } else {
         button.textContent = 'XEM ĐỀ XUẤT';
         button.disabled = false;
@@ -121,6 +142,7 @@ function renderProposals(proposals) {
         button.dataset.proposalId = proposal.id;
         cancelButton.hidden = false;
         cancelButton.dataset.cancelProposal = proposal.id;
+        newProposalButton.hidden = true;
       }
     }
   });
