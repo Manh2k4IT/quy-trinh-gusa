@@ -151,16 +151,15 @@ fetch("/api/me", { cache: "no-store" })
 function updateAudioPermissionStatus() {
   const notification = "Notification" in window ? Notification.permission : "unsupported";
   const appAudioEnabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
-  const effectiveEnabled = appAudioEnabled && notification !== "denied";
+  const effectiveEnabled = appAudioEnabled;
 
   audioPermissionButton?.setAttribute("aria-checked", String(effectiveEnabled));
   audioPermissionButton?.classList.toggle("is-on", effectiveEnabled);
 
   if (notification === "denied") {
-    audioPermissionStatus.textContent = "Thông báo trình duyệt đang bị chặn. Hãy cho phép trong cài đặt trang web nếu cần thông báo hệ thống.";
-    if (appAudioEnabled) {
-      localStorage.removeItem("gusa-proposal-audio-enabled");
-    }
+    audioPermissionStatus.textContent = effectiveEnabled
+      ? "Âm thanh trong ứng dụng đã bật. Thông báo hệ thống đang bị chặn bởi trình duyệt."
+      : "Thông báo hệ thống đang bị chặn; bạn vẫn có thể bật âm thanh trong ứng dụng.";
   } else if (effectiveEnabled) {
     audioPermissionStatus.textContent = "Đã bật trong ứng dụng. Nếu vẫn không nghe, hãy bỏ tắt tiếng tab và kiểm tra âm lượng trình duyệt/thiết bị.";
   } else {
@@ -170,19 +169,9 @@ function updateAudioPermissionStatus() {
 
 audioPermissionButton?.addEventListener("click", async () => {
   const notification = "Notification" in window ? Notification.permission : "unsupported";
-  if (notification === "denied") {
-    localStorage.removeItem("gusa-proposal-audio-enabled");
-    updateAudioPermissionStatus();
-    return;
-  }
-
   if (notification === "default" && "Notification" in window) {
     const result = await Notification.requestPermission();
-    if (result !== "granted") {
-      localStorage.removeItem("gusa-proposal-audio-enabled");
-      updateAudioPermissionStatus();
-      return;
-    }
+    if (result !== "granted" && result !== "denied") return;
   }
 
   const enabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";

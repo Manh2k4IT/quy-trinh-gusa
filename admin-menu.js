@@ -16,13 +16,13 @@ window.playProposalVoiceTest = () => {
   });
 };
 
-function showProposalPermissionPrompt(user) {
+function showProposalPermissionPrompt(user, force = false) {
   const accountKey = user?.email || 'default';
   const promptSeenKey = `gusa-proposal-permission-prompt-seen:${accountKey}`;
   if (document.querySelector('[data-proposal-permission-prompt]') || localStorage.getItem(promptSeenKey) === 'true') return;
   const notificationState = 'Notification' in window ? Notification.permission : 'unsupported';
   const soundState = proposalAudioEnabled ? 'granted' : 'default';
-  if (soundState === 'granted') return;
+  if (soundState === 'granted' && !force) return;
   localStorage.setItem(promptSeenKey, 'true');
   const prompt = document.createElement('div');
   prompt.className = 'proposal-permission-prompt';
@@ -63,7 +63,11 @@ window.speakProposalNotification = (proposal) => {
     proposalVoiceAudio.currentTime = 0;
     proposalVoiceAudio.play().catch(() => {});
   };
-  proposalVoiceAudio.play().catch(() => { proposalAudioEnabled = false; localStorage.removeItem('gusa-proposal-audio-enabled'); });
+  proposalVoiceAudio.play().catch(() => {
+    proposalAudioEnabled = false;
+    localStorage.removeItem('gusa-proposal-audio-enabled');
+    showProposalPermissionPrompt(undefined, true);
+  });
 };
 
 function initializeSharedProposalNotifications() {
@@ -261,7 +265,6 @@ if (sidebarScroll) {
       }
       if (isAdmin) {
         initializeSharedProposalNotifications();
-        showProposalPermissionPrompt(user);
       }
     })
     .catch(() => {
