@@ -148,8 +148,11 @@ function setAdminVisibility(isAdmin) {
   document.querySelectorAll('.role-chip').forEach((button) => {
     const originalRole = button.dataset.role || button.textContent.trim();
     button.dataset.role = originalRole;
-    const current = isAdmin ? originalRole === 'Quản trị' || originalRole === 'CEO' : originalRole === 'Nhân viên';
-    button.textContent = current ? (isAdmin && originalRole === 'CEO' ? 'CEO' : isAdmin ? 'Quản trị' : 'Nhân viên') : originalRole;
+    const current = isAdmin
+      ? originalRole === 'Quản trị' || originalRole === 'CEO'
+      : originalRole === 'Nhân viên';
+    const roleLabel = isAdmin && originalRole === 'CEO' ? 'CEO' : isAdmin ? 'Quản trị' : 'Nhân viên';
+    button.textContent = current ? roleLabel : originalRole;
     button.hidden = !current;
     button.classList.toggle('is-selected', current);
   });
@@ -284,4 +287,13 @@ async function submitAttendance(action) { checkIn.disabled = true; checkOut.disa
 const today = new Date(); for (let offset = 0; offset < 12; offset += 1) { const date = new Date(today.getFullYear(), today.getMonth() - offset, 1); const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; monthSelect.append(new Option(date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }), value)); }
 monthSelect.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 monthSelect.addEventListener('change', loadAttendance); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => submitAttendance('check-out')); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
-fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'employee' ? originalRole === 'Nhân viên' : originalRole === 'Quản trị' || originalRole === 'CEO'; const roleLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên'; button.textContent = current ? roleLabel : originalRole; button.hidden = !current; button.classList.toggle('is-selected', current); }); if (user.picture) { document.querySelectorAll('[data-user-avatar]').forEach((element) => { const image = document.createElement('img'); image.src = user.picture; image.alt = `Ảnh đại diện của ${user.name || user.email}`; element.replaceChildren(image); }); } await loadAttendance(); }).catch((error) => { message.textContent = error.message; });
+fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'ceo'
+      ? originalRole === 'CEO'
+      : user.role === 'admin'
+        ? originalRole === 'Quản trị'
+        : originalRole === 'Nhân viên';
+    const roleLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên';
+    button.textContent = current ? roleLabel : originalRole;
+    button.hidden = !current;
+    button.classList.toggle('is-selected', current);
+  }); if (user.picture) { document.querySelectorAll('[data-user-avatar]').forEach((element) => { const image = document.createElement('img'); image.src = user.picture; image.alt = `Ảnh đại diện của ${user.name || user.email}`; element.replaceChildren(image); }); } await loadAttendance(); }).catch((error) => { message.textContent = error.message; });

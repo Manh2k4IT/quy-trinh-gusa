@@ -4,6 +4,8 @@ const mobileMenuBackdrop = document.querySelector("[data-mobile-menu-backdrop]")
 const adminMenu = document.querySelector("[data-admin-menu]");
 const adminMenuLabel = document.querySelector("[data-admin-menu-label]");
 const themeToggle = document.querySelector("[data-interface-theme-toggle]");
+const interfaceSettingsSection = document.querySelector("[data-interface-settings-section]");
+const audioSettingsSection = document.querySelector("[data-audio-settings-section]");
 const audioPermissionButton = document.querySelector("[data-audio-permission-button]");
 const audioPermissionStatus = document.querySelector("[data-audio-permission-status]");
 
@@ -104,9 +106,14 @@ function setAdminMenuVisibility(roleLabel) {
   if (adminMenu) adminMenu.hidden = !isAdmin;
   if (adminMenuLabel) adminMenuLabel.hidden = !isAdmin;
   document.querySelectorAll(".role-chip").forEach((button) => {
-    const currentLabel = roleLabel === "CEO" ? "CEO" : roleLabel === "Quản trị" ? "Quản trị" : "Nhân viên";
-    button.textContent = currentLabel;
-    const isCurrentRole = button.textContent.trim() === currentLabel;
+    const originalRole = button.dataset.role || button.textContent.trim();
+    button.dataset.role = originalRole;
+    const isCurrentRole = roleLabel === "CEO"
+      ? originalRole === "CEO"
+      : roleLabel === "Quản trị"
+        ? originalRole === "Quản trị"
+        : originalRole === "Nhân viên";
+    button.textContent = isCurrentRole ? roleLabel : originalRole;
     button.hidden = !isCurrentRole;
     button.classList.toggle("is-selected", isCurrentRole);
   });
@@ -143,20 +150,63 @@ fetch("/api/me", { cache: "no-store" })
 
 function updateAudioPermissionStatus() {
   const notification = "Notification" in window ? Notification.permission : "unsupported";
-  const audioEnabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
-  audioPermissionButton?.setAttribute("aria-checked", String(audioEnabled));
-  audioPermissionButton?.classList.toggle("is-on", audioEnabled);
-  if (notification === "denied") audioPermissionStatus.textContent = "Thông báo trình duyệt đang bị chặn. Hãy cho phép trong cài đặt trang web nếu cần thông báo hệ thống.";
-  else if (audioEnabled) audioPermissionStatus.textContent = "Đã bật trong ứng dụng. Nếu vẫn không nghe, hãy bỏ tắt tiếng tab và kiểm tra âm lượng trình duyệt/thiết bị.";
-  else audioPermissionStatus.textContent = "Đang tắt trong ứng dụng.";
+  const appAudioEnabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
+  const effectiveEnabled = appAudioEnabled && notification !== "denied";
+
+  audioPermissionButton?.setAttribute("aria-checked", String(effectiveEnabled));
+  audioPermissionButton?.classList.toggle("is-on", effectiveEnabled);
+
+  if (notification === "denied") {
+    audioPermissionStatus.textContent = "Thông báo trình duyệt đang bị chặn. Hãy cho phép trong cài đặt trang web nếu cần thông báo hệ thống.";
+    if (appAudioEnabled) {
+      localStorage.removeItem("gusa-proposal-audio-enabled");
+    }
+  } else if (effectiveEnabled) {
+    audioPermissionStatus.textContent = "Đã bật trong ứng dụng. Nếu vẫn không nghe, hãy bỏ tắt tiếng tab và kiểm tra âm lượng trình duyệt/thiết bị.";
+  } else {
+    audioPermissionStatus.textContent = "Đang tắt trong ứng dụng.";
+  }
 }
 
 audioPermissionButton?.addEventListener("click", async () => {
+  const notification = "Notification" in window ? Notification.permission : "unsupported";
+  if (notification === "denied") {
+    localStorage.removeItem("gusa-proposal-audio-enabled");
+    updateAudioPermissionStatus();
+    return;
+  }
+
+  if (notification === "default" && "Notification" in window) {
+    const result = await Notification.requestPermission();
+    if (result !== "granted") {
+      localStorage.removeItem("gusa-proposal-audio-enabled");
+      updateAudioPermissionStatus();
+      return;
+    }
+  }
+
   const enabled = localStorage.getItem("gusa-proposal-audio-enabled") === "true";
   if (enabled) localStorage.removeItem("gusa-proposal-audio-enabled");
   else localStorage.setItem("gusa-proposal-audio-enabled", "true");
   updateAudioPermissionStatus();
 });
-if (location.hash === "#audio-permission") document.querySelector("#audio-permission")?.scrollIntoView({ behavior: "smooth", block: "center" });
+function syncSettingsPanels() {
+  const showAudioSettings = location.hash === "#audio-permission";
+  const title = document.getElementById("interface-settings-title");
+  const breadcrumb = document.getElementById("interface-settings-breadcrumb");
+  const subtitle = document.querySelector(".interface-page-heading p");
+  if (title) title.textContent = showAudioSettings ? "Cài đặt quyền âm thanh" : "Cài đặt giao diện";
+  if (breadcrumb) breadcrumb.textContent = showAudioSettings ? "Cài đặt quyền âm thanh" : "Cài đặt giao diện";
+  if (subtitle) subtitle.textContent = showAudioSettings ? "Quản lý quyền âm thanh và giọng thông báo của hệ thống." : "Điều chỉnh giao diện theo cách bạn muốn làm việc.";
+  if (interfaceSettingsSection) interfaceSettingsSection.hidden = showAudioSettings;
+  if (audioSettingsSection) audioSettingsSection.hidden = !showAudioSettings;
+  if (showAudioSettings) {
+    window.setTimeout(() => {
+      document.querySelector("#audio-permission")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
+}
+window.addEventListener("hashchange", syncSettingsPanels);
+syncSettingsPanels();
 updateAudioPermissionStatus();
 if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voiceschanged", updateAudioPermissionStatus);

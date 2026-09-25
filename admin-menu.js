@@ -48,12 +48,15 @@ window.showProposalPermissionPrompt = showProposalPermissionPrompt;
 window.speakProposalNotification = (proposal) => {
   if (!proposal || !proposalAudioEnabled) return;
   const proposalVoiceAudio = proposal.type === 'payment' ? proposalVoiceAudios.payment : proposalVoiceAudios.general;
+  let completedPlays = 0;
   proposalVoiceAudio.pause();
   proposalVoiceAudio.currentTime = 0;
-  let remainingPlays = 1;
   proposalVoiceAudio.onended = () => {
-    if (!remainingPlays) return;
-    remainingPlays -= 1;
+    completedPlays += 1;
+    if (completedPlays >= 2) {
+      proposalVoiceAudio.onended = null;
+      return;
+    }
     proposalVoiceAudio.currentTime = 0;
     proposalVoiceAudio.play().catch(() => {});
   };
@@ -99,10 +102,9 @@ function initializeSharedProposalNotifications() {
     if (!response.ok) return;
     const nextProposals = (await response.json()).proposals || [];
     const nextIds = new Set(nextProposals.map((proposal) => proposal.id));
-    const recentThreshold = Date.now() - 10 * 60 * 1000;
     const newProposals = hasLoadedOnce
       ? nextProposals.filter((proposal) => !knownIds.has(proposal.id) && proposal.status === 'pending')
-      : nextProposals.filter((proposal) => proposal.status === 'pending' && new Date(proposal.createdAt).getTime() >= recentThreshold);
+      : [];
     knownIds = nextIds;
     hasLoadedOnce = true;
     localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...knownIds]));
@@ -116,6 +118,7 @@ function initializeSharedProposalNotifications() {
       try {
         const proposal = JSON.parse(event.data);
         if (proposal.status !== 'pending') return;
+        if (knownIds.has(proposal.id)) return;
         knownIds.add(proposal.id);
         localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...knownIds]));
         showNotifications([proposal]);
@@ -161,10 +164,16 @@ if (sidebarScroll) {
 
   const currentPath = window.location.pathname.split('/').pop() || 'index.html';
   const currentQuery = window.location.search;
+  const currentHash = window.location.hash;
   sidebarScroll.querySelectorAll('.menu-item').forEach((link) => {
-    if (link.getAttribute('href') === '#') return;
-    const url = new URL(link.getAttribute('href'), window.location.href);
-    if (url.pathname.split('/').pop() === currentPath && url.search === currentQuery) {
+    const href = link.getAttribute('href');
+    if (!href || href === '#') return;
+    const url = new URL(href, window.location.href);
+    const samePath = url.pathname.split('/').pop() === currentPath;
+    const sameQuery = url.search === currentQuery;
+    const targetHash = url.hash || '';
+    const matchesCurrentSection = targetHash ? targetHash === currentHash : !currentHash;
+    if (samePath && sameQuery && matchesCurrentSection) {
       link.classList.add('is-active');
       link.setAttribute('aria-current', 'page');
     }
@@ -265,6 +274,9 @@ if (sidebarScroll) {
       event.stopPropagation();
       setMobileMenu(!appShell.classList.contains('is-mobile-menu-open'));
     }, true);
+    document.addEventListener('click', (event) => {
+      if (event.target.closest('.menu-item')) setMobileMenu(false);
+    });
     backdrop?.addEventListener('click', () => setMobileMenu(false));
   }
 }
