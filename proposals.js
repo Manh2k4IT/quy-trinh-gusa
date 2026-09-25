@@ -68,114 +68,22 @@ const typeLabels = {
   leave: 'Đề xuất nghỉ phép',
   'unauthorized-leave': 'Đề xuất nghỉ không phép',
 };
-
 const proposalStatusLabels = { pending: 'Đang chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', canceled: 'Đã hủy' };
 
-function renderProposalList(items) {
-  if (!proposalList) return;
-  proposalListCount.textContent = `${items.length} đề xuất`;
-  proposalList.innerHTML = items.length
-    ? items.slice().sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date)).map((proposal) => `<article class="proposal-list-item"><div><span class="proposal-list-type">${typeLabels[proposal.type] || 'Đề xuất'}</span><strong>${proposal.reason || 'Không có lý do'}</strong><small>${formatProposalDate(proposal.date)}${proposal.time ? ` · ${proposal.time}` : ''}</small></div><div class="proposal-list-actions"><span class="proposal-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</span>${proposal.status === 'pending' ? `<button type="button" class="proposal-list-cancel" data-list-cancel="${proposal.id}">Hủy đề xuất</button>` : ''}</div></article>`).join('')
-    : '<p class="proposal-list-empty">Chưa có đề xuất nào.</p>';
-}
-
-function showProposalView(view) {
-  const listView = view === 'list';
-  proposalListPanel.hidden = !listView;
-  proposalCards.hidden = listView;
-  showProposalListButton.classList.toggle('is-active', listView);
-  showProposalFormButton.classList.toggle('is-active', !listView);
-}
-
-showProposalListButton?.addEventListener('click', () => showProposalView('list'));
-showProposalFormButton?.addEventListener('click', () => showProposalView('form'));
-proposalList?.addEventListener('click', (event) => {
-  const cancelButton = event.target.closest('[data-list-cancel]');
-  if (!cancelButton) return;
-  cancelProposal(cancelButton.dataset.listCancel, cancelButton).catch(() => {});
-});
-
 function renderProposals(proposals) {
-  renderProposalList(proposals);
   if (!proposals.length) return;
   proposals.forEach((proposal) => {
     const button = document.querySelector(`[data-open-proposal="${proposal.type}"]`);
     if (button) {
-      let actions = button.closest('.proposal-card-actions');
-      if (!actions) {
-        actions = document.createElement('div');
-        actions.className = 'proposal-card-actions';
-        button.parentElement.insertBefore(actions, button);
-        actions.append(button);
-        const cancelButton = document.createElement('button');
-        cancelButton.type = 'button';
-        cancelButton.className = 'proposal-cancel-button';
-        cancelButton.textContent = 'HỦY ĐỀ XUẤT';
-        cancelButton.dataset.cancelProposal = '';
-        cancelButton.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          cancelProposal(cancelButton.dataset.cancelProposal, cancelButton).catch(() => {});
-        });
-        actions.append(cancelButton);
-      }
-      const cancelButton = actions.querySelector('[data-cancel-proposal]');
-      let newProposalButton = actions.querySelector('[data-new-proposal]');
-      if (!newProposalButton) {
-        newProposalButton = document.createElement('button');
-        newProposalButton.type = 'button';
-        newProposalButton.className = 'proposal-new-button';
-        newProposalButton.textContent = 'ĐỀ XUẤT';
-        newProposalButton.dataset.newProposal = '';
-        newProposalButton.addEventListener('click', () => {
-          delete button.dataset.proposalId;
-          button.disabled = false;
-          button.textContent = 'ĐỀ XUẤT';
-          button.classList.remove('is-approved', 'is-rejected');
-          newProposalButton.hidden = true;
-          button.click();
-        });
-        actions.append(newProposalButton);
-      }
+      const newProposalButton = button.closest('.proposal-card-actions')?.querySelector('.proposal-new-button');
+      button.textContent = 'DANH SÁCH ĐỀ XUẤT';
+      button.disabled = false;
+      button.classList.remove('is-approved', 'is-rejected');
+      button.dataset.proposalId = proposal.id;
+      if (newProposalButton) newProposalButton.hidden = false;
       if (isProposalExpired(proposal)) {
-        button.textContent = 'ĐỀ XUẤT';
-        button.disabled = false;
-        button.classList.remove('is-approved');
         delete button.dataset.proposalId;
-        cancelButton.hidden = true;
-        newProposalButton.hidden = true;
-      } else if (proposal.status === 'approved') {
-        button.textContent = 'ĐÃ DUYỆT';
-        button.disabled = true;
-        button.classList.add('is-approved');
-        button.classList.remove('is-rejected');
-        button.dataset.proposalId = proposal.id;
-        cancelButton.hidden = true;
-        newProposalButton.hidden = false;
-      } else if (proposal.status === 'rejected') {
-        button.textContent = 'TỪ CHỐI';
-        button.disabled = true;
-        button.classList.add('is-rejected');
-        button.classList.remove('is-approved');
-        button.dataset.proposalId = proposal.id;
-        cancelButton.hidden = true;
-        newProposalButton.hidden = true;
-      } else if (proposal.status === 'canceled') {
-        button.textContent = 'ĐỀ XUẤT';
-        button.disabled = false;
-        button.classList.remove('is-approved', 'is-rejected');
-        delete button.dataset.proposalId;
-        cancelButton.hidden = true;
-        newProposalButton.hidden = true;
-      } else {
-        button.textContent = 'XEM ĐỀ XUẤT';
-        button.disabled = false;
-        button.classList.remove('is-approved');
-        button.classList.remove('is-rejected');
-        button.dataset.proposalId = proposal.id;
-        cancelButton.hidden = false;
-        cancelButton.dataset.cancelProposal = proposal.id;
-        newProposalButton.hidden = true;
+        if (newProposalButton) newProposalButton.hidden = false;
       }
     }
   });
@@ -247,6 +155,21 @@ form.addEventListener('submit', async (event) => {
 document.querySelectorAll('[data-open-proposal]').forEach((button) => {
   button.addEventListener('click', () => {
     const type = button.dataset.openProposal;
+    if (button.hasAttribute('data-proposal-list-trigger')) {
+      const typedProposals = proposals.filter((proposal) => proposal.type === type);
+      modalTitle.textContent = `Danh sách ${typeLabels[type] || 'đề xuất'}`;
+      form.hidden = true;
+      detail.hidden = false;
+      detail.innerHTML = typedProposals.length
+        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.status === 'pending' ? `<button type="button" class="proposal-cancel-button" data-detail-cancel="${proposal.id}">HỦY ĐỀ XUẤT</button>` : ''}</article>`).join('')
+        : '<p>Chưa có đề xuất nào.</p>';
+      detail.onclick = (event) => {
+        const cancelButton = event.target.closest('[data-detail-cancel]');
+        if (cancelButton) cancelProposal(cancelButton.dataset.detailCancel, cancelButton).catch(() => {});
+      };
+      modal.hidden = false;
+      return;
+    }
     const proposal = proposals.find((item) => item.id === button.dataset.proposalId && !isProposalExpired(item) && item.status !== 'approved');
     if (!proposal && button.dataset.proposalId) {
       delete button.dataset.proposalId;
