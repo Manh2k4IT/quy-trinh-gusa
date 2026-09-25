@@ -17,12 +17,12 @@ window.playProposalVoiceTest = () => {
 };
 
 function showProposalPermissionPrompt(user) {
-  const accountKey = user?.id || user?.email || 'default';
+  const accountKey = user?.email || 'default';
   const promptSeenKey = `gusa-proposal-permission-prompt-seen:${accountKey}`;
   if (document.querySelector('[data-proposal-permission-prompt]') || localStorage.getItem(promptSeenKey) === 'true') return;
   const notificationState = 'Notification' in window ? Notification.permission : 'unsupported';
   const soundState = proposalAudioEnabled ? 'granted' : 'default';
-  if (notificationState === 'granted' && soundState === 'granted') return;
+  if (soundState === 'granted') return;
   localStorage.setItem(promptSeenKey, 'true');
   const prompt = document.createElement('div');
   prompt.className = 'proposal-permission-prompt';
