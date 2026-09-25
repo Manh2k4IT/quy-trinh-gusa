@@ -125,17 +125,33 @@ async function load(showFeedback = false) {
   }
 }
 
-async function update(id, status) {
-  const response = await fetch('/api/proposals/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
-  if (!response.ok) return;
-  await load();
+async function update(id, status, button) {
+  if (button) {
+    button.disabled = true;
+    button.textContent = status === 'approved' ? 'ĐANG DUYỆT...' : 'ĐANG TỪ CHỐI...';
+  }
+  try {
+    const response = await fetch('/api/proposals/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
+    if (!response.ok) throw new Error('Không thể cập nhật trạng thái đề xuất.');
+    const proposal = proposals.find((item) => item.id === id);
+    if (proposal) proposal.status = status;
+    renderSummary();
+    render();
+    load().catch(() => {});
+  } catch (error) {
+    if (button) {
+      button.disabled = false;
+      button.textContent = status === 'approved' ? 'Duyệt' : 'Từ chối';
+    }
+    throw error;
+  }
 }
 
 list.addEventListener('click', (event) => {
   const approve = event.target.closest('[data-approve]');
   const reject = event.target.closest('[data-reject]');
-  if (approve) update(approve.dataset.approve, 'approved');
-  if (reject) update(reject.dataset.reject, 'rejected');
+  if (approve) update(approve.dataset.approve, 'approved', approve).catch(() => {});
+  if (reject) update(reject.dataset.reject, 'rejected', reject).catch(() => {});
 });
 search.addEventListener('input', render);
 filter.addEventListener('change', render);

@@ -246,3 +246,4 @@ modal?.addEventListener('click', (event) => {
 document.querySelector('[data-proposal-refresh]')?.addEventListener('click', () => loadProposals().catch((error) => { status.textContent = error.message; }));
 
 loadProposals().catch((error) => { if (list) list.innerHTML = `<span class="proposal-status">${error.message}</span>`; });
+setInterval(() => loadProposals().catch(() => {}), 5000);
