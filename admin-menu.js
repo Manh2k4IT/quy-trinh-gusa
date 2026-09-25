@@ -17,10 +17,11 @@ window.playProposalVoiceTest = () => {
 };
 
 function showProposalPermissionPrompt() {
-  if (document.querySelector('[data-proposal-permission-prompt]')) return;
+  if (document.querySelector('[data-proposal-permission-prompt]') || localStorage.getItem('gusa-proposal-permission-prompt-seen') === 'true') return;
   const notificationState = 'Notification' in window ? Notification.permission : 'unsupported';
   const soundState = proposalAudioEnabled ? 'granted' : 'default';
   if (notificationState === 'granted' && soundState === 'granted') return;
+  localStorage.setItem('gusa-proposal-permission-prompt-seen', 'true');
   const prompt = document.createElement('div');
   prompt.className = 'proposal-permission-prompt';
   prompt.dataset.proposalPermissionPrompt = '';
@@ -118,9 +119,11 @@ function initializeSharedProposalNotifications() {
       try {
         const proposal = JSON.parse(event.data);
         if (proposal.status !== 'pending') return;
-        if (knownIds.has(proposal.id)) return;
+        const storedIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
+        if (knownIds.has(proposal.id) || storedIds.has(proposal.id)) return;
         knownIds.add(proposal.id);
-        localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...knownIds]));
+        storedIds.add(proposal.id);
+        localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...storedIds]));
         showNotifications([proposal]);
       } catch {}
     });
