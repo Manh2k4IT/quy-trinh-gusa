@@ -26,7 +26,7 @@
 .report-status.is-pending { color: #9a6908; background: #fff1c9; }
 .report-status.is-approved { color: #167247; background: #c9f1dc; }
 .report-status.is-rejected { color: #a52f42; background: #fde1e5; }
-@media (max-width: 650px) { .report-item { flex-direction: column; } .report-actions { align-items: stretch; } .report-actions button { width: 100%; } }
+@media (max-width: 650px) { .report-item { flex-direction: column; } .report-actions { align-items: stretch; } .report-actions button { width: 100%; min-height: 46px; padding: 0 .85rem; font-size: .86rem; touch-action: manipulation; } }
 
 .report-content { padding: clamp(1.25rem, 4vw, 3rem) clamp(1rem, 5vw, 4.5rem) 3rem; background: #f5f8fb; }
 .profile-page-heading h1 { letter-spacing: -.02em; }
