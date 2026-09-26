@@ -89,27 +89,6 @@ function renderProposals(proposals) {
   });
 }
 
-async function cancelProposal(proposalId, button) {
-  button.disabled = true;
-  button.textContent = 'ĐANG HỦY...';
-  try {
-    const response = await fetch(`/api/proposals/${encodeURIComponent(proposalId)}/cancel`, { method: 'POST' });
-    const responseText = await response.text();
-    let data = {};
-    try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; }
-    if (!response.ok) throw new Error(data.message || 'Không thể hủy đề xuất.');
-    const canceledProposal = proposals.find((proposal) => proposal.id === proposalId);
-    if (canceledProposal) canceledProposal.status = 'canceled';
-    status.textContent = 'Đã hủy đề xuất.';
-    renderProposals(proposals);
-    await loadProposals();
-  } catch (error) {
-    status.textContent = error.message;
-    button.disabled = false;
-    button.textContent = 'HỦY ĐỀ XUẤT';
-  }
-}
-
 async function loadProposals() {
   const response = await fetch('/api/proposals', { cache: 'no-store' });
   if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.' : 'Không thể tải đề xuất.');
@@ -161,12 +140,8 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.hidden = true;
       detail.hidden = false;
       detail.innerHTML = typedProposals.length
-        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.status === 'pending' ? `<button type="button" class="proposal-cancel-button" data-detail-cancel="${proposal.id}">HỦY ĐỀ XUẤT</button>` : ''}</article>`).join('')
+        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span></article>`).join('')
         : '<p>Chưa có đề xuất nào.</p>';
-      detail.onclick = (event) => {
-        const cancelButton = event.target.closest('[data-detail-cancel]');
-        if (cancelButton) cancelProposal(cancelButton.dataset.detailCancel, cancelButton).catch(() => {});
-      };
       modal.hidden = false;
       return;
     }
