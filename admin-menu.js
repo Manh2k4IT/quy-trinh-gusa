@@ -170,6 +170,16 @@ function initializeProposalApprovalNotifications() {
   });
 }
 
+function initializeMobilePush() {
+  if (!window.Capacitor?.isNativePlatform?.() || document.querySelector('[data-mobile-push-script]')) return;
+  const script = document.createElement('script');
+  script.src = '/mobile/www/push-client.bundle.js';
+  script.dataset.mobilePushScript = '';
+  script.addEventListener('load', () => window.initializeGusaMobilePush?.(), { once: true });
+  script.addEventListener('error', () => console.error('Không tải được tích hợp thông báo mobile.'), { once: true });
+  document.head.append(script);
+}
+
 if (sidebarScroll) {
   sidebarScroll.innerHTML = `
     <p class="menu-label">DANH MỤC</p>
@@ -267,6 +277,7 @@ if (sidebarScroll) {
       const isAdmin = user?.role === 'admin' || user?.role === 'ceo';
       const isCeo = user?.role === 'ceo';
       initializeProposalApprovalNotifications();
+      initializeMobilePush();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');

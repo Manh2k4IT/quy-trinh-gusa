@@ -1,0 +1,17 @@
+{
+  "appId": "vn.gusa.quytrinh.mobile",
+  "appName": "Gusa Quy Trinh",
+  "webDir": "mobile/www",
+  "server": {
+    "url": "https://quytrinh.gusa.vn",
+    "cleartext": false
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "providers": ["google.com"]
+    },
+    "FirebaseMessaging": {
+      "presentationOptions": ["alert", "badge", "sound"]
+    }
+  }
+}

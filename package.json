@@ -7,11 +7,24 @@
   "scripts": {
     "start": "node server.js",
     "desktop": "electron .",
-    "dist:win": "electron-builder --win nsis"
+    "dist:win": "electron-builder --win nsis",
+    "mobile:build": "esbuild mobile/push-client.js --bundle --format=iife --target=es2020 --outfile=mobile/www/push-client.bundle.js && esbuild mobile/native-auth.js --bundle --format=iife --target=es2020 --outfile=mobile/www/native-auth.bundle.js",
+    "mobile:convert-sounds": "node scripts/convert-notification-sounds.mjs",
+    "mobile:copy-sounds": "node scripts/copy-mobile-sounds.js",
+    "mobile:add:android": "npm run mobile:build && npm run mobile:convert-sounds && cap add android && npm run mobile:copy-sounds",
+    "mobile:add:ios": "npm run mobile:build && npm run mobile:convert-sounds && cap add ios && npm run mobile:copy-sounds",
+    "mobile:sync": "npm run mobile:build && npm run mobile:convert-sounds && npm run mobile:copy-sounds && cap sync",
+    "mobile:open:android": "npm run mobile:sync && cap open android",
+    "mobile:open:ios": "npm run mobile:sync && cap open ios"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "electron": "^38.2.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2",
+    "mpg123-decoder": "^1.0.3"
   },
   "build": {
     "appId": "vn.gusa.quytrinh",
@@ -36,6 +49,18 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    }
+  },
+  "dependencies": {
+    "@capacitor-firebase/authentication": "^8.5.2",
+    "@capacitor-firebase/messaging": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "firebase": "^12.19.0",
+    "firebase-admin": "^14.5.0"
+  },
+  "overrides": {
+    "gaxios": {
+      "uuid": "^11.1.1"
     }
   }
 }

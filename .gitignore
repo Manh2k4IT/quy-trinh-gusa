@@ -6,3 +6,10 @@ attendance.json
 proposals.json
 organization-members.json
 organization-profiles.json
+push-devices.json
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/App/DerivedData/

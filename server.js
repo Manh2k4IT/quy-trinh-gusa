@@ -2,6 +2,8 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const firebaseAdmin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth");
 
 loadEnvFile();
 
@@ -29,6 +31,7 @@ const attendancePath = dataPath("attendance.json");
 const proposalsPath = dataPath("proposals.json");
 const paymentTemplatePath = dataPath("payment-template.json");
 const usersPath = dataPath("users.json");
+const pushDevicesPath = dataPath("push-devices.json");
 const users = new Map();
 const sessions = new Map();
 const proposalEventClients = new Set();
@@ -266,6 +269,73 @@ async function completeGoogleAuth(req, res) {
   redirect(res, destination, [cookie("gusa_session", sessionId, { maxAge: 60 * 60 * 8 }), cookie("google_oauth_state", "", { maxAge: 0 })]);
 }
 
+async function completeMobileAuth(req, res) {
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 16 * 1024) return send(res, 413, "Yêu cầu đăng nhập quá lớn.");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(body || "{}");
+  } catch {
+    return sendJson(res, 400, { message: "Yêu cầu đăng nhập không hợp lệ." });
+  }
+
+  const idToken = String(payload.idToken || "").trim();
+  const mode = payload.mode === "register" ? "register" : "login";
+  if (!idToken || idToken.length > 12 * 1024) return sendJson(res, 400, { message: "Thiếu thông tin đăng nhập Google." });
+
+  let profile;
+  try {
+    const firebaseAuth = getFirebaseAuth();
+    if (!firebaseAuth) return sendJson(res, 503, { message: "Đăng nhập mobile chưa được cấu hình trên máy chủ." });
+    const decodedToken = await firebaseAuth.verifyIdToken(idToken);
+    const firebaseUser = await firebaseAuth.getUser(decodedToken.uid);
+    const googleProvider = firebaseUser.providerData.find((provider) => provider.providerId === "google.com");
+    if (!googleProvider || !firebaseUser.email || !firebaseUser.emailVerified) return sendJson(res, 401, { message: "Tài khoản Google chưa được xác minh." });
+    profile = {
+      sub: googleProvider.uid,
+      email: firebaseUser.email,
+      name: firebaseUser.displayName || firebaseUser.email,
+      picture: firebaseUser.photoURL || "",
+      email_verified: firebaseUser.emailVerified,
+    };
+  } catch {
+    return sendJson(res, 401, { message: "Không xác minh được tài khoản Google trên thiết bị." });
+  }
+
+  const normalizedProfileEmail = normalizeEmail(profile.email);
+  const existingUser = users.get(profile.sub);
+  const isFixedAdmin = normalizedProfileEmail === fixedAdminEmail;
+  const invitedUser = existingUser || [...users.values()].find((user) => normalizeEmail(user.email) === normalizedProfileEmail);
+  if (!existingUser && invitedUser) users.delete(invitedUser.id);
+  if (!invitedUser && !isFixedAdmin && mode === "login") return sendJson(res, 403, { message: "Tài khoản chưa được mời vào hệ thống." });
+
+  const nextUser = {
+    id: profile.sub,
+    name: profile.name || invitedUser?.name || profile.email,
+    email: profile.email,
+    picture: profile.picture || invitedUser?.picture || existingUser?.picture || "",
+    role: isFixedAdmin ? "admin" : (invitedUser?.role || (users.size === 0 ? "admin" : "employee")),
+    status: isFixedAdmin ? "active" : (invitedUser?.status || (users.size === 0 ? "active" : "pending")),
+    updatedAt: new Date().toISOString(),
+  };
+  users.set(profile.sub, nextUser);
+  saveUsers();
+
+  const sessionId = crypto.randomBytes(32).toString("hex");
+  sessions.set(sessionId, { userId: profile.sub, createdAt: Date.now() });
+  const redirectTo = nextUser.status === "pending" ? "/pending.html" : "/organization-chart.html";
+  res.writeHead(200, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Set-Cookie": cookie("gusa_session", sessionId, { maxAge: 60 * 60 * 8 }),
+  });
+  res.end(JSON.stringify({ redirectTo }));
+}
+
 function serveStatic(req, res) {
   const requestPath = decodeURIComponent(new URL(req.url, `http://${req.headers.host}`).pathname);
   const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
@@ -438,6 +508,106 @@ function publishProposalStatusEvent(proposal) {
   });
 }
 
+function getPushDevices() {
+  try {
+    const devices = JSON.parse(fs.readFileSync(pushDevicesPath, "utf8"));
+    return Array.isArray(devices) ? devices : [];
+  } catch (error) {
+    if (error.code !== "ENOENT") console.error(error);
+    return [];
+  }
+}
+
+function savePushDevices(devices) {
+  fs.writeFileSync(pushDevicesPath, JSON.stringify(devices, null, 2));
+}
+
+async function registerPushDevice(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 401, "Unauthorized");
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  const payload = JSON.parse(body || "{}");
+  const token = String(payload.token || "").trim();
+  const platform = String(payload.platform || "");
+  if (!token || token.length > 4096 || !["android", "ios"].includes(platform)) return send(res, 400, "Thông tin thiết bị không hợp lệ.");
+  const devices = getPushDevices().filter((device) => device.token !== token);
+  devices.push({ token, platform, userId: getAttendanceUserKey(currentUser), updatedAt: new Date().toISOString() });
+  savePushDevices(devices);
+  sendJson(res, 201, { registered: true });
+}
+
+async function unregisterPushDevice(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 401, "Unauthorized");
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  const token = String(JSON.parse(body || "{}").token || "").trim();
+  if (!token) return send(res, 400, "Thiếu token thiết bị.");
+  const userId = getAttendanceUserKey(currentUser);
+  savePushDevices(getPushDevices().filter((device) => device.token !== token || device.userId !== userId));
+  sendJson(res, 200, { removed: true });
+}
+
+function getFirebaseApp() {
+  const serviceAccountValue = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountValue) return null;
+  let serviceAccount;
+  try {
+    serviceAccount = JSON.parse(serviceAccountValue);
+  } catch (error) {
+    console.error("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON:", error.message);
+    return null;
+  }
+  const firebaseApp = firebaseAdmin.apps.find((app) => app.name === "gusa-push") || firebaseAdmin.initializeApp({
+    credential: firebaseAdmin.credential.cert(serviceAccount),
+  }, "gusa-push");
+  return firebaseApp;
+}
+
+function getFirebaseMessaging() {
+  const firebaseApp = getFirebaseApp();
+  return firebaseApp ? firebaseApp.messaging() : null;
+}
+
+function getFirebaseAuth() {
+  const firebaseApp = getFirebaseApp();
+  return firebaseApp ? getAuth(firebaseApp) : null;
+}
+
+async function sendProposalStatusPush(proposal) {
+  const devices = getPushDevices().filter((device) => device.userId === proposal.userId);
+  if (!devices.length) return;
+  const messaging = getFirebaseMessaging();
+  if (!messaging) {
+    console.warn("Push skipped: configure FIREBASE_SERVICE_ACCOUNT_JSON on the server.");
+    return;
+  }
+  const approved = proposal.status === "approved";
+  const soundName = approved ? "proposal_approved" : "proposal_rejected";
+  const title = approved ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối";
+  const body = approved ? "Đề xuất của bạn đã được duyệt." : "Đề xuất của bạn đã bị từ chối.";
+  const expiredTokens = new Set();
+  await Promise.all(devices.map(async (device) => {
+    try {
+      await messaging.send({
+        token: device.token,
+        notification: { title, body },
+        data: { type: "proposal-status", proposalId: proposal.id, status: proposal.status, url: "https://quytrinh.gusa.vn/proposals.html" },
+        android: {
+          priority: "high",
+          notification: { channelId: `proposal-${proposal.status}`, sound: soundName },
+        },
+        apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: `${soundName}.wav` } } },
+      });
+    } catch (error) {
+      if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(error.code)) expiredTokens.add(device.token);
+      console.error(`FCM push failed for ${device.platform}:`, error.message);
+    }
+  }));
+  if (expiredTokens.size) savePushDevices(getPushDevices().filter((device) => !expiredTokens.has(device.token)));
+}
+
 async function updateProposalStatus(req, res) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -451,6 +621,7 @@ async function updateProposalStatus(req, res) {
   proposal.reviewedAt = new Date().toISOString();
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
   publishProposalStatusEvent(proposal);
+  sendProposalStatusPush(proposal).catch((error) => console.error("Proposal push failed:", error));
   sendJson(res, 200, { proposal });
 }
 
@@ -751,8 +922,11 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
+    if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
     if (req.url === "/auth/logout") return logout(res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
+    if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
+    if (req.url === "/api/push/devices" && req.method === "DELETE") return await unregisterPushDevice(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/attendance-overview")) return serveAttendanceOverview(req, res);
     if (req.method === "POST" && req.url === "/api/attendance-overview/status") return await updateAttendanceOverviewStatus(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/attendance")) return serveAttendance(req, res);
