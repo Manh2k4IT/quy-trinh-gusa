@@ -59,13 +59,13 @@
 .proposal-detail-status.is-rejected, .proposal-detail-status.is-canceled { color: #a52f42; }
 .proposal-list-panel[hidden], .proposal-cards[hidden] { display: none; }
 .proposal-card-actions { position: absolute; top: 50%; right: 5%; z-index: 2; display: flex; align-items: center; gap: .55rem; width: auto; transform: translateY(-50%); }
-.proposal-cta { position: static; min-width: 178px; min-height: 47px; border: 0; color: #fff; background: linear-gradient(100deg, #1675d1, #0752a5); cursor: pointer; font: inherit; font-size: 1.3rem; font-weight: 800; }
+.proposal-cta { position: static; min-width: 178px; min-height: 47px; border: 0; color: #fff; background: linear-gradient(100deg, #1675d1, #0752a5); cursor: pointer; font: inherit; font-size: 1.3rem; font-weight: 800; transition: filter .15s ease; }
 .proposal-cancel-button { min-height: 47px; border: 1px solid #ffc6c6; border-radius: 7px; padding: 0 .9rem; color: #a52f42; background: #fff4f4; cursor: pointer; font: inherit; font-size: .75rem; font-weight: 800; white-space: nowrap; }
 .proposal-new-button { min-width: 110px; min-height: 47px; border: 1px solid #d9262e; border-radius: 7px; padding: 0 1rem; color: #fff; background: #e52b33; cursor: pointer; font: inherit; font-size: .85rem; font-weight: 800; white-space: nowrap; }
 .proposal-new-button:hover { border-color: #bd1e27; background: #bd1e27; }
 .proposal-cancel-button:hover { background: #ffe6e6; }
 .proposal-cancel-button[hidden], .proposal-new-button[hidden] { display: none; }
-.proposal-cta:hover { filter: brightness(1.08); transform: translateY(-50%) scale(1.02); }
+.proposal-cta:hover { filter: brightness(1.05); }
 .proposal-cta.is-approved, .proposal-cta.is-approved:hover { color: #167247; background: #c9f1dc; box-shadow: inset 0 0 0 1px #8bd7ad; cursor: default; filter: none; transform: translateY(-50%); }
 .proposal-cta.is-rejected, .proposal-cta.is-rejected:hover { color: #a52f42; background: #fde1e5; box-shadow: inset 0 0 0 1px #e9a6b2; cursor: default; filter: none; transform: translateY(-50%); }
 .proposal-history { margin-top: 1.5rem; border: 1px solid #dce5f0; padding: 1rem; background: #fff; }
@@ -112,4 +112,4 @@
 .is-leave { background: linear-gradient(110deg, #62d8d2, #1b79bf 60%, #174a9e); }
 .is-unpaid { background: linear-gradient(110deg, #5ed4dc, #286bc2 60%, #323b9d); }
 @media (max-width: 760px) { .proposal-content { padding: 1.2rem 1rem 2rem; } .proposal-grid { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .proposal-hero { min-height: 345px; padding: 4.2rem 1rem 1rem; } .proposal-ribbon { max-width: calc(100% - .5rem); padding-left: .8rem; padding-right: 1.7rem; font-size: .98rem; } .proposal-note { width: 100%; font-size: .68rem; } .proposal-card-actions { top: auto; right: 1rem; bottom: 1rem; width: calc(100% - 2rem); transform: none; } .proposal-cta, .proposal-cancel-button { flex: 1; min-width: 0; min-height: 42px; font-size: .82rem; } .proposal-card-actions:has(.proposal-cancel-button[hidden]) { width: auto; } .proposal-cta:hover { transform: scale(1.02); } }
+@media (max-width: 760px) { .proposal-hero { min-height: 345px; padding: 4.2rem 1rem 1rem; } .proposal-ribbon { max-width: calc(100% - .5rem); padding-left: .8rem; padding-right: 1.7rem; font-size: .98rem; } .proposal-note { width: 100%; font-size: .68rem; } .proposal-card-actions { top: auto; right: 1rem; bottom: 1rem; width: calc(100% - 2rem); transform: none; } .proposal-cta, .proposal-cancel-button { flex: 1; min-width: 0; min-height: 42px; font-size: .82rem; } .proposal-card-actions:has(.proposal-cancel-button[hidden]) { width: auto; } }
