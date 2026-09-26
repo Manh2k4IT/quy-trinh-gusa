@@ -275,7 +275,10 @@ function serveStatic(req, res) {
   fs.readFile(filePath, (error, data) => {
     if (error) return send(res, 404, "Not found");
     const extension = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { "Content-Type": mimeTypes[extension] || "application/octet-stream" });
+    res.writeHead(200, {
+      "Content-Type": mimeTypes[extension] || "application/octet-stream",
+      "Cache-Control": "no-store, max-age=0",
+    });
     res.end(data);
   });
 }
