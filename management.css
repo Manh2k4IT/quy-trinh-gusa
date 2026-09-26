@@ -342,6 +342,7 @@ a {
 
 .sidebar-account {
   display: flex;
+  flex-shrink: 0;
   min-height: 65px;
   align-items: center;
   gap: 0.55rem;
@@ -3432,10 +3433,13 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
 
   .sidebar {
     position: fixed;
-    inset: 0 auto 0 0;
+    inset: 0 auto auto 0;
     z-index: 10;
     width: min(78vw, 300px);
     flex-basis: auto;
+    height: 100vh;
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     transform: translateX(-104%);
     transition: transform 180ms ease;
     box-shadow: 12px 0 26px rgba(16, 30, 45, 0.18);
