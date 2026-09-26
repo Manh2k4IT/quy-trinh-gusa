@@ -3,6 +3,7 @@ const proposalVoiceAudios = {
   general: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3'),
   payment: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3'),
   approved: new Audio('de_xuat_cua_ban_da_duoc_duyet_0f638daa-fee3-4942-adb5-f8242adc7a72 (1).mp3'),
+  rejected: new Audio('de_xuat_cua_ban_da_bi_tu_choi_2a0d6172-489b-4f49-aac2-54f0f765504b.mp3'),
 };
 Object.values(proposalVoiceAudios).forEach((audio) => { audio.preload = 'auto'; });
 let proposalAudioEnabled = localStorage.getItem('gusa-proposal-audio-enabled') !== 'false';
@@ -69,6 +70,7 @@ window.speakProposalNotification = (proposal) => {
 };
 
 window.speakApprovedProposal = () => playProposalVoice(proposalVoiceAudios.approved);
+window.speakRejectedProposal = () => playProposalVoice(proposalVoiceAudios.rejected);
 
 window.claimProposalNotification = async (proposalId) => {
   const claim = async () => {
@@ -163,6 +165,7 @@ function initializeProposalApprovalNotifications() {
     try {
       const proposal = JSON.parse(event.data);
       if (proposal.status === 'approved') window.speakApprovedProposal?.(proposal);
+      else if (proposal.status === 'rejected') window.speakRejectedProposal?.(proposal);
     } catch {}
   });
 }
