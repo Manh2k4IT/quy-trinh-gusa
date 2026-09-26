@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, Notification, Tray, ipcMain, session, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
@@ -122,8 +122,18 @@ function createWindow() {
 }
 
 ipcMain.handle("server:get-url", (event) => isSetupFrame(event) ? readServerUrl() : "");
+const isTrustedAppFrame = (event) => normalizeServerUrl(event.senderFrame?.url) === readServerUrl();
 ipcMain.on("app:show-window", (event) => {
-  if (normalizeServerUrl(event.senderFrame?.url) === readServerUrl()) showMainWindow();
+  if (isTrustedAppFrame(event)) showMainWindow();
+});
+ipcMain.on("app:notify", (event, payload = {}) => {
+  if (!isTrustedAppFrame(event) || !Notification.isSupported()) return;
+  const notification = new Notification({
+    title: String(payload.title || "Gusa Quy Trinh").slice(0, 100),
+    body: String(payload.body || "").slice(0, 300),
+  });
+  notification.on("click", showMainWindow);
+  notification.show();
 });
 ipcMain.handle("server:save-url", async (event, value) => {
   if (!isSetupFrame(event)) return { ok: false, error: "Yêu cầu không hợp lệ." };

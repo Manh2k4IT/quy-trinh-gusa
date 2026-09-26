@@ -107,7 +107,9 @@ function initializeSharedProposalNotifications() {
       if (notificationCount) notificationCount.hidden = true;
       notificationButton.classList.remove('is-notifying');
     }, 5000);
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (window.desktopSettings?.notify) {
+      window.desktopSettings.notify({ title: 'Có đề xuất mới', body: formatProposal(newProposals[0]) });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification('Có đề xuất mới', { body: formatProposal(newProposals[0]), tag: 'gusa-proposal' });
       notification.onclick = () => window.desktopSettings?.showApp?.();
     }
