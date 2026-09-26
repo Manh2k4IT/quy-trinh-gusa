@@ -6,7 +6,8 @@ const crypto = require("node:crypto");
 loadEnvFile();
 
 const port = Number(process.env.PORT || 5500);
-const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${port}/auth/callback`;
+const publicUrl = process.env.RENDER_EXTERNAL_URL;
+const redirectUri = process.env.GOOGLE_REDIRECT_URI || (publicUrl ? `${publicUrl}/auth/callback` : `http://localhost:${port}/auth/callback`);
 const fixedAdminEmail = "manh98627@gmail.com";
 const dataDirectory = process.env.DATA_DIR || (process.env.RENDER ? "/var/data" : process.cwd());
 

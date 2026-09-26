@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kết nối Gusa Quy Trình</title>
+    <link rel="stylesheet" href="setup.css" />
+    <script src="setup.js" defer></script>
+  </head>
+  <body>
+    <main class="setup-panel">
+      <div class="brand-mark" aria-hidden="true">G</div>
+      <p class="eyebrow">GUSA · QUY TRÌNH</p>
+      <h1>Kết nối hệ thống</h1>
+      <p class="description">Nhập địa chỉ máy chủ do quản trị viên cung cấp để sử dụng hệ thống chung.</p>
+      <form id="server-form">
+        <label for="server-url">Địa chỉ máy chủ</label>
+        <input id="server-url" name="server-url" type="url" placeholder="https://ten-may-chu.onrender.com" autocomplete="url" required />
+        <p id="form-error" class="form-error" role="alert" hidden></p>
+        <button id="connect-button" type="submit">Kết nối</button>
+      </form>
+      <p class="footnote">Địa chỉ này được lưu trên máy tính của bạn.</p>
+    </main>
+  </body>
+</html>

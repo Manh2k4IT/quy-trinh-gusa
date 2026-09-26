@@ -1,5 +1,6 @@
 .env
 node_modules/
+dist/
 users.json
 attendance.json
 proposals.json

@@ -107,7 +107,10 @@ function initializeSharedProposalNotifications() {
       if (notificationCount) notificationCount.hidden = true;
       notificationButton.classList.remove('is-notifying');
     }, 5000);
-    if ('Notification' in window && Notification.permission === 'granted') new Notification('Có đề xuất mới', { body: formatProposal(newProposals[0]), tag: 'gusa-proposal' });
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const notification = new Notification('Có đề xuất mới', { body: formatProposal(newProposals[0]), tag: 'gusa-proposal' });
+      notification.onclick = () => window.desktopSettings?.showApp?.();
+    }
   };
   notificationButton.addEventListener('click', () => {
     if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
