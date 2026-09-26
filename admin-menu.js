@@ -2,6 +2,7 @@ const sidebarScroll = document.querySelector('.sidebar-scroll');
 const proposalVoiceAudios = {
   general: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3'),
   payment: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3'),
+  approved: new Audio('de_xuat_cua_ban_da_duoc_duyet_0f638daa-fee3-4942-adb5-f8242adc7a72 (1).mp3'),
 };
 Object.values(proposalVoiceAudios).forEach((audio) => { audio.preload = 'auto'; });
 let proposalAudioEnabled = localStorage.getItem('gusa-proposal-audio-enabled') !== 'false';
@@ -43,9 +44,8 @@ function showProposalPermissionPrompt(user, force = false) {
 
 window.showProposalPermissionPrompt = showProposalPermissionPrompt;
 
-window.speakProposalNotification = (proposal) => {
-  if (!proposal || !proposalAudioEnabled) return;
-  const proposalVoiceAudio = proposal.type === 'payment' ? proposalVoiceAudios.payment : proposalVoiceAudios.general;
+function playProposalVoice(proposalVoiceAudio) {
+  if (!proposalVoiceAudio || !proposalAudioEnabled) return;
   let completedPlays = 0;
   proposalVoiceAudio.pause();
   proposalVoiceAudio.currentTime = 0;
@@ -61,7 +61,14 @@ window.speakProposalNotification = (proposal) => {
   proposalVoiceAudio.play().catch(() => {
     showProposalPermissionPrompt(undefined, true);
   });
+}
+
+window.speakProposalNotification = (proposal) => {
+  if (!proposal) return;
+  playProposalVoice(proposal.type === 'payment' ? proposalVoiceAudios.payment : proposalVoiceAudios.general);
 };
+
+window.speakApprovedProposal = () => playProposalVoice(proposalVoiceAudios.approved);
 
 window.claimProposalNotification = async (proposalId) => {
   const claim = async () => {
@@ -147,6 +154,17 @@ function initializeSharedProposalNotifications() {
     });
   }
   setInterval(() => poll().catch(() => {}), 30000);
+}
+
+function initializeProposalApprovalNotifications() {
+  if (!('EventSource' in window) || window.proposalApprovalEvents) return;
+  window.proposalApprovalEvents = new EventSource('/api/proposals/events');
+  window.proposalApprovalEvents.addEventListener('proposal-status', (event) => {
+    try {
+      const proposal = JSON.parse(event.data);
+      if (proposal.status === 'approved') window.speakApprovedProposal?.(proposal);
+    } catch {}
+  });
 }
 
 if (sidebarScroll) {
@@ -245,6 +263,7 @@ if (sidebarScroll) {
       }
       const isAdmin = user?.role === 'admin' || user?.role === 'ceo';
       const isCeo = user?.role === 'ceo';
+      initializeProposalApprovalNotifications();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');

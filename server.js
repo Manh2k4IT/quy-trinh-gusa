@@ -416,16 +416,26 @@ function serveProposals(req, res) {
 
 function serveProposalEvents(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!currentUser || currentUser.status !== "active") return send(res, 401, "Unauthorized");
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
   res.write("event: connected\ndata: {}\n\n");
-  proposalEventClients.add(res);
-  req.on("close", () => proposalEventClients.delete(res));
+  const client = { response: res, userId: getAttendanceUserKey(currentUser), canReview: isManagementUser(currentUser) };
+  proposalEventClients.add(client);
+  req.on("close", () => proposalEventClients.delete(client));
 }
 
 function publishProposalEvent(proposal) {
   const payload = `event: proposal\ndata: ${JSON.stringify(proposal)}\n\n`;
-  proposalEventClients.forEach((client) => client.write(payload));
+  proposalEventClients.forEach((client) => {
+    if (client.canReview) client.response.write(payload);
+  });
+}
+
+function publishProposalStatusEvent(proposal) {
+  const payload = `event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type })}\n\n`;
+  proposalEventClients.forEach((client) => {
+    if (client.userId === proposal.userId) client.response.write(payload);
+  });
 }
 
 async function updateProposalStatus(req, res) {
@@ -440,6 +450,7 @@ async function updateProposalStatus(req, res) {
   proposal.status = payload.status;
   proposal.reviewedAt = new Date().toISOString();
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
+  publishProposalStatusEvent(proposal);
   sendJson(res, 200, { proposal });
 }
 
