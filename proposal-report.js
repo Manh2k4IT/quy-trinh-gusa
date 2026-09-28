@@ -1,6 +1,21 @@
 const list = document.querySelector('[data-proposal-list]');
 const search = document.querySelector('[data-proposal-search]');
 const filter = document.querySelector('[data-proposal-status-filter]');
+const dayFilter = document.createElement('select');
+dayFilter.dataset.proposalDayFilter = '';
+dayFilter.setAttribute('aria-label', 'Lọc theo ngày gửi đề xuất');
+for (let daysAgo = 0; daysAgo <= 30; daysAgo += 1) {
+  const option = document.createElement('option');
+  option.value = String(daysAgo);
+  option.textContent = daysAgo === 0 ? 'Hôm nay' : `${daysAgo} ngày trước`;
+  dayFilter.append(option);
+}
+const allDaysOption = document.createElement('option');
+allDaysOption.value = 'all';
+allDaysOption.textContent = 'Tất cả ngày';
+dayFilter.append(allDaysOption);
+document.querySelector('.report-toolbar')?.insertBefore(dayFilter, filter);
+dayFilter.value = '0';
 const refreshButton = document.querySelector('[data-proposal-refresh]');
 const typeTabs = document.querySelectorAll('[data-proposal-type]');
 const summaryTotal = document.querySelector('[data-report-total]');
@@ -99,6 +114,26 @@ function relativeTime(proposal) {
   return `${days} ngày trước`;
 }
 
+function vietnamDateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const dateParts = Object.fromEntries(parts.map(({ type, value: partValue }) => [type, partValue]));
+  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+}
+
+function proposalDayOffset(proposal) {
+  const proposalDate = proposal.createdAt ? vietnamDateKey(proposal.createdAt) : proposal.date;
+  const today = vietnamDateKey(new Date());
+  if (!proposalDate || !today) return null;
+  return Math.floor((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${proposalDate}T00:00:00Z`)) / 86400000);
+}
+
 function appendDetailField(label, value) {
   if (!value) return;
   const row = document.createElement('div');
@@ -163,7 +198,14 @@ function closeProposalDetail() {
 
 function render() {
   const query = search.value.trim().toLowerCase();
-  const visible = proposals.filter((proposal) => (selectedType === 'all' || (selectedType === 'payment' ? proposal.type === 'payment' : proposal.type !== 'payment')) && (filter.value === 'all' || proposal.status === filter.value) && (!query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''}`.toLowerCase().includes(query))).sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date));
+  const visible = proposals.filter((proposal) => {
+    const dayOffset = proposalDayOffset(proposal);
+    const matchesDay = dayFilter.value === 'all' || dayOffset === Number(dayFilter.value);
+    const matchesType = selectedType === 'all' || (selectedType === 'payment' ? proposal.type === 'payment' : proposal.type !== 'payment');
+    const matchesStatus = filter.value === 'all' || proposal.status === filter.value;
+    const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''}`.toLowerCase().includes(query);
+    return matchesDay && matchesType && matchesStatus && matchesSearch;
+  }).sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date));
   list.innerHTML = visible.length ? visible.map((proposal) => {
     const isPayment = proposal.type === 'payment';
     const typeLabel = labels[proposal.type] || 'Đề xuất khác';
@@ -242,6 +284,7 @@ detailModal?.addEventListener('click', (event) => { if (event.target === detailM
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && detailModal && !detailModal.hidden) closeProposalDetail(); });
 search.addEventListener('input', render);
 filter.addEventListener('change', render);
+dayFilter.addEventListener('change', render);
 typeTabs.forEach((tab) => tab.addEventListener('click', () => {
   selectedType = tab.dataset.proposalType;
   typeTabs.forEach((item) => { item.classList.toggle('is-active', item === tab); item.setAttribute('aria-selected', String(item === tab)); });
