@@ -302,7 +302,8 @@ async function completeMobileAuth(req, res) {
       picture: firebaseUser.photoURL || "",
       email_verified: firebaseUser.emailVerified,
     };
-  } catch {
+  } catch (error) {
+    console.error("Mobile Firebase auth verification failed:", error.code || error.name || "unknown");
     return sendJson(res, 401, { message: "Không xác minh được tài khoản Google trên thiết bị." });
   }
 
