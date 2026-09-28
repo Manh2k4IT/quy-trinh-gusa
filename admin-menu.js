@@ -19,6 +19,7 @@ window.playProposalVoiceTest = () => {
 };
 
 function showProposalPermissionPrompt(user, force = false) {
+  if (window.Capacitor?.getPlatform?.() === 'android') return;
   const accountKey = user?.email || 'default';
   const promptSeenKey = `gusa-proposal-permission-prompt-seen:${accountKey}`;
   if (document.querySelector('[data-proposal-permission-prompt]') || localStorage.getItem(promptSeenKey) === 'true') return;
