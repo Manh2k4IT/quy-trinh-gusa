@@ -43,3 +43,16 @@
 .report-status.is-canceled { color: #66778d; background: #edf1f5; }
 @media (max-width: 820px) { .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }.report-toolbar { align-items: stretch; flex-wrap: wrap; }.report-tabs { width: 100%; overflow-x: auto; }.report-tabs button { flex: 1 0 auto; }.report-toolbar select { flex: 1; } }
 @media (max-width: 650px) { .report-content { padding: 1rem .8rem 2rem; }.report-summary { gap: .55rem; }.report-summary article { min-height: 72px; padding: .75rem; }.report-summary strong { font-size: 1.25rem; }.report-toolbar { padding: .35rem; }.report-list { padding-left: 1rem; }.report-item { padding: 1rem; }.report-actions { width: 100%; }.payment-meta span { flex: 1; min-width: 120px; } }
+@media (max-width: 650px) {
+	.report-item,
+	.report-item-main,
+	.report-actions { min-width: 0; max-width: 100%; }
+	.report-item { width: 100%; }
+	.report-item-main { width: 100%; overflow-wrap: anywhere; }
+	.report-item-main h2,
+	.report-item-main p,
+	.report-file,
+	.payment-meta span { overflow-wrap: anywhere; word-break: break-word; }
+	.report-file { min-width: 0; max-width: 100%; }
+	.payment-meta span { flex: 1 1 120px; min-width: 0; max-width: 100%; }
+}
