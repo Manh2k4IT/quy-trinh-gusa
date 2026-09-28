@@ -2,7 +2,7 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const firebaseAdmin = require("firebase-admin");
+const { cert, getApps, initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 
 loadEnvFile();
@@ -564,8 +564,8 @@ function getFirebaseApp() {
     console.error("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON:", error.message);
     return null;
   }
-  const firebaseApp = firebaseAdmin.apps.find((app) => app.name === "gusa-push") || firebaseAdmin.initializeApp({
-    credential: firebaseAdmin.credential.cert(serviceAccount),
+  const firebaseApp = getApps().find((app) => app.name === "gusa-push") || initializeApp({
+    credential: cert(serviceAccount),
   }, "gusa-push");
   return firebaseApp;
 }
