@@ -659,6 +659,8 @@ async function sendProposalCreatedPush(proposal) {
   if (!messaging) return;
 
   const body = `${proposal.userName || "Nhân viên"} vừa gửi ${proposal.type === "payment" ? "đề xuất thanh toán" : "đề xuất chung"}.`;
+  const soundName = proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
+  const channelId = proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
@@ -666,7 +668,7 @@ async function sendProposalCreatedPush(proposal) {
         token: device.token,
         notification: { title: "Có đề xuất mới", body },
         data: { type: "proposal-created", proposalId: proposal.id, url: "https://quytrinh.gusa.vn/proposals.html" },
-        android: { priority: "high", notification: { channelId: "proposal-created", sound: "default" } },
+        android: { priority: "high", notification: { channelId, sound: soundName } },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } },
       });
     } catch (error) {

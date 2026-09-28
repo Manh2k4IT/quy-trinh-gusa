@@ -3,6 +3,8 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const sounds = [
+  ['mobile/sounds/proposal_new_general.wav', 'proposal_new_general.wav'],
+  ['mobile/sounds/proposal_new_payment.wav', 'proposal_new_payment.wav'],
   ['mobile/sounds/proposal_approved.wav', 'proposal_approved.wav'],
   ['mobile/sounds/proposal_rejected.wav', 'proposal_rejected.wav'],
 ];

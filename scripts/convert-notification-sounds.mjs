@@ -5,6 +5,8 @@ import { MPEGDecoder } from 'mpg123-decoder';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sounds = [
+  ['ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3', 'proposal_new_general.wav'],
+  ['ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3', 'proposal_new_payment.wav'],
   ['de_xuat_cua_ban_da_duoc_duyet_0f638daa-fee3-4942-adb5-f8242adc7a72 (1).mp3', 'proposal_approved.wav'],
   ['de_xuat_cua_ban_da_bi_tu_choi_2a0d6172-489b-4f49-aac2-54f0f765504b.mp3', 'proposal_rejected.wav'],
 ];

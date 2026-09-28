@@ -4226,7 +4226,8 @@
   async function createAndroidChannels() {
     if (Capacitor.getPlatform() !== "android") return;
     await Promise.all([
-      FirebaseMessaging.createChannel({ id: "proposal-created", name: "\u0110\u1EC1 xu\u1EA5t m\u1EDBi", description: "Th\xF4ng b\xE1o \u0111\u1EC1 xu\u1EA5t m\u1EDBi c\u1EA7n xem x\xE9t", importance: 4, visibility: 1, sound: "default", vibration: true }),
+      FirebaseMessaging.createChannel({ id: "proposal-created-general-v2", name: "\u0110\u1EC1 xu\u1EA5t chung m\u1EDBi", description: "Th\xF4ng b\xE1o \u0111\u1EC1 xu\u1EA5t chung m\u1EDBi c\u1EA7n xem x\xE9t", importance: 4, visibility: 1, sound: "proposal_new_general", vibration: true }),
+      FirebaseMessaging.createChannel({ id: "proposal-created-payment-v2", name: "\u0110\u1EC1 xu\u1EA5t thanh to\xE1n m\u1EDBi", description: "Th\xF4ng b\xE1o \u0111\u1EC1 xu\u1EA5t thanh to\xE1n m\u1EDBi c\u1EA7n xem x\xE9t", importance: 4, visibility: 1, sound: "proposal_new_payment", vibration: true }),
       FirebaseMessaging.createChannel({ id: "proposal-approved", name: "\u0110\u1EC1 xu\u1EA5t \u0111\u01B0\u1EE3c duy\u1EC7t", description: "Th\xF4ng b\xE1o \u0111\u1EC1 xu\u1EA5t \u0111\xE3 \u0111\u01B0\u1EE3c duy\u1EC7t", importance: 4, visibility: 1, sound: "proposal_approved", vibration: true }),
       FirebaseMessaging.createChannel({ id: "proposal-rejected", name: "\u0110\u1EC1 xu\u1EA5t b\u1ECB t\u1EEB ch\u1ED1i", description: "Th\xF4ng b\xE1o \u0111\u1EC1 xu\u1EA5t b\u1ECB t\u1EEB ch\u1ED1i", importance: 4, visibility: 1, sound: "proposal_rejected", vibration: true })
     ]);
