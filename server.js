@@ -288,11 +288,15 @@ async function completeMobileAuth(req, res) {
   if (!idToken || idToken.length > 12 * 1024) return sendJson(res, 400, { message: "Thiếu thông tin đăng nhập Google." });
 
   let profile;
+  let verificationStage = "initialize Firebase Admin";
   try {
     const firebaseAuth = getFirebaseAuth();
     if (!firebaseAuth) return sendJson(res, 503, { message: "Đăng nhập mobile chưa được cấu hình trên máy chủ." });
+    verificationStage = "verify Firebase ID token";
     const decodedToken = await firebaseAuth.verifyIdToken(idToken);
+    verificationStage = "load Firebase user";
     const firebaseUser = await firebaseAuth.getUser(decodedToken.uid);
+    verificationStage = "check Google provider";
     const googleProvider = firebaseUser.providerData.find((provider) => provider.providerId === "google.com");
     if (!googleProvider || !firebaseUser.email || !firebaseUser.emailVerified) return sendJson(res, 401, { message: "Tài khoản Google chưa được xác minh." });
     profile = {
@@ -303,7 +307,7 @@ async function completeMobileAuth(req, res) {
       email_verified: firebaseUser.emailVerified,
     };
   } catch (error) {
-    console.error("Mobile Firebase auth verification failed:", error.code || error.name || "unknown");
+    console.error("Mobile Firebase auth verification failed at", verificationStage + ":", error.code || error.name || "unknown");
     return sendJson(res, 401, { message: "Không xác minh được tài khoản Google trên thiết bị." });
   }
 
