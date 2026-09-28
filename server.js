@@ -4,6 +4,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { cert, getApps, initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
+const { getMessaging } = require("firebase-admin/messaging");
 
 loadEnvFile();
 
@@ -32,16 +33,19 @@ const proposalsPath = dataPath("proposals.json");
 const paymentTemplatePath = dataPath("payment-template.json");
 const usersPath = dataPath("users.json");
 const pushDevicesPath = dataPath("push-devices.json");
+const sessionsPath = dataPath("sessions.json");
 const users = new Map();
 const sessions = new Map();
 const proposalEventClients = new Set();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
+const sessionMaxAgeMilliseconds = 8 * 60 * 60 * 1000;
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
 loadUsers();
+loadSessions();
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -72,6 +76,23 @@ function loadUsers() {
   } catch (error) {
     if (error.code !== "ENOENT") console.error(error);
   }
+}
+
+function loadSessions() {
+  try {
+    const savedSessions = JSON.parse(fs.readFileSync(sessionsPath, "utf8"));
+    const now = Date.now();
+    for (const [sessionId, session] of Object.entries(savedSessions)) {
+      if (session?.userId && now - session.createdAt < sessionMaxAgeMilliseconds) sessions.set(sessionId, session);
+    }
+    if (sessions.size !== Object.keys(savedSessions).length) saveSessions();
+  } catch (error) {
+    if (error.code !== "ENOENT") console.error(error);
+  }
+}
+
+function saveSessions() {
+  fs.writeFileSync(sessionsPath, JSON.stringify(Object.fromEntries(sessions), null, 2));
 }
 
 function saveUsers() {
@@ -123,7 +144,9 @@ function redirect(res, location, cookies = []) {
   res.end();
 }
 
-function logout(res) {
+function logout(req, res) {
+  const sessionId = parseCookies(req).gusa_session;
+  if (sessionId && sessions.delete(sessionId)) saveSessions();
   redirect(res, "/", [cookie("gusa_session", "", { maxAge: 0 })]);
 }
 
@@ -162,7 +185,11 @@ function oauthIsConfigured() {
 function getCurrentUser(req) {
   const sessionId = parseCookies(req).gusa_session;
   const session = sessionId ? sessions.get(sessionId) : null;
-  if (session) return users.get(session.userId) || null;
+  if (session && Date.now() - session.createdAt < sessionMaxAgeMilliseconds) return users.get(session.userId) || null;
+  if (session) {
+    sessions.delete(sessionId);
+    saveSessions();
+  }
   if (allowLocalDevAccess) {
     const localAdmin = [...users.values()].find((user) => user.email.toLowerCase() === fixedAdminEmail);
     if (localAdmin) return { ...localAdmin, role: "admin", status: "active" };
@@ -265,6 +292,7 @@ async function completeGoogleAuth(req, res) {
 
   const sessionId = crypto.randomBytes(32).toString("hex");
   sessions.set(sessionId, { userId: profile.sub, createdAt: Date.now() });
+  saveSessions();
   const destination = users.get(profile.sub).status === "pending" ? "/pending.html" : stateData.returnTo;
   redirect(res, destination, [cookie("gusa_session", sessionId, { maxAge: 60 * 60 * 8 }), cookie("google_oauth_state", "", { maxAge: 0 })]);
 }
@@ -332,6 +360,7 @@ async function completeMobileAuth(req, res) {
 
   const sessionId = crypto.randomBytes(32).toString("hex");
   sessions.set(sessionId, { userId: profile.sub, createdAt: Date.now() });
+  saveSessions();
   const redirectTo = nextUser.status === "pending" ? "/pending.html" : "/organization-chart.html";
   res.writeHead(200, {
     "Content-Type": "application/json; charset=utf-8",
@@ -529,7 +558,10 @@ function savePushDevices(devices) {
 
 async function registerPushDevice(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!currentUser || currentUser.status !== "active") return send(res, 401, "Unauthorized");
+  if (!currentUser || currentUser.status !== "active") {
+    console.warn("Push device registration rejected: no active session.");
+    return send(res, 401, "Unauthorized");
+  }
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -539,6 +571,7 @@ async function registerPushDevice(req, res) {
   const devices = getPushDevices().filter((device) => device.token !== token);
   devices.push({ token, platform, userId: getAttendanceUserKey(currentUser), updatedAt: new Date().toISOString() });
   savePushDevices(devices);
+  console.log(`Push device registered for ${platform}; total devices: ${devices.length}.`);
   sendJson(res, 201, { registered: true });
 }
 
@@ -572,7 +605,7 @@ function getFirebaseApp() {
 
 function getFirebaseMessaging() {
   const firebaseApp = getFirebaseApp();
-  return firebaseApp ? firebaseApp.messaging() : null;
+  return firebaseApp ? getMessaging(firebaseApp) : null;
 }
 
 function getFirebaseAuth() {
@@ -611,6 +644,38 @@ async function sendProposalStatusPush(proposal) {
     }
   }));
   if (expiredTokens.size) savePushDevices(getPushDevices().filter((device) => !expiredTokens.has(device.token)));
+}
+
+async function sendProposalCreatedPush(proposal) {
+  const reviewerIds = new Set([...users.values()]
+    .filter((user) => user.status === "active" && isManagementUser(user))
+    .map(getAttendanceUserKey));
+  const devices = getPushDevices().filter((device) => reviewerIds.has(device.userId));
+  if (!devices.length) {
+    console.warn("Proposal-created push skipped: no registered reviewer devices.");
+    return;
+  }
+  const messaging = getFirebaseMessaging();
+  if (!messaging) return;
+
+  const body = `${proposal.userName || "Nhân viên"} vừa gửi ${proposal.type === "payment" ? "đề xuất thanh toán" : "đề xuất chung"}.`;
+  const expiredTokens = new Set();
+  await Promise.all(devices.map(async (device) => {
+    try {
+      await messaging.send({
+        token: device.token,
+        notification: { title: "Có đề xuất mới", body },
+        data: { type: "proposal-created", proposalId: proposal.id, url: "https://quytrinh.gusa.vn/proposals.html" },
+        android: { priority: "high", notification: { channelId: "proposal-created", sound: "default" } },
+        apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } },
+      });
+    } catch (error) {
+      if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(error.code)) expiredTokens.add(device.token);
+      console.error(`FCM proposal-created push failed for ${device.platform}:`, error.code || "unknown");
+    }
+  }));
+  if (expiredTokens.size) savePushDevices(getPushDevices().filter((device) => !expiredTokens.has(device.token)));
+  console.log(`Proposal-created push processed for ${devices.length} reviewer devices.`);
 }
 
 async function updateProposalStatus(req, res) {
@@ -671,6 +736,7 @@ async function createProposal(req, res) {
   proposals.unshift(proposal);
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
   publishProposalEvent(proposal);
+  sendProposalCreatedPush(proposal).catch((error) => console.error("Proposal-created push failed:", error.code || "unknown"));
   sendJson(res, 201, { proposal });
 }
 
@@ -928,7 +994,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
     if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
-    if (req.url === "/auth/logout") return logout(res);
+    if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
     if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
     if (req.url === "/api/push/devices" && req.method === "DELETE") return await unregisterPushDevice(req, res);

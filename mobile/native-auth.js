@@ -2,6 +2,17 @@ import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 if (Capacitor.isNativePlatform()) {
+  if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+    fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!data?.user) return;
+        const destination = data.user.status === 'pending' ? '/pending.html' : '/organization-chart.html';
+        window.location.replace(destination);
+      })
+      .catch(() => {});
+  }
+
   document.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-action="login"], [data-action="register"]');
     if (!button) return;

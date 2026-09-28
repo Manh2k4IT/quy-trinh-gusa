@@ -7,6 +7,7 @@ proposals.json
 organization-members.json
 organization-profiles.json
 push-devices.json
+sessions.json
 android/app/google-services.json
 ios/App/App/GoogleService-Info.plist
 android/.gradle/
