@@ -56,3 +56,27 @@
 	.report-file { min-width: 0; max-width: 100%; }
 	.payment-meta span { flex: 1 1 120px; min-width: 0; max-width: 100%; }
 }
+
+.report-detail-modal { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 1rem; background: rgba(20, 35, 55, .52); }
+.report-detail-modal[hidden] { display: none; }
+.report-detail-dialog { position: relative; width: min(560px, 100%); max-height: min(86dvh, 760px); overflow-y: auto; border: 1px solid #dce5ef; border-radius: 14px; padding: 1.25rem; background: #fff; box-shadow: 0 22px 55px rgba(20, 35, 55, .26); }
+.report-detail-close { position: absolute; top: .75rem; right: .75rem; display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid #d9e2ec; border-radius: 50%; color: #53657a; background: #fff; cursor: pointer; font-size: 1.35rem; line-height: 1; }
+.report-detail-person { display: flex; align-items: center; gap: .85rem; min-width: 0; padding-right: 2.5rem; }
+.report-detail-avatar { display: grid; width: 54px; height: 54px; flex: 0 0 54px; place-items: center; overflow: hidden; border-radius: 50%; color: #174b8e; background: #eaf2fa; font-size: 1.2rem; font-weight: 800; }
+.report-detail-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.report-detail-person-meta { min-width: 0; }
+.report-detail-type { color: #1557a6; font-size: .68rem; font-weight: 800; text-transform: uppercase; }
+.report-detail-person h2 { margin: .15rem 0; color: #173f78; font-size: 1.05rem; overflow-wrap: anywhere; }
+.report-detail-person p { margin: 0; color: #72839a; font-size: .76rem; overflow-wrap: anywhere; }
+.report-detail-fields { display: grid; gap: .55rem; margin-top: 1.1rem; }
+.report-detail-field { display: grid; grid-template-columns: minmax(105px, .36fr) minmax(0, 1fr); gap: .7rem; border-top: 1px solid #edf1f5; padding-top: .55rem; font-size: .8rem; }
+.report-detail-field dt { color: #72839a; font-weight: 700; }
+.report-detail-field dd { min-width: 0; margin: 0; color: #263b55; overflow-wrap: anywhere; white-space: pre-wrap; }
+.report-detail-attachments { display: grid; justify-items: start; gap: .55rem; margin-top: .8rem; }
+.report-detail-attachments .report-proof { width: min(100%, 320px); height: auto; max-height: 260px; object-fit: contain; }
+.report-detail-attachments .report-file { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+	.report-detail-modal { align-items: end; padding: .5rem; }
+	.report-detail-dialog { width: 100%; max-height: 88dvh; border-radius: 14px 14px 8px 8px; padding: 1rem; }
+	.report-detail-field { grid-template-columns: 1fr; gap: .15rem; }
+}

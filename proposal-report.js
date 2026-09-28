@@ -8,6 +8,18 @@ const summaryPending = document.querySelector('[data-report-pending]');
 const summaryApproved = document.querySelector('[data-report-approved]');
 const summaryPayment = document.querySelector('[data-report-payment]');
 const labels = { late: 'Đề xuất đi trễ', 'early-leave': 'Đề xuất về sớm', 'half-day': 'Đề xuất làm 1/2 ngày', leave: 'Đề xuất nghỉ phép', 'unauthorized-leave': 'Đề xuất nghỉ không phép', payment: 'Đề xuất thanh toán' };
+const statusLabels = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', canceled: 'Đã hủy bởi nhân viên' };
+const detailModal = document.querySelector('[data-report-detail-modal]');
+const detailAvatar = document.querySelector('[data-detail-avatar]');
+const detailType = document.querySelector('[data-detail-type]');
+const detailName = document.querySelector('[data-detail-name]');
+const detailEmail = document.querySelector('[data-detail-email]');
+const detailFields = document.querySelector('[data-detail-fields]');
+const detailAttachments = document.querySelector('[data-detail-attachments]');
+const detailFile = document.querySelector('[data-detail-file]');
+const detailFileName = document.querySelector('[data-detail-file-name]');
+const detailPhoto = document.querySelector('[data-detail-photo]');
+const detailLocation = document.querySelector('[data-detail-location]');
 let proposals = [];
 let selectedType = 'all';
 let notificationInitialized = false;
@@ -87,10 +99,77 @@ function relativeTime(proposal) {
   return `${days} ngày trước`;
 }
 
+function appendDetailField(label, value) {
+  if (!value) return;
+  const row = document.createElement('div');
+  row.className = 'report-detail-field';
+  const term = document.createElement('dt');
+  term.textContent = label;
+  const description = document.createElement('dd');
+  description.textContent = value;
+  row.append(term, description);
+  detailFields.append(row);
+}
+
+function openProposalDetail(proposalId) {
+  const proposal = proposals.find((item) => item.id === proposalId);
+  if (!proposal) return;
+
+  detailType.textContent = labels[proposal.type] || 'Đề xuất khác';
+  detailName.textContent = proposal.userName || 'Nhân viên';
+  detailEmail.textContent = proposal.userEmail || '';
+  detailAvatar.replaceChildren();
+  const initial = (proposal.userName || proposal.userEmail || 'N').trim().charAt(0).toUpperCase();
+  if (proposal.userPicture) {
+    const image = document.createElement('img');
+    image.src = proposal.userPicture;
+    image.referrerPolicy = 'no-referrer';
+    image.alt = '';
+    image.onerror = () => { detailAvatar.textContent = initial; };
+    detailAvatar.append(image);
+  } else {
+    detailAvatar.textContent = initial;
+  }
+
+  detailFields.replaceChildren();
+  appendDetailField('Trạng thái', statusLabels[proposal.status] || proposal.status);
+  appendDetailField(proposal.type === 'payment' ? 'Ngày đề xuất' : 'Ngày áp dụng', dateText(proposal));
+  appendDetailField('Giờ đề xuất', proposal.time);
+  appendDetailField('Thời điểm gửi', proposal.createdAt ? new Date(proposal.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '');
+  if (proposal.category) appendDetailField('Hạng mục', proposal.category);
+  if (proposal.amount) appendDetailField('Số tiền', `${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ`);
+  appendDetailField(proposal.category ? 'Ghi chú' : 'Lý do', proposal.reason || 'Không có nội dung.');
+
+  const hasAttachment = Boolean(proposal.paymentFileData || proposal.latePhotoData || proposal.latitude);
+  detailAttachments.hidden = !hasAttachment;
+  detailFile.hidden = !proposal.paymentFileData;
+  detailPhoto.hidden = !proposal.latePhotoData;
+  detailLocation.hidden = !proposal.latitude;
+  if (proposal.paymentFileData) {
+    detailFile.href = proposal.paymentFileData;
+    detailFile.download = proposal.paymentFileName || 'bieu-mau-de-xuat';
+    detailFileName.textContent = proposal.paymentFileName || 'Tải file biểu mẫu';
+  }
+  if (proposal.latePhotoData) detailPhoto.src = proposal.latePhotoData;
+  if (proposal.latitude) detailLocation.href = `https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}`;
+
+  detailModal.hidden = false;
+  detailModal.querySelector('[data-close-report-detail]')?.focus();
+}
+
+function closeProposalDetail() {
+  detailModal.hidden = true;
+}
+
 function render() {
   const query = search.value.trim().toLowerCase();
   const visible = proposals.filter((proposal) => (selectedType === 'all' || (selectedType === 'payment' ? proposal.type === 'payment' : proposal.type !== 'payment')) && (filter.value === 'all' || proposal.status === filter.value) && (!query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''}`.toLowerCase().includes(query))).sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date));
-  list.innerHTML = visible.length ? visible.map((proposal) => `<article class="report-item ${proposal.type === 'payment' ? 'is-payment' : 'is-general'}"><div class="report-item-main"><span class="report-type">${labels[proposal.type] || 'Đề xuất khác'}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${proposal.type === 'payment' ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b>${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><div class="report-actions"><strong class="report-status is-${proposal.status}">${proposal.status === 'pending' ? 'Chờ duyệt' : proposal.status === 'approved' ? 'Đã duyệt' : proposal.status === 'canceled' ? 'Đã hủy bởi nhân viên' : 'Từ chối'}</strong>${proposal.status === 'pending' ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>` : ''}</div></article>`).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
+  list.innerHTML = visible.length ? visible.map((proposal) => {
+    const isPayment = proposal.type === 'payment';
+    const typeLabel = labels[proposal.type] || 'Đề xuất khác';
+    const statusLabel = statusLabels[proposal.status] || proposal.status;
+    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b>${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button><strong class="report-status is-${proposal.status}">${statusLabel}</strong>${proposal.status === 'pending' ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>` : ''}</div></article>`;
+  }).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
 }
 
 function renderSummary() {
@@ -151,11 +230,16 @@ async function update(id, status, button) {
 }
 
 list.addEventListener('click', (event) => {
+  const details = event.target.closest('[data-detail]');
   const approve = event.target.closest('[data-approve]');
   const reject = event.target.closest('[data-reject]');
+  if (details) { openProposalDetail(details.dataset.detail); return; }
   if (approve) update(approve.dataset.approve, 'approved', approve).catch(() => {});
   if (reject) update(reject.dataset.reject, 'rejected', reject).catch(() => {});
 });
+document.querySelector('[data-close-report-detail]')?.addEventListener('click', closeProposalDetail);
+detailModal?.addEventListener('click', (event) => { if (event.target === detailModal) closeProposalDetail(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && detailModal && !detailModal.hidden) closeProposalDetail(); });
 search.addEventListener('input', render);
 filter.addEventListener('change', render);
 typeTabs.forEach((tab) => tab.addEventListener('click', () => {

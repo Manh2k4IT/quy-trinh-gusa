@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Báo cáo đề xuất - Quy Trình</title>
     <link rel="stylesheet" href="management.css?v=20260924-10" />
-    <link rel="stylesheet" href="proposal-report.css?v=20260926-1" />
+    <link rel="stylesheet" href="proposal-report.css?v=20260928-2" />
   </head>
   <body>
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -15,7 +15,26 @@
         <section class="report-content"><div class="profile-page-heading"><div><span class="eyebrow">QUẢN TRỊ</span><h1>Báo cáo đề xuất</h1><p>Theo dõi và xử lý đề xuất của nhân viên.</p></div></div><div class="report-summary" aria-label="Tổng quan đề xuất"><article><span>Tổng đề xuất</span><strong data-report-total>0</strong></article><article class="is-pending"><span>Chờ duyệt</span><strong data-report-pending>0</strong></article><article class="is-approved"><span>Đã duyệt</span><strong data-report-approved>0</strong></article><article class="is-payment"><span>Thanh toán</span><strong data-report-payment>0</strong></article></div><div class="report-toolbar"><div class="report-tabs" role="tablist" aria-label="Nhóm đề xuất"><button type="button" class="is-active" data-proposal-type="all" role="tab" aria-selected="true">Tất cả</button><button type="button" data-proposal-type="general" role="tab" aria-selected="false">Đề xuất chung</button><button type="button" data-proposal-type="payment" role="tab" aria-selected="false">Đề xuất thanh toán</button></div><select data-proposal-status-filter aria-label="Lọc trạng thái"><option value="all">Tất cả trạng thái</option><option value="pending">Chờ duyệt</option><option value="approved">Đã duyệt</option><option value="rejected">Từ chối</option><option value="canceled">Đã hủy</option></select><button type="button" class="report-refresh" data-proposal-refresh>Làm mới</button></div><section class="report-list" data-proposal-list><p>Đang tải dữ liệu...</p></section></section>
       </main>
     </div>
+    <div class="report-detail-modal" data-report-detail-modal hidden>
+      <section class="report-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="report-detail-title">
+        <button class="report-detail-close" type="button" data-close-report-detail aria-label="Đóng">×</button>
+        <header class="report-detail-person">
+          <div class="report-detail-avatar" data-detail-avatar aria-hidden="true"></div>
+          <div class="report-detail-person-meta">
+            <span class="report-detail-type" data-detail-type></span>
+            <h2 id="report-detail-title" data-detail-name></h2>
+            <p data-detail-email></p>
+          </div>
+        </header>
+        <dl class="report-detail-fields" data-detail-fields></dl>
+        <div class="report-detail-attachments" data-detail-attachments hidden>
+          <a class="report-file" data-detail-file hidden><span>FILE ĐÍNH KÈM</span><b data-detail-file-name></b></a>
+          <img class="report-proof" data-detail-photo alt="Ảnh xác nhận đi trễ" hidden>
+          <a class="report-location" data-detail-location target="_blank" rel="noopener" hidden>Xem vị trí đã chia sẻ</a>
+        </div>
+      </section>
+    </div>
     <script src="admin-menu.js?v=20260925-26"></script>
-    <script src="proposal-report.js?v=20260925-10"></script>
+    <script src="proposal-report.js?v=20260928-2"></script>
   </body>
 </html>

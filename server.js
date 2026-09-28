@@ -515,7 +515,16 @@ function serveProposals(req, res) {
     ? isManagementUser(currentUser) ? getProposals() : null
     : getProposals().filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser));
   if (!proposals) return send(res, 403, "Forbidden");
-  sendJson(res, 200, { proposals });
+  const enrichedProposals = proposals.map((proposal) => {
+    const proposer = users.get(proposal.userId);
+    return {
+      ...proposal,
+      userName: proposal.userName || proposer?.name || proposer?.email || "Nhân viên",
+      userEmail: proposal.userEmail || proposer?.email || "",
+      userPicture: proposal.userPicture || proposer?.picture || "",
+    };
+  });
+  sendJson(res, 200, { proposals: enrichedProposals });
 }
 
 function serveProposalEvents(req, res) {
