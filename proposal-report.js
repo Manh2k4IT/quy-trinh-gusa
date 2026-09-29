@@ -1,6 +1,13 @@
 const list = document.querySelector('[data-proposal-list]');
 const search = document.querySelector('[data-proposal-search]');
 const filter = document.querySelector('[data-proposal-status-filter]');
+const isPaymentReport = new URLSearchParams(window.location.search).get('type') === 'payment';
+if (isPaymentReport) {
+  document.title = 'Báo cáo đề xuất thanh toán - Quy Trình';
+  document.querySelector('.breadcrumbs strong').textContent = 'Báo cáo đề xuất thanh toán';
+  document.querySelector('.profile-page-heading h1').textContent = 'Báo cáo đề xuất thanh toán';
+  document.querySelector('.profile-page-heading p').textContent = 'Theo dõi và xử lý đề xuất thanh toán của nhân viên.';
+}
 const dayFilter = document.createElement('select');
 dayFilter.dataset.proposalDayFilter = '';
 dayFilter.setAttribute('aria-label', 'Lọc theo ngày gửi đề xuất');
@@ -15,12 +22,11 @@ allDaysOption.value = 'all';
 allDaysOption.textContent = 'Tất cả ngày';
 dayFilter.append(allDaysOption);
 document.querySelector('.report-toolbar')?.insertBefore(dayFilter, filter);
+dayFilter.value = isPaymentReport ? 'all' : '0';
 const refreshButton = document.querySelector('[data-proposal-refresh]');
-const typeTabs = document.querySelectorAll('[data-proposal-type]');
 const summaryTotal = document.querySelector('[data-report-total]');
 const summaryPending = document.querySelector('[data-report-pending]');
 const summaryApproved = document.querySelector('[data-report-approved]');
-const summaryPayment = document.querySelector('[data-report-payment]');
 const labels = { late: 'Đề xuất đi trễ', 'early-leave': 'Đề xuất về sớm', 'half-day': 'Đề xuất làm 1/2 ngày', leave: 'Đề xuất nghỉ phép', 'unauthorized-leave': 'Đề xuất nghỉ không phép', payment: 'Đề xuất thanh toán' };
 const statusLabels = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', canceled: 'Đã hủy bởi nhân viên' };
 const detailModal = document.querySelector('[data-report-detail-modal]');
@@ -35,15 +41,8 @@ const detailFileName = document.querySelector('[data-detail-file-name]');
 const detailPhoto = document.querySelector('[data-detail-photo]');
 const detailLocation = document.querySelector('[data-detail-location]');
 let proposals = [];
-let selectedType = new URLSearchParams(window.location.search).get('type') === 'payment' ? 'payment' : 'all';
 let notificationInitialized = false;
 let notificationTimer;
-dayFilter.value = selectedType === 'payment' ? 'all' : '0';
-typeTabs.forEach((tab) => {
-  const isSelected = tab.dataset.proposalType === selectedType;
-  tab.classList.toggle('is-active', isSelected);
-  tab.setAttribute('aria-selected', String(isSelected));
-});
 
 const topbar = document.querySelector('.topbar');
 const notificationButton = document.createElement('button');
@@ -206,7 +205,7 @@ function render() {
   const visible = proposals.filter((proposal) => {
     const dayOffset = proposalDayOffset(proposal);
     const matchesDay = dayFilter.value === 'all' || dayOffset === Number(dayFilter.value);
-    const matchesType = selectedType === 'all' || (selectedType === 'payment' ? proposal.type === 'payment' : proposal.type !== 'payment');
+    const matchesType = isPaymentReport ? proposal.type === 'payment' : proposal.type !== 'payment';
     const matchesStatus = filter.value === 'all' || proposal.status === filter.value;
     const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''}`.toLowerCase().includes(query);
     return matchesDay && matchesType && matchesStatus && matchesSearch;
@@ -220,10 +219,10 @@ function render() {
 }
 
 function renderSummary() {
-  summaryTotal.textContent = proposals.length;
-  summaryPending.textContent = proposals.filter((proposal) => proposal.status === 'pending').length;
-  summaryApproved.textContent = proposals.filter((proposal) => proposal.status === 'approved').length;
-  summaryPayment.textContent = proposals.filter((proposal) => proposal.type === 'payment').length;
+  const reportProposals = proposals.filter((proposal) => isPaymentReport ? proposal.type === 'payment' : proposal.type !== 'payment');
+  summaryTotal.textContent = reportProposals.length;
+  summaryPending.textContent = reportProposals.filter((proposal) => proposal.status === 'pending').length;
+  summaryApproved.textContent = reportProposals.filter((proposal) => proposal.status === 'approved').length;
 }
 
 async function load(showFeedback = false) {
@@ -290,11 +289,6 @@ document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && 
 search.addEventListener('input', render);
 filter.addEventListener('change', render);
 dayFilter.addEventListener('change', render);
-typeTabs.forEach((tab) => tab.addEventListener('click', () => {
-  selectedType = tab.dataset.proposalType;
-  typeTabs.forEach((item) => { item.classList.toggle('is-active', item === tab); item.setAttribute('aria-selected', String(item === tab)); });
-  render();
-}));
 refreshButton.addEventListener('click', () => load(true).catch((error) => { list.innerHTML = `<p>${error.message}</p>`; }));
 load().catch((error) => { list.innerHTML = `<p>${error.message}</p>`; });
 setInterval(() => load().catch(() => {}), 3000);
