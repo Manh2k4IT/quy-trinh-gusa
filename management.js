@@ -12,7 +12,7 @@ async function loadGoogleAvatar() {
   const data = await response.json();
   if (!data.user) return;
   const isAdmin = data.user.role === "admin" || data.user.role === "ceo";
-  const roleLabel = data.user.role === "admin" ? "Quản trị viên" : data.user.role === "ceo" ? "CEO" : "Nhân viên";
+  const roleLabel = data.user.role === "admin" ? "Quản trị viên" : data.user.role === "ceo" ? "CEO" : data.user.role === "accountant" ? "Kế toán" : "Nhân viên";
   document.querySelectorAll('a[href="attendance.html?view=days"]').forEach((link) => {
     link.hidden = isAdmin;
   });
@@ -23,7 +23,12 @@ async function loadGoogleAvatar() {
     element.textContent = roleLabel;
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
-    const isCurrentRole = button.textContent.trim() === (isAdmin ? "Quản trị" : "Nhân viên");
+    const originalRole = button.dataset.role || button.textContent.trim();
+    button.dataset.role = originalRole;
+    const roleChipLabel = data.user.role === "ceo" ? "CEO" : data.user.role === "admin" ? "Quản trị" : data.user.role === "accountant" ? "Kế toán" : "Nhân viên";
+    const expectedRole = data.user.role === "accountant" ? "Nhân viên" : roleChipLabel;
+    const isCurrentRole = originalRole === expectedRole;
+    button.textContent = isCurrentRole ? roleChipLabel : originalRole;
     button.hidden = !isCurrentRole;
     button.classList.toggle("is-selected", isCurrentRole);
   });
@@ -293,7 +298,7 @@ async function loadUserManagement() {
     userCell.append(identity);
 
     const role = document.createElement("td");
-    role.textContent = user.role === "admin" ? "Quản trị viên" : user.role === "ceo" ? "CEO" : "Nhân viên";
+    role.textContent = user.role === "admin" ? "Quản trị viên" : user.role === "ceo" ? "CEO" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
     const state = document.createElement("td");
     const stateLabel = { active: "Đang hoạt động", pending: "Chờ duyệt", blocked: "Đang khóa" }[user.status];
     const pill = document.createElement("span");

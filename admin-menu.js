@@ -204,8 +204,8 @@ if (sidebarScroll) {
     <nav class="menu" aria-label="Menu biểu mẫu">
       <a class="menu-item" href="proposals.html"><span class="menu-icon">☷</span><span>Đề xuất nhân sự</span></a>
       <a class="menu-item" href="payment-proposal.html"><span class="menu-icon">₫</span><span>Đề xuất thanh toán</span></a>
-      <a class="menu-item" href="proposal-report.html" data-admin-proposal-report><span class="menu-icon">▥</span><span>Báo cáo đề xuất</span></a>
-      <a class="menu-item" href="proposal-report.html?type=payment" data-admin-proposal-report><span class="menu-icon">₫</span><span>Báo cáo đề xuất thanh toán</span></a>
+      <a class="menu-item" href="proposal-report.html" data-admin-proposal-report><span class="menu-icon">▥</span><span>Báo cáo nhân sự</span></a>
+      <a class="menu-item" href="proposal-report.html?type=payment" data-payment-proposal-report><span class="menu-icon">₫</span><span>Báo cáo đề xuất thanh toán</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
     <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt giao diện</span></a><a class="menu-item" href="interface-settings.html#audio-permission"><span class="menu-icon">♬</span><span>Cài đặt quyền âm thanh</span></a></nav>
@@ -241,15 +241,14 @@ if (sidebarScroll) {
           element.textContent = user.name || user.email || 'Tài khoản Google';
         });
         document.querySelectorAll('[data-user-role], [data-profile-role]').forEach((element) => {
-          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : 'Nhân viên';
+          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : user.role === 'accountant' ? 'Kế toán' : 'Nhân viên';
         });
-        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : 'Nhân viên';
+        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán' : 'Nhân viên';
         document.querySelectorAll('.role-chip').forEach((button) => {
           const originalRole = button.dataset.role || button.textContent.trim();
           button.dataset.role = originalRole;
-          const matchesRole = user.role === 'employee'
-            ? originalRole === 'Nhân viên'
-            : originalRole === 'Quản trị' || originalRole === 'CEO';
+          const expectedRole = user.role === 'accountant' ? 'Nhân viên' : roleChipLabel;
+          const matchesRole = originalRole === expectedRole;
           button.textContent = matchesRole ? roleChipLabel : originalRole;
           button.hidden = !matchesRole;
           button.classList.toggle('is-selected', matchesRole);
@@ -278,15 +277,17 @@ if (sidebarScroll) {
       }
       const isAdmin = user?.role === 'admin' || user?.role === 'ceo';
       const isCeo = user?.role === 'ceo';
+      const isAccountant = user?.role === 'accountant';
       initializeProposalApprovalNotifications();
       initializeMobilePush();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');
       if (employeeAttendanceOverview) employeeAttendanceOverview.hidden = isAdmin;
-      sidebarScroll.querySelectorAll('[data-admin-proposal-report]').forEach((link) => {
-        link.hidden = !isAdmin;
-      });
+      const proposalReport = sidebarScroll.querySelector('[data-admin-proposal-report]');
+      if (proposalReport) proposalReport.hidden = !isAdmin;
+      const paymentProposalReport = sidebarScroll.querySelector('[data-payment-proposal-report]');
+      if (paymentProposalReport) paymentProposalReport.hidden = !(isAdmin || isAccountant);
       sidebarScroll.querySelectorAll('a[href^="attendance-overview.html"]').forEach((link) => {
         link.hidden = !isAdmin;
       });

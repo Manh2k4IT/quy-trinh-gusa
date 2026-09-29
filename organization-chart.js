@@ -35,14 +35,14 @@ function updateUserProfile(user) {
   const emailElement = document.querySelector("[data-profile-email]");
   if (emailElement) emailElement.textContent = user.email || "";
   const roleElement = document.querySelector("[data-profile-role]");
-  if (roleElement) roleElement.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên";
+  if (roleElement) roleElement.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
   document.querySelectorAll("[data-user-role]").forEach((element) => {
-    element.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : "Nhân viên";
+    element.textContent = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị viên" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
     const originalRole = button.dataset.role || button.textContent.trim();
     button.dataset.role = originalRole;
-    const currentLabel = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị" : "Nhân viên";
+    const currentLabel = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
     const isCurrentRole = user.role === "ceo"
       ? originalRole === "CEO"
       : user.role === "admin"

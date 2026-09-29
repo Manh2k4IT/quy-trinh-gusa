@@ -47,6 +47,7 @@ const detailFileName = document.querySelector('[data-detail-file-name]');
 const detailPhoto = document.querySelector('[data-detail-photo]');
 const detailLocation = document.querySelector('[data-detail-location]');
 let proposals = [];
+let canReview = false;
 let notificationInitialized = false;
 let notificationTimer;
 
@@ -220,7 +221,7 @@ function render() {
     const isPayment = proposal.type === 'payment';
     const typeLabel = labels[proposal.type] || 'Đề xuất khác';
     const statusLabel = statusLabels[proposal.status] || proposal.status;
-    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b>${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button><strong class="report-status is-${proposal.status}">${statusLabel}</strong>${proposal.status === 'pending' ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>` : ''}</div></article>`;
+    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b>${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button><strong class="report-status is-${proposal.status}">${statusLabel}</strong>${proposal.status === 'pending' && canReview ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>` : ''}</div></article>`;
   }).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
 }
 
@@ -237,9 +238,12 @@ async function load(showFeedback = false) {
     refreshButton.textContent = 'Đang tải...';
   }
   try {
-    const response = await fetch(`/api/proposals?scope=all&refresh=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Không có quyền xem báo cáo đề xuất.');
-    const nextProposals = (await response.json()).proposals || [];
+    const scope = isPaymentReport ? 'payment-report' : 'all';
+    const response = await fetch(`/api/proposals?scope=${scope}&refresh=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(isPaymentReport ? 'Không có quyền xem báo cáo đề xuất thanh toán.' : 'Không có quyền xem báo cáo nhân sự.');
+      const result = await response.json();
+      const nextProposals = result.proposals || [];
+      canReview = result.canReview === true;
     const knownIds = new Set(proposals.map((proposal) => proposal.id));
     const newProposals = notificationInitialized ? nextProposals.filter((proposal) => !knownIds.has(proposal.id)) : [];
     proposals = nextProposals;

@@ -449,7 +449,7 @@ async function inviteUser(req, res) {
     name: email.split("@")[0],
     email,
     picture: "",
-    role: ["admin", "ceo"].includes(payload.role) ? payload.role : "employee",
+    role: ["accountant", "admin", "ceo"].includes(payload.role) ? payload.role : "employee",
     status: "active",
     invited: true,
     updatedAt: new Date().toISOString(),
@@ -511,9 +511,13 @@ function serveProposals(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-  const proposals = requestUrl.searchParams.get("scope") === "all"
+  const scope = requestUrl.searchParams.get("scope");
+  const canViewPaymentReport = isManagementUser(currentUser) || currentUser.role === "accountant";
+  const proposals = scope === "all"
     ? isManagementUser(currentUser) ? getProposals() : null
-    : getProposals().filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser));
+    : scope === "payment-report"
+      ? canViewPaymentReport ? getProposals().filter((proposal) => proposal.type === "payment") : null
+      : getProposals().filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser));
   if (!proposals) return send(res, 403, "Forbidden");
   const enrichedProposals = proposals.map((proposal) => {
     const proposer = users.get(proposal.userId);
@@ -524,7 +528,7 @@ function serveProposals(req, res) {
       userPicture: proposal.userPicture || proposer?.picture || "",
     };
   });
-  sendJson(res, 200, { proposals: enrichedProposals });
+  sendJson(res, 200, { proposals: enrichedProposals, canReview: isManagementUser(currentUser) });
 }
 
 function serveProposalEvents(req, res) {

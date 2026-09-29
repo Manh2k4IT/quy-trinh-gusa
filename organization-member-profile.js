@@ -102,10 +102,15 @@ async function syncAccountRole() {
     element.replaceChildren(image);
   });
   document.querySelectorAll(".sidebar-account small, [data-user-role]").forEach((element) => {
-    element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : "Nhân viên";
+    element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
-    const isCurrentRole = button.textContent.trim() === (admin ? "Quản trị" : "Nhân viên");
+    const originalRole = button.dataset.role || button.textContent.trim();
+    button.dataset.role = originalRole;
+    const roleChipLabel = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
+    const expectedRole = user.role === "accountant" ? "Nhân viên" : roleChipLabel;
+    const isCurrentRole = originalRole === expectedRole;
+    button.textContent = isCurrentRole ? roleChipLabel : originalRole;
     button.hidden = !isCurrentRole;
     button.classList.toggle("is-selected", isCurrentRole);
   });

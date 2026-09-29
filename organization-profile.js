@@ -124,12 +124,12 @@ async function syncAccountRole() {
     element.replaceChildren(image);
   });
   document.querySelectorAll(".sidebar-account small, [data-user-role]").forEach((element) => {
-    element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : "Nhân viên";
+    element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
     const originalRole = button.dataset.role || button.textContent.trim();
     button.dataset.role = originalRole;
-    const currentLabel = user.role === "ceo" ? "CEO" : admin ? "Quản trị" : "Nhân viên";
+    const currentLabel = user.role === "ceo" ? "CEO" : admin ? "Quản trị" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
     const isCurrentRole = user.role === "ceo"
       ? originalRole === "CEO"
       : admin
@@ -149,7 +149,7 @@ async function syncAccountRole() {
   }
   document.querySelector("[data-profile-name]").textContent = user.name || user.email || "Tài khoản Google";
   document.querySelector("[data-profile-email]").textContent = user.email || "";
-  document.querySelector("[data-profile-role]").textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : "Nhân viên";
+  document.querySelector("[data-profile-role]").textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
   if (user.picture) {
     const profileImage = document.createElement("img");
     profileImage.src = user.picture;
