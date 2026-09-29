@@ -37,6 +37,8 @@
 .report-summary article { display: grid; gap: .3rem; min-height: 86px; padding: 1rem 1.1rem; border: 1px solid #dce5ef; border-radius: 12px; background: #fff; box-shadow: 0 7px 20px rgba(37, 61, 84, .05); }
 .report-summary span { color: #66778d; font-size: .7rem; font-weight: 700; }.report-summary strong { color: #173f78; font-size: 1.55rem; }.report-summary .is-pending strong { color: #b77909; }.report-summary .is-approved strong { color: #16804a; }.report-summary .is-payment strong { color: #1557a6; }
 .report-toolbar { align-items: center; justify-content: space-between; margin: 0 0 1rem; padding: .4rem; border: 1px solid #dce5ef; border-radius: 12px; background: #fff; }
+.report-action-feedback { margin: -.35rem 0 1rem; color: #167247; font-size: .8rem; font-weight: 700; }
+.report-action-feedback.is-error { color: #a52f42; }
 .report-tabs { display: flex; gap: .25rem; }.report-tabs button { min-height: 36px; border: 0; border-radius: 8px; padding: 0 .85rem; color: #66778d; background: transparent; cursor: pointer; font: inherit; font-size: .73rem; font-weight: 800; }.report-tabs button:hover { color: #1557a6; background: #eef5fb; }.report-tabs button.is-active { color: #fff; background: #1557a6; box-shadow: 0 5px 12px rgba(21,87,166,.18); }
 .report-toolbar select { min-height: 36px; }.report-refresh { min-height: 36px; }
 .report-tabs, .report-summary .is-payment { display: none; }

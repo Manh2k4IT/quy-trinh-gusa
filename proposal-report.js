@@ -22,7 +22,13 @@ allDaysOption.value = 'all';
 allDaysOption.textContent = 'Tất cả ngày';
 dayFilter.append(allDaysOption);
 document.querySelector('.report-toolbar')?.insertBefore(dayFilter, filter);
-dayFilter.value = isPaymentReport ? 'all' : '0';
+dayFilter.value = '0';
+const actionFeedback = document.createElement('p');
+actionFeedback.className = 'report-action-feedback';
+actionFeedback.setAttribute('role', 'status');
+actionFeedback.setAttribute('aria-live', 'polite');
+actionFeedback.hidden = true;
+document.querySelector('.report-toolbar')?.after(actionFeedback);
 const refreshButton = document.querySelector('[data-proposal-refresh]');
 const summaryTotal = document.querySelector('[data-report-total]');
 const summaryPending = document.querySelector('[data-report-pending]');
@@ -254,24 +260,35 @@ async function load(showFeedback = false) {
 }
 
 async function update(id, status, button) {
+  actionFeedback.hidden = true;
   if (button) {
     button.disabled = true;
     button.textContent = status === 'approved' ? 'ĐANG DUYỆT...' : 'ĐANG TỪ CHỐI...';
   }
   try {
     const response = await fetch('/api/proposals/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
-    if (!response.ok) throw new Error('Không thể cập nhật trạng thái đề xuất.');
+    if (!response.ok) {
+      const errorMessage = (await response.text()).trim();
+      throw new Error(errorMessage || 'Không thể cập nhật trạng thái đề xuất.');
+    }
+    const result = await response.json();
+    if (!result.proposal) throw new Error('Server không trả về đề xuất đã cập nhật.');
     const proposal = proposals.find((item) => item.id === id);
-    if (proposal) proposal.status = status;
+    if (proposal) Object.assign(proposal, result.proposal);
     renderSummary();
     render();
+    actionFeedback.textContent = status === 'approved' ? 'Đã duyệt đề xuất.' : 'Đã từ chối đề xuất.';
+    actionFeedback.classList.remove('is-error');
+    actionFeedback.hidden = false;
     load().catch(() => {});
   } catch (error) {
     if (button) {
       button.disabled = false;
       button.textContent = status === 'approved' ? 'Duyệt' : 'Từ chối';
     }
-    throw error;
+    actionFeedback.textContent = error.message || 'Không thể cập nhật trạng thái đề xuất.';
+    actionFeedback.classList.add('is-error');
+    actionFeedback.hidden = false;
   }
 }
 
@@ -280,8 +297,8 @@ list.addEventListener('click', (event) => {
   const approve = event.target.closest('[data-approve]');
   const reject = event.target.closest('[data-reject]');
   if (details) { openProposalDetail(details.dataset.detail); return; }
-  if (approve) update(approve.dataset.approve, 'approved', approve).catch(() => {});
-  if (reject) update(reject.dataset.reject, 'rejected', reject).catch(() => {});
+  if (approve) update(approve.dataset.approve, 'approved', approve);
+  if (reject) update(reject.dataset.reject, 'rejected', reject);
 });
 document.querySelector('[data-close-report-detail]')?.addEventListener('click', closeProposalDetail);
 detailModal?.addEventListener('click', (event) => { if (event.target === detailModal) closeProposalDetail(); });
