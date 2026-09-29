@@ -41,6 +41,10 @@ const refreshButton = document.querySelector('[data-proposal-refresh]');
 const summaryTotal = document.querySelector('[data-report-total]');
 const summaryPending = document.querySelector('[data-report-pending]');
 const summaryApproved = document.querySelector('[data-report-approved]');
+const accountantRejectModal = document.querySelector('[data-accountant-reject-modal]');
+const accountantRejectForm = document.querySelector('[data-accountant-reject-form]');
+const accountantRejectReason = document.querySelector('[data-accountant-reject-reason]');
+const accountantRejectError = document.querySelector('[data-accountant-reject-error]');
 const labels = { late: 'Đề xuất đi trễ', 'early-leave': 'Đề xuất về sớm', 'half-day': 'Đề xuất làm 1/2 ngày', leave: 'Đề xuất nghỉ phép', 'unauthorized-leave': 'Đề xuất nghỉ không phép', payment: 'Đề xuất thanh toán' };
 const statusLabels = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', canceled: 'Đã hủy bởi nhân viên' };
 const detailModal = document.querySelector('[data-report-detail-modal]');
@@ -57,6 +61,8 @@ const detailLocation = document.querySelector('[data-detail-location]');
 let proposals = [];
 let canReview = false;
 let viewerRole = 'employee';
+let pendingAccountingRejectId = '';
+let pendingAccountingRejectButton = null;
 let notificationInitialized = false;
 let notificationTimer;
 
@@ -241,7 +247,7 @@ function render() {
     const canApprove = canReview && canManage && proposal.status === 'pending' && (!isPayment || paymentFlow === 'ceo' && paymentStage === 'management');
     const canConfirm = canReview && viewerRole === 'accountant' && isPayment && proposal.status === 'pending' && paymentStage === 'accounting';
     const decisionActions = canConfirm
-      ? `<div class="report-decision"><button type="button" data-confirm="${proposal.id}">Xác nhận</button></div>`
+      ? `<div class="report-decision"><button type="button" data-confirm="${proposal.id}">Xác nhận</button>${paymentFlow === 'accountant' ? `<button type="button" data-accountant-reject="${proposal.id}">Từ chối</button>` : ''}</div>`
       : canApprove
         ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>`
         : '';
@@ -292,14 +298,14 @@ async function load(showFeedback = false) {
   }
 }
 
-async function update(id, status, button, action = '') {
+async function update(id, status, button, action = '', rejectionReason = '') {
   actionFeedback.hidden = true;
   if (button) {
     button.disabled = true;
     button.textContent = action === 'confirm' ? 'ĐANG XÁC NHẬN...' : status === 'approved' ? 'ĐANG DUYỆT...' : 'ĐANG TỪ CHỐI...';
   }
   try {
-    const response = await fetch('/api/proposals/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status, action }) });
+    const response = await fetch('/api/proposals/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status, action, rejectionReason }) });
     if (!response.ok) {
       const errorMessage = (await response.text()).trim();
       throw new Error(errorMessage || 'Không thể cập nhật trạng thái đề xuất.');
@@ -310,10 +316,11 @@ async function update(id, status, button, action = '') {
     if (proposal) Object.assign(proposal, result.proposal);
     renderSummary();
     render();
-    actionFeedback.textContent = result.movedToAccounting ? 'Đã duyệt, đề xuất đã chuyển tới kế toán.' : action === 'confirm' ? 'Kế toán đã xác nhận đề xuất.' : status === 'approved' ? 'Đã duyệt đề xuất.' : 'Đã từ chối đề xuất.';
+    actionFeedback.textContent = result.movedToAccounting ? 'Đã duyệt, đề xuất đã chuyển tới kế toán.' : action === 'confirm' ? 'Kế toán đã xác nhận đề xuất.' : action === 'accounting-reject' ? 'Đã từ chối, người đề xuất đã được thông báo.' : status === 'approved' ? 'Đã duyệt đề xuất.' : 'Đã từ chối đề xuất.';
     actionFeedback.classList.remove('is-error');
     actionFeedback.hidden = false;
     load().catch(() => {});
+    return true;
   } catch (error) {
     if (button) {
       button.disabled = false;
@@ -322,22 +329,73 @@ async function update(id, status, button, action = '') {
     actionFeedback.textContent = error.message || 'Không thể cập nhật trạng thái đề xuất.';
     actionFeedback.classList.add('is-error');
     actionFeedback.hidden = false;
+    return false;
   }
 }
+
+function closeAccountantRejectModal() {
+  accountantRejectModal.hidden = true;
+  pendingAccountingRejectId = '';
+  accountantRejectReason.value = '';
+  accountantRejectError.hidden = true;
+  pendingAccountingRejectButton?.focus();
+  pendingAccountingRejectButton = null;
+}
+
+document.querySelectorAll('[data-cancel-accountant-reject]').forEach((button) => {
+  button.addEventListener('click', closeAccountantRejectModal);
+});
+accountantRejectModal.addEventListener('click', (event) => {
+  if (event.target === accountantRejectModal) closeAccountantRejectModal();
+});
+accountantRejectForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const rejectionReason = accountantRejectReason.value.trim();
+  if (!rejectionReason) {
+    accountantRejectError.textContent = 'Vui lòng nhập lý do từ chối.';
+    accountantRejectError.hidden = false;
+    accountantRejectReason.focus();
+    return;
+  }
+  const submitButton = accountantRejectForm.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.textContent = 'ĐANG GỬI...';
+  const succeeded = await update(pendingAccountingRejectId, 'rejected', pendingAccountingRejectButton, 'accounting-reject', rejectionReason);
+  submitButton.disabled = false;
+  submitButton.textContent = 'Gửi từ chối';
+  if (succeeded) {
+    closeAccountantRejectModal();
+  } else {
+    accountantRejectError.textContent = actionFeedback.textContent;
+    accountantRejectError.hidden = false;
+  }
+});
 
 list.addEventListener('click', (event) => {
   const details = event.target.closest('[data-detail]');
   const approve = event.target.closest('[data-approve]');
   const reject = event.target.closest('[data-reject]');
   const confirm = event.target.closest('[data-confirm]');
+  const accountantReject = event.target.closest('[data-accountant-reject]');
   if (details) { openProposalDetail(details.dataset.detail); return; }
   if (approve) update(approve.dataset.approve, 'approved', approve);
   if (reject) update(reject.dataset.reject, 'rejected', reject);
   if (confirm) update(confirm.dataset.confirm, 'approved', confirm, 'confirm');
+  if (accountantReject) {
+    pendingAccountingRejectId = accountantReject.dataset.accountantReject;
+    pendingAccountingRejectButton = accountantReject;
+    accountantRejectReason.value = '';
+    accountantRejectError.hidden = true;
+    accountantRejectModal.hidden = false;
+    accountantRejectReason.focus();
+  }
 });
 document.querySelector('[data-close-report-detail]')?.addEventListener('click', closeProposalDetail);
 detailModal?.addEventListener('click', (event) => { if (event.target === detailModal) closeProposalDetail(); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && detailModal && !detailModal.hidden) closeProposalDetail(); });
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && detailModal && !detailModal.hidden) closeProposalDetail();
+  if (event.key === 'Escape' && accountantRejectModal && !accountantRejectModal.hidden) closeAccountantRejectModal();
+});
 search.addEventListener('input', render);
 filter.addEventListener('change', render);
 dayFilter.addEventListener('change', render);

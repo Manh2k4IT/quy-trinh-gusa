@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="management.css?v=20260924-10" />
-    <link rel="stylesheet" href="proposal-report.css?v=20260929-4" />
+    <link rel="stylesheet" href="management.css?v=20260929-1" />
+    <link rel="stylesheet" href="proposal-report.css?v=20260929-5" />
   </head>
   <body>
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -37,7 +37,18 @@
         </div>
       </section>
     </div>
-    <script src="admin-menu.js?v=20260929-10"></script>
-    <script src="proposal-report.js?v=20260929-9"></script>
+    <div class="report-detail-modal" data-accountant-reject-modal hidden>
+      <form class="report-detail-dialog accountant-reject-dialog" data-accountant-reject-form role="dialog" aria-modal="true" aria-labelledby="accountant-reject-title">
+        <button class="report-detail-close" type="button" data-cancel-accountant-reject aria-label="Đóng">×</button>
+        <h2 id="accountant-reject-title">Từ chối đề xuất trực tiếp</h2>
+        <p>Nhập lý do để người đề xuất biết vì sao đơn bị từ chối.</p>
+        <label class="accountant-reject-label" for="accountant-reject-reason">Lý do từ chối</label>
+        <textarea id="accountant-reject-reason" data-accountant-reject-reason rows="5" maxlength="1000" required placeholder="Nhập lý do từ chối..."></textarea>
+        <p class="accountant-reject-error" data-accountant-reject-error role="alert" hidden></p>
+        <div class="accountant-reject-actions"><button type="button" data-cancel-accountant-reject>Hủy</button><button type="submit">Gửi từ chối</button></div>
+      </form>
+    </div>
+    <script src="admin-menu.js?v=20260929-16"></script>
+    <script src="proposal-report.js?v=20260929-12"></script>
   </body>
 </html>

@@ -80,6 +80,15 @@
 .report-detail-person h2 { margin: .15rem 0; color: #173f78; font-size: 1.05rem; overflow-wrap: anywhere; }
 .report-detail-person p { margin: 0; color: #72839a; font-size: .76rem; overflow-wrap: anywhere; }
 .report-detail-fields { display: grid; gap: .55rem; margin-top: 1.1rem; }
+.accountant-reject-dialog h2 { margin: 0 2.5rem .35rem 0; color: #173f78; font-size: 1.1rem; }
+.accountant-reject-dialog > p { color: #66778d; font-size: .82rem; }
+.accountant-reject-label { display: block; margin: 1rem 0 .35rem; color: #263b55; font-size: .78rem; font-weight: 700; }
+.accountant-reject-dialog textarea { display: block; width: 100%; min-height: 120px; resize: vertical; border: 1px solid #cbd8e8; border-radius: 8px; padding: .7rem; color: #263b55; font: inherit; font-size: .85rem; }
+.accountant-reject-dialog textarea:focus { border-color: #1557a6; outline: 3px solid rgba(21, 87, 166, .14); }
+.accountant-reject-error { color: #a52f42 !important; font-weight: 700; }
+.accountant-reject-actions { display: flex; justify-content: flex-end; gap: .55rem; margin-top: 1rem; }
+.accountant-reject-actions button { min-height: 38px; border: 0; border-radius: 7px; padding: 0 .9rem; color: #fff; background: #6b7c91; cursor: pointer; font: inherit; font-size: .8rem; font-weight: 700; }
+.accountant-reject-actions button[type="submit"] { background: #c53f50; }
 .report-detail-field { display: grid; grid-template-columns: minmax(105px, .36fr) minmax(0, 1fr); gap: .7rem; border-top: 1px solid #edf1f5; padding-top: .55rem; font-size: .8rem; }
 .report-detail-field dt { color: #72839a; font-weight: 700; }
 .report-detail-field dd { min-width: 0; margin: 0; color: #263b55; overflow-wrap: anywhere; white-space: pre-wrap; }

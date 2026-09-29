@@ -32,6 +32,14 @@ function formatProposalDate(value) {
   return `${day}/${month}/${year}`;
 }
 
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
 function isProposalExpired(proposal) {
   const endDate = proposal.dateTo || proposal.date;
   if (!endDate) return false;
@@ -140,7 +148,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.hidden = true;
       detail.hidden = false;
       detail.innerHTML = typedProposals.length
-        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span></article>`).join('')
+        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}</article>`).join('')
         : '<p>Chưa có đề xuất nào.</p>';
       modal.hidden = false;
       return;
@@ -157,9 +165,9 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.hidden = true;
       detail.hidden = false;
       const dateText = proposal.dateFrom && proposal.dateTo ? `${formatProposalDate(proposal.dateFrom)} đến ${formatProposalDate(proposal.dateTo)}` : formatProposalDate(proposal.date);
-      const statusText = proposal.status === 'approved' ? 'Đề xuất của bạn đã được duyệt' : proposal.status === 'rejected' ? 'Từ chối' : 'Đề xuất đã được gửi đi';
+      const statusText = proposal.status === 'approved' ? 'Đề xuất của bạn đã được duyệt' : proposal.status === 'rejected' ? 'Đề xuất của bạn đã bị từ chối' : 'Đề xuất đã được gửi đi';
       const statusClass = proposal.status === 'approved' ? 'is-approved' : proposal.status === 'rejected' ? 'is-rejected' : '';
-      detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong><span>Ngày áp dụng: ${dateText}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>`;
+      detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong><span>Ngày áp dụng: ${dateText}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}`;
     } else {
       form.hidden = false;
       detail.hidden = true;

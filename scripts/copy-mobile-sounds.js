@@ -4,6 +4,11 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const sounds = [
   ['mobile/sounds/proposal_new_general.wav', 'proposal_new_general.wav'],
+  ['mobile/sounds/proposal_late_submitted.wav', 'proposal_late_submitted.wav'],
+  ['mobile/sounds/proposal_early_leave_submitted.wav', 'proposal_early_leave_submitted.wav'],
+  ['mobile/sounds/proposal_half_day_submitted.wav', 'proposal_half_day_submitted.wav'],
+  ['mobile/sounds/proposal_leave_submitted.wav', 'proposal_leave_submitted.wav'],
+  ['mobile/sounds/proposal_unauthorized_leave_submitted.wav', 'proposal_unauthorized_leave_submitted.wav'],
   ['mobile/sounds/proposal_new_payment.wav', 'proposal_new_payment.wav'],
   ['mobile/sounds/proposal_payment_direct_accountant.wav', 'proposal_payment_direct_accountant.wav'],
   ['mobile/sounds/proposal_payment_ceo_approved.wav', 'proposal_payment_ceo_approved.wav'],

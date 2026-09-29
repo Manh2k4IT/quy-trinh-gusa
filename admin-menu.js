@@ -1,6 +1,11 @@
 const sidebarScroll = document.querySelector('.sidebar-scroll');
 const proposalVoiceAudios = {
   general: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3'),
+  leave: new Audio('ban_co_de_xuat_nghi_co_phep_tu_nhan_su_83c37535-136e-4f99-8602-573ecd286adb.mp3'),
+  unauthorizedLeave: new Audio('ban_co_de_xuat_nghi_khong_phep_tu_nhan_su_c3d170f6-08a2-470e-9fd4-44fa8e15a6d5.mp3'),
+  late: new Audio('ban_co_de_xuat_di_tre_tu_nhan_su_8a90c570-7e7e-4958-831a-2f1d2b366c80.mp3'),
+  earlyLeave: new Audio('ban_co_de_xuat_ve_som_tu_nhan_su_6a1da0c4-340f-44d5-8fcb-55921a3179c2.mp3'),
+  halfDay: new Audio('ban_co_de_xuat_lam_mot_phan_hai_ngay_tu_nhan_su_fd35d92f-5a9f-437e-a0f0-4df68e3fbd14.mp3'),
   payment: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3'),
   paymentDirectToAccountant: new Audio('ban_co_de_xuat_thanh_toan_truc_tiep_tu_nhan_su_59b1405d-69b2-4eb7-aa6e-81bd7f8c45c3.mp3'),
   paymentApprovedByCeo: new Audio('ban_co_de_xuat_thanh_toan_da_duoc_duyet_tu_ceo_c69e7e0e-7155-40ae-8f27-cd3b676a2493.mp3'),
@@ -70,6 +75,26 @@ function playProposalVoice(proposalVoiceAudio) {
 
 window.speakProposalNotification = (proposal) => {
   if (!proposal) return;
+  if (proposal.type === 'late') {
+    if (!window.Capacitor?.isNativePlatform?.()) playProposalVoice(proposalVoiceAudios.late);
+    return;
+  }
+  if (proposal.type === 'early-leave') {
+    if (!window.Capacitor?.isNativePlatform?.()) playProposalVoice(proposalVoiceAudios.earlyLeave);
+    return;
+  }
+  if (proposal.type === 'half-day') {
+    if (!window.Capacitor?.isNativePlatform?.()) playProposalVoice(proposalVoiceAudios.halfDay);
+    return;
+  }
+  if (proposal.type === 'leave') {
+    if (!window.Capacitor?.isNativePlatform?.()) playProposalVoice(proposalVoiceAudios.leave);
+    return;
+  }
+  if (proposal.type === 'unauthorized-leave') {
+    if (!window.Capacitor?.isNativePlatform?.()) playProposalVoice(proposalVoiceAudios.unauthorizedLeave);
+    return;
+  }
   if (proposal.type === 'payment' && proposal.paymentFlow === 'ceo' && proposal.paymentStage === 'accounting') {
     if (window.Capacitor?.isNativePlatform?.()) return;
     playProposalVoice(proposalVoiceAudios.paymentApprovedByCeo);
@@ -87,6 +112,23 @@ window.speakApprovedProposal = () => playProposalVoice(proposalVoiceAudios.appro
 window.speakRejectedProposal = () => playProposalVoice(proposalVoiceAudios.rejected);
 window.speakPaymentConfirmedByAccountant = () => {
   if (!window.Capacitor?.isNativePlatform?.()) playProposalVoice(proposalVoiceAudios.paymentConfirmedByAccountant);
+};
+let proposalRejectionNoticeTimer;
+window.showProposalRejectionNotice = (proposal) => {
+  if (!proposal?.rejectionReason) return;
+  let notice = document.querySelector('[data-proposal-rejection-notice]');
+  if (!notice) {
+    notice = document.createElement('aside');
+    notice.className = 'proposal-rejection-notice';
+    notice.dataset.proposalRejectionNotice = '';
+    notice.setAttribute('role', 'status');
+    notice.innerHTML = '<div class="proposal-rejection-notice-heading"><strong>Đề xuất của bạn đã bị từ chối</strong><button type="button" aria-label="Đóng">×</button></div><p></p>';
+    notice.querySelector('button').addEventListener('click', () => notice.remove());
+    document.body.append(notice);
+  }
+  notice.querySelector('p').textContent = proposal.rejectionReason;
+  clearTimeout(proposalRejectionNoticeTimer);
+  proposalRejectionNoticeTimer = setTimeout(() => notice.remove(), 15000);
 };
 
 window.claimProposalNotification = async (proposalId) => {
@@ -184,7 +226,10 @@ function initializeProposalApprovalNotifications() {
       if (proposal.notificationKind === 'payment-accounting-confirmed') window.speakPaymentConfirmedByAccountant?.(proposal);
       else if (proposal.notificationKind === 'payment-management-approved') window.speakApprovedProposal?.(proposal);
       else if (proposal.status === 'approved') window.speakApprovedProposal?.(proposal);
-      else if (proposal.status === 'rejected') window.speakRejectedProposal?.(proposal);
+      else if (proposal.status === 'rejected') {
+        window.speakRejectedProposal?.(proposal);
+        window.showProposalRejectionNotice?.(proposal);
+      }
     } catch {}
   });
 }

@@ -585,7 +585,7 @@ function publishProposalStatusEvent(proposal, notificationKind = "proposal-statu
     if (isAccountingConfirmation && isManagementUser({ role: client.role })) {
       client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind: "payment-accounting-confirmed" })}\n\n`);
     } else if (client.userId === proposal.userId) {
-      client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind })}\n\n`);
+      client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind, rejectionReason: proposal.rejectionReason || "" })}\n\n`);
     }
   });
 }
@@ -679,7 +679,8 @@ async function sendProposalStatusPush(proposal, { managementApproval = false } =
   const soundName = isAccountingConfirmation ? "proposal_payment_accounting_confirmed" : approved ? "proposal_approved" : "proposal_rejected";
   const channelId = isAccountingConfirmation ? "proposal-payment-accounting-confirmed-v1" : `proposal-${approved ? "approved" : "rejected"}`;
   const title = isAccountingConfirmation ? "Kế toán đã xác nhận đề xuất" : isManagementApproval ? "Đề xuất thanh toán đã được CEO/Admin duyệt" : approved ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối";
-  const body = isAccountingConfirmation ? "Đề xuất thanh toán đã được kế toán xác nhận." : isManagementApproval ? "Đề xuất của bạn đã được CEO/Admin duyệt và chuyển đến kế toán xác nhận." : approved ? "Đề xuất của bạn đã được duyệt." : "Đề xuất của bạn đã bị từ chối.";
+  const rejectionReason = proposal.status === "rejected" ? String(proposal.rejectionReason || "").trim() : "";
+  const body = isAccountingConfirmation ? "Đề xuất thanh toán đã được kế toán xác nhận." : isManagementApproval ? "Đề xuất của bạn đã được CEO/Admin duyệt và chuyển đến kế toán xác nhận." : approved ? "Đề xuất của bạn đã được duyệt." : `Đề xuất của bạn đã bị từ chối.${rejectionReason ? ` Lý do: ${rejectionReason}` : ""}`;
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
@@ -715,14 +716,23 @@ async function sendProposalCreatedPush(proposal) {
 
   const isAccountingHandoff = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "accounting";
   const isDirectAccountantProposal = proposal.type === "payment" && getPaymentFlow(proposal) === "accountant" && getPaymentStage(proposal) === "accounting";
+  const isLateProposal = proposal.type === "late";
+  const isEarlyLeaveProposal = proposal.type === "early-leave";
+  const isHalfDayProposal = proposal.type === "half-day";
+  const isLeaveProposal = proposal.type === "leave";
+  const isUnauthorizedLeaveProposal = proposal.type === "unauthorized-leave";
   const flowLabel = proposal.type === "payment" ? getPaymentFlow(proposal) === "accountant" ? "thanh toán (Kế toán)" : "thanh toán (CEO)" : "nhân sự";
   const body = isAccountingHandoff
     ? "Đề xuất thanh toán đã được CEO/Admin duyệt. Vui lòng xác nhận."
     : isDirectAccountantProposal
       ? `${proposal.userName || "Nhân viên"} vừa gửi đề xuất thanh toán trực tiếp đến Kế toán.`
+    : isLeaveProposal
+      ? `${proposal.userName || "Nhân viên"} vừa gửi đề xuất nghỉ phép.`
+    : isUnauthorizedLeaveProposal
+      ? `${proposal.userName || "Nhân viên"} vừa gửi đề xuất nghỉ không phép.`
     : `${proposal.userName || "Nhân viên"} vừa gửi đề xuất ${flowLabel}.`;
-  const soundName = isAccountingHandoff ? "proposal_payment_ceo_approved" : isDirectAccountantProposal ? "proposal_payment_direct_accountant" : proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
-  const channelId = isAccountingHandoff ? "proposal-created-payment-accounting-v1" : isDirectAccountantProposal ? "proposal-created-payment-accountant-direct-v1" : proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
+  const soundName = isAccountingHandoff ? "proposal_payment_ceo_approved" : isDirectAccountantProposal ? "proposal_payment_direct_accountant" : isLateProposal ? "proposal_late_submitted" : isEarlyLeaveProposal ? "proposal_early_leave_submitted" : isHalfDayProposal ? "proposal_half_day_submitted" : isLeaveProposal ? "proposal_leave_submitted" : isUnauthorizedLeaveProposal ? "proposal_unauthorized_leave_submitted" : proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
+  const channelId = isAccountingHandoff ? "proposal-created-payment-accounting-v1" : isDirectAccountantProposal ? "proposal-created-payment-accountant-direct-v1" : isLateProposal ? "proposal-created-late-v1" : isEarlyLeaveProposal ? "proposal-created-early-leave-v1" : isHalfDayProposal ? "proposal-created-half-day-v1" : isLeaveProposal ? "proposal-created-leave-v1" : isUnauthorizedLeaveProposal ? "proposal-created-unauthorized-leave-v1" : proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
@@ -731,7 +741,7 @@ async function sendProposalCreatedPush(proposal) {
         notification: { title: "Có đề xuất mới", body },
         data: { type: "proposal-created", proposalId: proposal.id, url: proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html" },
         android: { priority: "high", notification: { channelId, sound: soundName } },
-        apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: isAccountingHandoff ? `${soundName}.wav` : "default" } } },
+        apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: isAccountingHandoff || isLateProposal || isEarlyLeaveProposal || isHalfDayProposal || isLeaveProposal || isUnauthorizedLeaveProposal ? `${soundName}.wav` : "default" } } },
       });
     } catch (error) {
       if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(error.code)) expiredTokens.add(device.token);
@@ -763,6 +773,16 @@ async function updateProposalStatus(req, res) {
       proposal.paymentStage = "completed";
       proposal.accountingConfirmedAt = now;
       proposal.accountingConfirmedBy = getAttendanceUserKey(currentUser);
+      proposal.reviewedAt = now;
+    } else if (payload.action === "accounting-reject") {
+      if (currentUser.role !== "accountant" || paymentFlow !== "accountant" || paymentStage !== "accounting") return send(res, 403, "Chỉ kế toán được từ chối đề xuất trực tiếp đang chờ kế toán.");
+      const rejectionReason = String(payload.rejectionReason || "").trim().slice(0, 1000);
+      if (!rejectionReason) return send(res, 400, "Vui lòng nhập lý do từ chối.");
+      proposal.status = "rejected";
+      proposal.paymentStage = "rejected";
+      proposal.rejectionReason = rejectionReason;
+      proposal.accountingRejectedAt = now;
+      proposal.accountingRejectedBy = getAttendanceUserKey(currentUser);
       proposal.reviewedAt = now;
     } else {
       if (!isManagementUser(currentUser) || !["approved", "rejected"].includes(payload.status)) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");

@@ -6,6 +6,11 @@ import { MPEGDecoder } from 'mpg123-decoder';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sounds = [
   ['ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3', 'proposal_new_general.wav'],
+  ['ban_co_de_xuat_di_tre_tu_nhan_su_8a90c570-7e7e-4958-831a-2f1d2b366c80.mp3', 'proposal_late_submitted.wav'],
+  ['ban_co_de_xuat_ve_som_tu_nhan_su_6a1da0c4-340f-44d5-8fcb-55921a3179c2.mp3', 'proposal_early_leave_submitted.wav'],
+  ['ban_co_de_xuat_lam_mot_phan_hai_ngay_tu_nhan_su_fd35d92f-5a9f-437e-a0f0-4df68e3fbd14.mp3', 'proposal_half_day_submitted.wav'],
+  ['ban_co_de_xuat_nghi_co_phep_tu_nhan_su_83c37535-136e-4f99-8602-573ecd286adb.mp3', 'proposal_leave_submitted.wav'],
+  ['ban_co_de_xuat_nghi_khong_phep_tu_nhan_su_c3d170f6-08a2-470e-9fd4-44fa8e15a6d5.mp3', 'proposal_unauthorized_leave_submitted.wav'],
   ['ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3', 'proposal_new_payment.wav'],
   ['ban_co_de_xuat_thanh_toan_truc_tiep_tu_nhan_su_59b1405d-69b2-4eb7-aa6e-81bd7f8c45c3.mp3', 'proposal_payment_direct_accountant.wav'],
   ['ban_co_de_xuat_thanh_toan_da_duoc_duyet_tu_ceo_c69e7e0e-7155-40ae-8f27-cd3b676a2493.mp3', 'proposal_payment_ceo_approved.wav'],

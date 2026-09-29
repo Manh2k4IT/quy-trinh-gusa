@@ -1,3 +1,4 @@
+.proposal-rejection-reason { color: #a52f42; white-space: pre-wrap; overflow-wrap: anywhere; }
 .proposal-late-proof { display: grid; gap: .55rem; margin: 0; border: 1px solid #d9e3ef; border-radius: 9px; padding: .75rem; background: #f8fafd; }
 .proposal-late-proof[hidden] { display: none; }
 .proposal-late-proof legend { padding: 0 .25rem; color: #34445a; font-size: .74rem; font-weight: 800; }
@@ -52,6 +53,7 @@
 .proposal-list-cancel:hover { color: #fff; background: #a52f42; }
 .proposal-list-empty { margin: 0; color: #72839a; font-size: .85rem; }
 .proposal-detail-item { display: grid; gap: .3rem; margin: .4rem 0; border: 1px solid #dbe5ef; border-radius: 8px; padding: .6rem .7rem; background: #f8fbff; }
+.proposal-rejection-reason { color: #a52f42; white-space: pre-wrap; overflow-wrap: anywhere; }
 .proposal-detail-status { font-weight: 800; }
 .proposal-detail-status.is-pending { color: #996a06; }
 .proposal-detail-status.is-approved { color: #167247; }
