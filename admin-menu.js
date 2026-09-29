@@ -114,6 +114,29 @@ window.speakPaymentConfirmedByAccountant = () => {
   if (!window.Capacitor?.isNativePlatform?.()) playProposalVoice(proposalVoiceAudios.paymentConfirmedByAccountant);
 };
 let proposalRejectionNoticeTimer;
+let proposalSuccessToastTimer;
+window.showProposalSuccessToast = (message = 'Đã gửi đề xuất thành công') => {
+  document.querySelector('[data-proposal-success-toast]')?.remove();
+  const toast = document.createElement('div');
+  toast.className = 'proposal-success-toast';
+  toast.dataset.proposalSuccessToast = '';
+  toast.setAttribute('role', 'status');
+  toast.setAttribute('aria-live', 'polite');
+  const checkmark = document.createElement('span');
+  checkmark.className = 'proposal-success-check';
+  checkmark.setAttribute('aria-hidden', 'true');
+  checkmark.textContent = '✓';
+  const label = document.createElement('span');
+  label.textContent = message;
+  toast.append(checkmark, label);
+  document.body.append(toast);
+  requestAnimationFrame(() => toast.classList.add('is-visible'));
+  clearTimeout(proposalSuccessToastTimer);
+  proposalSuccessToastTimer = setTimeout(() => {
+    toast.classList.remove('is-visible');
+    setTimeout(() => toast.remove(), 220);
+  }, 2600);
+};
 window.showProposalRejectionNotice = (proposal) => {
   if (!proposal?.rejectionReason) return;
   let notice = document.querySelector('[data-proposal-rejection-notice]');

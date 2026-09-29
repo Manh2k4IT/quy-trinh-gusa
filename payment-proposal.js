@@ -39,9 +39,24 @@ templateActionStatus.setAttribute('role', 'status');
 document.querySelector('.payment-template').append(templateActionStatus);
 previewButton.disabled = true;
 downloadButton.disabled = true;
+const templatePreviewModal = document.createElement('div');
+templatePreviewModal.className = 'payment-preview-modal';
+templatePreviewModal.hidden = true;
+templatePreviewModal.innerHTML = '<section class="payment-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-preview-title"><header><div><span>BẢN XEM TRƯỚC</span><h2 id="payment-preview-title"></h2></div><button type="button" data-close-template-preview aria-label="Đóng">×</button></header><div class="payment-preview-frame-wrap" data-template-preview-frame-wrap><iframe data-template-preview-frame title="Bản xem trước file mẫu" referrerpolicy="no-referrer" sandbox="allow-same-origin"></iframe></div><div class="payment-preview-fallback" data-template-preview-fallback hidden><p>Định dạng này không xem trực tiếp được trên trình duyệt.</p><button type="button" data-template-preview-download>Tải file mẫu</button></div></section>';
+document.body.append(templatePreviewModal);
+const templatePreviewFrame = templatePreviewModal.querySelector('[data-template-preview-frame]');
+const templatePreviewFrameWrap = templatePreviewModal.querySelector('[data-template-preview-frame-wrap]');
+const templatePreviewFallback = templatePreviewModal.querySelector('[data-template-preview-fallback]');
 
 function escapeHtml(value) {
   return String(value || '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function setTemplateActionStatus(message, state = '') {
+  templateActionStatus.textContent = message;
+  templateActionStatus.classList.toggle('is-loading', state === 'loading');
+  templateActionStatus.classList.toggle('is-error', state === 'error');
+  templateActionStatus.classList.toggle('is-success', state === 'success');
 }
 
 function renderPaymentHistory() {
@@ -56,10 +71,11 @@ function renderPaymentHistory() {
             : proposal.paymentStage === 'accounting'
               ? 'CHỜ KẾ TOÁN XÁC NHẬN'
               : 'CHỜ CEO/ADMIN DUYỆT';
+      const stateClass = proposal.status === 'approved' ? 'is-approved' : proposal.status === 'rejected' ? 'is-rejected' : 'is-pending';
       const attachment = proposal.paymentFileData
         ? `<a href="${escapeHtml(proposal.paymentFileData)}" download="${escapeHtml(proposal.paymentFileName || 'bieu-mau-de-xuat')}">Tải chứng từ</a>`
         : '';
-      return `<article class="payment-history-item"><div class="payment-history-heading"><strong>${state}</strong><time>${escapeHtml(proposal.date || '')}</time></div><span><b>Hạng mục:</b> ${escapeHtml(proposal.category || '')}</span><span><b>Số tiền:</b> ${Number(proposal.amount || 0).toLocaleString('vi-VN')} VNĐ</span>${proposal.rejectionReason ? `<p class="payment-history-rejection"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</p>` : ''}${attachment}</article>`;
+      return `<article class="payment-history-item"><div class="payment-history-heading"><strong class="${stateClass}">${state}</strong><time>${escapeHtml(proposal.date || '')}</time></div><span><b>Hạng mục:</b> ${escapeHtml(proposal.category || '')}</span><span><b>Số tiền:</b> ${Number(proposal.amount || 0).toLocaleString('vi-VN')} VNĐ</span>${proposal.rejectionReason ? `<p class="payment-history-rejection"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</p>` : ''}${attachment}</article>`;
     }).join('')
     : '<p class="payment-history-empty">Chưa có đề xuất thanh toán nào trong mục này.</p>';
 }
@@ -87,6 +103,65 @@ async function applyTemplate(template) {
   templateActionStatus.textContent = '';
   const title = document.querySelector('[data-template-title]');
   if (title) title.textContent = template.fileName || 'Mẫu đề xuất thanh toán';
+}
+
+function canPreviewTemplate(template) {
+  const type = String(template.fileType || '').toLowerCase();
+  const extension = String(template.fileName || '').split('.').pop().toLowerCase();
+  return type === 'application/pdf' || type === 'text/html' || type.startsWith('image/') || ['pdf', 'html', 'htm', 'txt'].includes(extension);
+}
+
+function openTemplatePreview() {
+  if (!currentTemplateUrl) {
+    setTemplateActionStatus('Chưa tải được file mẫu. Hãy thử tải lại trang.', 'error');
+    return;
+  }
+  templatePreviewModal.querySelector('#payment-preview-title').textContent = currentTemplate.fileName || 'Mẫu đề xuất thanh toán';
+  const supported = canPreviewTemplate(currentTemplate);
+  templatePreviewFrameWrap.hidden = !supported;
+  templatePreviewFallback.hidden = supported;
+  templatePreviewModal.hidden = false;
+  if (!supported) {
+    setTemplateActionStatus('Định dạng này không hỗ trợ xem trước.', 'error');
+    return;
+  }
+  setTemplateActionStatus('Đang mở bản xem trước...', 'loading');
+  templatePreviewFrame.onload = () => {
+    if (!templatePreviewModal.hidden) setTemplateActionStatus('Bản xem trước đã sẵn sàng.', 'success');
+  };
+  templatePreviewFrame.src = currentTemplateUrl;
+}
+
+function closeTemplatePreview() {
+  templatePreviewModal.hidden = true;
+  templatePreviewFrame.src = 'about:blank';
+  previewButton.focus();
+}
+
+async function downloadTemplate() {
+  if (!currentTemplateUrl) {
+    setTemplateActionStatus('Chưa tải được file mẫu. Hãy thử tải lại trang.', 'error');
+    return;
+  }
+  downloadButton.disabled = true;
+  setTemplateActionStatus('Đang chuẩn bị tải file mẫu...', 'loading');
+  try {
+    const response = await fetch(currentTemplateUrl);
+    if (!response.ok) throw new Error('Không thể tải file mẫu.');
+    const blobUrl = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = currentTemplate.fileName || 'mau-de-xuat-thanh-toan';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTemplateActionStatus('Đã tải file mẫu hoàn tất.', 'success');
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  } catch (error) {
+    setTemplateActionStatus(error.message || 'Không thể tải file mẫu.', 'error');
+  } finally {
+    downloadButton.disabled = false;
+  }
 }
 
 async function loadTemplate() {
@@ -131,27 +206,15 @@ document.querySelector('[data-close-payment]').addEventListener('click', closePa
 modal.addEventListener('click', (event) => {
   if (event.target === modal) closePaymentModal();
 });
-previewButton.addEventListener('click', () => {
-  if (!currentTemplateUrl) {
-    templateActionStatus.textContent = 'Chưa tải được file mẫu. Hãy thử tải lại trang.';
-    return;
-  }
-  const link = document.createElement('a');
-  link.href = currentTemplateUrl;
-  link.target = '_blank';
-  link.rel = 'noopener';
-  link.click();
+previewButton.addEventListener('click', openTemplatePreview);
+downloadButton.addEventListener('click', downloadTemplate);
+templatePreviewModal.querySelector('[data-close-template-preview]').addEventListener('click', closeTemplatePreview);
+templatePreviewModal.querySelector('[data-template-preview-download]').addEventListener('click', downloadTemplate);
+templatePreviewModal.addEventListener('click', (event) => {
+  if (event.target === templatePreviewModal) closeTemplatePreview();
 });
-downloadButton.addEventListener('click', () => {
-  if (!currentTemplateUrl) {
-    templateActionStatus.textContent = 'Chưa tải được file mẫu. Hãy thử tải lại trang.';
-    return;
-  }
-  const link = document.createElement('a');
-  link.href = currentTemplateUrl;
-  link.download = currentTemplate.fileName || 'mau-de-xuat-thanh-toan';
-  link.click();
-  templateActionStatus.textContent = `Đang tải ${currentTemplate.fileName || 'file mẫu'}...`;
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !templatePreviewModal.hidden) closeTemplatePreview();
 });
 window.addEventListener('pagehide', () => {
   if (currentTemplateUrl) URL.revokeObjectURL(currentTemplateUrl);
@@ -213,9 +276,10 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.message || 'Không thể gửi đề xuất.');
-    status.textContent = paymentFlow === 'accountant' ? 'Đã gửi đề xuất, đang chờ kế toán xác nhận.' : 'Đã gửi đề xuất, đang chờ CEO/Admin duyệt.';
     form.reset();
-    await loadPaymentProposals();
+    closePaymentModal();
+    window.showProposalSuccessToast?.();
+    loadPaymentProposals().catch(() => {});
   } catch (error) {
     status.textContent = error.message;
   }

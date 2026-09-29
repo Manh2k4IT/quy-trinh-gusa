@@ -508,7 +508,9 @@ function getProposals() {
 }
 
 function getPaymentFlow(proposal) {
-  return proposal.paymentFlow === "accountant" ? "accountant" : "ceo";
+  if (proposal.paymentFlow === "accountant" || proposal.paymentFlow === "ceo") return proposal.paymentFlow;
+  const proposer = users.get(String(proposal.userId || ""));
+  return proposer?.role === "accountant" ? "accountant" : "ceo";
 }
 
 function getPaymentStage(proposal) {
@@ -548,6 +550,7 @@ function serveProposals(req, res) {
     const proposer = users.get(proposal.userId);
     return {
       ...proposal,
+      ...(proposal.type === "payment" ? { paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal) } : {}),
       userName: proposal.userName || proposer?.name || proposer?.email || "Nhân viên",
       userEmail: proposal.userEmail || proposer?.email || "",
       userPicture: proposal.userPicture || proposer?.picture || "",

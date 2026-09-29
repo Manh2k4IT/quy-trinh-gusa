@@ -132,8 +132,9 @@ form.addEventListener('submit', async (event) => {
     try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; }
     if (!response.ok) throw new Error(data.message || 'Không thể gửi đề xuất.');
     form.reset();
-    status.textContent = 'Đã gửi đề xuất, đang chờ duyệt.';
-    await loadProposals();
+    closeModal();
+    window.showProposalSuccessToast?.();
+    loadProposals().catch(() => {});
   } catch (error) {
     status.textContent = error.message;
   }

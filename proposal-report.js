@@ -28,7 +28,7 @@ paymentFlowTabs.className = 'payment-flow-tabs';
 paymentFlowTabs.setAttribute('role', 'tablist');
 paymentFlowTabs.setAttribute('aria-label', 'Nguồn đề xuất thanh toán');
 paymentFlowTabs.innerHTML = '<button type="button" class="is-active" data-payment-flow-filter="ceo" role="tab" aria-selected="true">Đã duyệt từ CEO/Admin</button><button type="button" data-payment-flow-filter="accountant" role="tab" aria-selected="false">Đề xuất trực tiếp</button>';
-paymentFlowTabs.hidden = !isPaymentReport;
+paymentFlowTabs.hidden = true;
 document.querySelector('.report-toolbar')?.prepend(paymentFlowTabs);
 let selectedPaymentFlow = 'ceo';
 const actionFeedback = document.createElement('p');
@@ -251,8 +251,18 @@ function render() {
       : canApprove
         ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>`
         : '';
-    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b>${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button><strong class="report-status is-${proposal.status}">${statusLabel}</strong>${decisionActions}</div></article>`;
+    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${decisionActions}</div></article>`;
   }).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
+  if (visible.length) {
+    const reportItems = list.querySelectorAll('.report-item');
+    visible.forEach((proposal, index) => {
+      if (proposal.type !== 'payment') return;
+      const source = document.createElement('span');
+      source.className = `report-payment-source is-${proposal.paymentFlow || 'ceo'}`;
+      source.textContent = proposal.paymentFlow === 'accountant' ? 'Đề xuất trực tiếp' : 'Đã duyệt từ CEO/Admin';
+      reportItems[index]?.querySelector('.report-type')?.after(source);
+    });
+  }
 }
 
 function renderSummary() {
@@ -279,6 +289,7 @@ async function load(showFeedback = false) {
       const nextProposals = result.proposals || [];
       canReview = result.canReview === true;
       viewerRole = result.viewerRole || 'employee';
+      paymentFlowTabs.hidden = !isPaymentReport || viewerRole !== 'accountant';
     const knownIds = new Set(proposals.map((proposal) => proposal.id));
     const newProposals = notificationInitialized ? nextProposals.filter((proposal) => !knownIds.has(proposal.id)) : [];
     proposals = nextProposals;
@@ -316,9 +327,16 @@ async function update(id, status, button, action = '', rejectionReason = '') {
     if (proposal) Object.assign(proposal, result.proposal);
     renderSummary();
     render();
-    actionFeedback.textContent = result.movedToAccounting ? 'Đã duyệt, đề xuất đã chuyển tới kế toán.' : action === 'confirm' ? 'Kế toán đã xác nhận đề xuất.' : action === 'accounting-reject' ? 'Đã từ chối, người đề xuất đã được thông báo.' : status === 'approved' ? 'Đã duyệt đề xuất.' : 'Đã từ chối đề xuất.';
+    const feedbackText = result.movedToAccounting
+      ? 'Đã duyệt, đề xuất đã chuyển tới kế toán.'
+      : action === 'confirm'
+        ? ''
+        : action === 'accounting-reject'
+          ? 'Đã từ chối, người đề xuất đã được thông báo.'
+          : status === 'approved' ? 'Đã duyệt đề xuất.' : 'Đã từ chối đề xuất.';
+    actionFeedback.textContent = feedbackText;
     actionFeedback.classList.remove('is-error');
-    actionFeedback.hidden = false;
+    actionFeedback.hidden = !feedbackText;
     load().catch(() => {});
     return true;
   } catch (error) {
