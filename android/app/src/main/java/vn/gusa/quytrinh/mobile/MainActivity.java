@@ -17,6 +17,7 @@ import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.webkit.WebView;
 import android.widget.Toast;
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.app.NotificationCompat;
 import com.getcapacitor.BridgeActivity;
 
@@ -24,6 +25,7 @@ public class MainActivity extends BridgeActivity {
     private static final String DOWNLOAD_CHANNEL_ID = "payment-template-downloads-v1";
     private static final int DOWNLOAD_PERMISSION_REQUEST = 7301;
     private final Handler downloadHandler = new Handler(Looper.getMainLooper());
+    private boolean backPressPending;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -32,6 +34,27 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() == null) return;
 
         WebView webView = getBridge().getWebView();
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (backPressPending) return;
+                backPressPending = true;
+                webView.evaluateJavascript(
+                    "(function(){var shell=document.querySelector('.app-shell');if(!shell||!shell.classList.contains('is-mobile-menu-open'))return false;shell.classList.remove('is-mobile-menu-open');var backdrop=document.querySelector('[data-mobile-menu-backdrop]');if(backdrop)backdrop.hidden=true;var toggle=document.querySelector('[data-mobile-menu-toggle]');if(toggle)toggle.setAttribute('aria-expanded','false');return true;})()",
+                    menuClosed -> {
+                        backPressPending = false;
+                        if ("true".equals(menuClosed)) return;
+                        if (webView.canGoBack()) {
+                            webView.goBack();
+                            return;
+                        }
+                        setEnabled(false);
+                        MainActivity.this.getOnBackPressedDispatcher().onBackPressed();
+                    }
+                );
+            }
+        });
+
         webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
             Uri uri = Uri.parse(url);
             if (!"https".equalsIgnoreCase(uri.getScheme()) || !"quytrinh.gusa.vn".equalsIgnoreCase(uri.getHost())) return;

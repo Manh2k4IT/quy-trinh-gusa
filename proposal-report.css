@@ -21,7 +21,7 @@
 .report-item p { margin: .2rem 0; color: #617187; font-size: .75rem; }
 .report-proof { display: block; width: 100px; height: 70px; margin-top: .6rem; border-radius: 7px; object-fit: cover; }
 .report-location { display: inline-block; margin-top: .45rem; color: #174b8e; font-size: .72rem; font-weight: 700; }
-.report-actions { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: .45rem; }
+.report-actions { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: .45rem; padding-top: 2.7rem; }
 .report-actions button { min-width: 78px; min-height: 30px; border: 0; border-radius: 6px; color: #fff; background: #174b8e; cursor: pointer; font: inherit; font-size: .7rem; font-weight: 700; }
 .report-actions .report-detail-button { background: #1557a6; }
 .report-actions .report-decision button[data-approve] { background: #16804a; }
@@ -58,7 +58,7 @@
 .report-actions { min-width: 105px; }.report-decision { display: grid; gap: .4rem; }.report-decision button { width: 100%; }.report-empty { display: grid; gap: .35rem; justify-items: center; padding: 3rem 1rem; border: 1px dashed #cbd8e8; border-radius: 12px; color: #66778d; background: rgba(255,255,255,.65); }.report-empty strong { color: #263b55; }
 .report-status.is-canceled { color: #66778d; background: #edf1f5; }
 @media (max-width: 820px) { .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }.report-toolbar { align-items: stretch; flex-wrap: wrap; }.report-tabs { width: 100%; overflow-x: auto; }.report-tabs button { flex: 1 0 auto; }.payment-flow-tabs { width: 100%; overflow-x: auto; }.payment-flow-tabs button { flex: 1 0 auto; }.report-toolbar select { flex: 1; } }
-@media (max-width: 650px) { .report-content { padding: 1rem .8rem 2rem; }.report-summary { gap: .55rem; }.report-summary article { min-height: 72px; padding: .75rem; }.report-summary strong { font-size: 1.25rem; }.report-toolbar { padding: .35rem; }.report-list { padding-left: 1rem; }.report-item { padding: 3.25rem 1rem 1rem; }.report-item-main { padding-top: .2rem; }.report-status { top: .75rem; right: .85rem; }.report-actions { width: 100%; }.payment-meta span { flex: 1; min-width: 120px; } }
+@media (max-width: 650px) { .report-content { padding: 1rem .8rem 2rem; }.report-summary { gap: .55rem; }.report-summary article { min-height: 72px; padding: .75rem; }.report-summary strong { font-size: 1.25rem; }.report-toolbar { padding: .35rem; }.report-list { padding-left: 1rem; }.report-item { padding: 3.25rem 1rem 1rem; }.report-item-main { padding-top: .2rem; }.report-status { top: .75rem; right: .85rem; }.report-actions { width: 100%; padding-top: 0; }.payment-meta span { flex: 1; min-width: 120px; } }
 @media (max-width: 650px) {
 	.report-item,
 	.report-item-main,
