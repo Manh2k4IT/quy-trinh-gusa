@@ -667,7 +667,7 @@ async function sendProposalCreatedPush(proposal) {
   const messaging = getFirebaseMessaging();
   if (!messaging) return;
 
-  const body = `${proposal.userName || "Nhân viên"} vừa gửi ${proposal.type === "payment" ? "đề xuất thanh toán" : "đề xuất chung"}.`;
+  const body = `${proposal.userName || "Nhân viên"} vừa gửi ${proposal.type === "payment" ? "đề xuất thanh toán" : "đề xuất nhân sự"}.`;
   const soundName = proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
   const channelId = proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
   const expiredTokens = new Set();

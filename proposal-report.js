@@ -57,7 +57,7 @@ const notificationCount = notificationButton.querySelector('[data-proposal-notif
 const notificationList = notificationPanel.querySelector('[data-proposal-notification-list]');
 
 function proposalNotificationText(proposal) {
-  const type = proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất chung';
+  const type = proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất nhân sự';
   return `${proposal.userName || 'Nhân viên'} vừa gửi ${type}.`;
 }
 

@@ -97,7 +97,7 @@ function initializeSharedProposalNotifications() {
   let knownIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
   let hasLoadedOnce = false;
   let notificationTimer;
-  const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất chung'}.`;
+  const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất nhân sự'}.`;
   const showNotifications = async (newProposals) => {
     if (!newProposals.length) return;
     if (!(await window.claimProposalNotification(newProposals[0].id))) return;
@@ -202,7 +202,7 @@ if (sidebarScroll) {
     </nav>
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">
-      <a class="menu-item" href="proposals.html"><span class="menu-icon">☷</span><span>Đề xuất chung</span></a>
+      <a class="menu-item" href="proposals.html"><span class="menu-icon">☷</span><span>Đề xuất nhân sự</span></a>
       <a class="menu-item" href="payment-proposal.html"><span class="menu-icon">₫</span><span>Đề xuất thanh toán</span></a>
       <a class="menu-item" href="proposal-report.html" data-admin-proposal-report><span class="menu-icon">▥</span><span>Báo cáo đề xuất</span></a>
     </nav>
