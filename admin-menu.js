@@ -172,9 +172,8 @@ function initializeSharedProposalNotifications() {
   if (document.querySelector('.proposal-notification-trigger')) return;
   const notificationButton = document.querySelector('[data-notification-trigger]');
   const notificationMenu = document.querySelector('[data-notification-menu]') || document.querySelector('.notification-menu');
-  if (!notificationButton || !notificationMenu) return;
-  const notificationCount = notificationButton.querySelector('[data-notification-count]');
-  const notificationList = notificationMenu.querySelector('.notification-list');
+  const notificationCount = notificationButton?.querySelector('[data-notification-count]');
+  const notificationList = notificationMenu?.querySelector('.notification-list');
   let knownIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
   let hasLoadedOnce = false;
   let notificationTimer;
@@ -182,21 +181,23 @@ function initializeSharedProposalNotifications() {
   const showNotifications = async (newProposals) => {
     if (!newProposals.length) return;
     if (!(await window.claimProposalNotification(newProposals[0].id))) return;
-    notificationList.innerHTML = newProposals.slice(0, 5).map((proposal) => `<p><b>Đề xuất mới</b><span>${formatProposal(proposal)}</span></p>`).join('');
+    if (notificationList) notificationList.innerHTML = newProposals.slice(0, 5).map((proposal) => `<p><b>Đề xuất mới</b><span>${formatProposal(proposal)}</span></p>`).join('');
     if (notificationCount) {
       notificationCount.textContent = String(newProposals.length);
       notificationCount.hidden = false;
     }
-    notificationMenu.hidden = false;
-    notificationButton.classList.remove('is-notifying');
-    void notificationButton.offsetWidth;
-    notificationButton.classList.add('is-notifying');
-    window.speakProposalNotification(newProposals[0]);
+    if (notificationMenu) notificationMenu.hidden = false;
+    if (notificationButton) {
+      notificationButton.classList.remove('is-notifying');
+      void notificationButton.offsetWidth;
+      notificationButton.classList.add('is-notifying');
+    }
+    window.speakProposalNotification?.(newProposals[0]);
     clearTimeout(notificationTimer);
     notificationTimer = setTimeout(() => {
-      notificationMenu.hidden = true;
+      if (notificationMenu) notificationMenu.hidden = true;
       if (notificationCount) notificationCount.hidden = true;
-      notificationButton.classList.remove('is-notifying');
+      notificationButton?.classList.remove('is-notifying');
     }, 5000);
     if (window.desktopSettings?.notify) {
       window.desktopSettings.notify({ title: 'Có đề xuất mới', body: formatProposal(newProposals[0]) });
@@ -205,7 +206,7 @@ function initializeSharedProposalNotifications() {
       notification.onclick = () => window.desktopSettings?.showApp?.();
     }
   };
-  notificationButton.addEventListener('click', () => {
+  notificationButton?.addEventListener('click', () => {
     if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   });
   const poll = async () => {

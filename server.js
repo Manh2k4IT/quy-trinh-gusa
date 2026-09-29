@@ -119,6 +119,35 @@ function servePaymentTemplate(req, res) {
   sendJson(res, 200, { template });
 }
 
+function downloadPaymentTemplate(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const template = getPaymentTemplate();
+  const dataUrl = String(template.fileData || "");
+  const match = /^data:([^,]*),(.*)$/s.exec(dataUrl);
+  if (!match) return send(res, 404, "Chưa có file mẫu thanh toán.");
+  const metadata = match[1];
+  const mimeType = metadata.split(";")[0] || template.fileType || "application/octet-stream";
+  let fileData;
+  try {
+    fileData = /(?:^|;)base64(?:;|$)/i.test(metadata)
+      ? Buffer.from(match[2], "base64")
+      : Buffer.from(decodeURIComponent(match[2]));
+  } catch {
+    return send(res, 400, "File mẫu thanh toán không hợp lệ.");
+  }
+  if (!fileData.length || fileData.length > 8 * 1024 * 1024) return send(res, 400, "File mẫu vượt quá giới hạn tải xuống.");
+  const fileName = String(template.fileName || "mau-de-xuat-thanh-toan").replace(/[\\/\r\n\0]/g, "_").slice(0, 180);
+  const fallbackName = fileName.replace(/[^\x20-\x7e]|["\\;]/g, "_");
+  res.writeHead(200, {
+    "Content-Type": mimeType,
+    "Content-Length": fileData.length,
+    "Content-Disposition": `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+    "Cache-Control": "no-store",
+  });
+  res.end(fileData);
+}
+
 async function updatePaymentTemplate(req, res) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -409,7 +438,6 @@ async function updateUserStatus(req, res, userId) {
   const user = users.get(userId);
   if (!user || !["active", "blocked", "pending"].includes(payload.status)) return send(res, 400, "Invalid user status");
   user.status = payload.status;
-  users.set(userId, user);
   saveUsers();
   res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify({ user }));
@@ -1139,6 +1167,7 @@ const server = http.createServer(async (req, res) => {
       const proposalId = decodeURIComponent(req.url.slice("/api/proposals/".length, -"/cancel".length));
       return await cancelProposal(req, res, proposalId);
     }
+    if (req.method === "GET" && req.url === "/api/payment-template/download") return downloadPaymentTemplate(req, res);
     if (req.method === "GET" && req.url === "/api/payment-template") return servePaymentTemplate(req, res);
     if (req.method === "POST" && req.url === "/api/payment-template") return await updatePaymentTemplate(req, res);
     if (req.url === "/api/users") return serveUsers(req, res);

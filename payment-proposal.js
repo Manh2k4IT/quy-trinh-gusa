@@ -105,31 +105,124 @@ async function applyTemplate(template) {
   if (title) title.textContent = template.fileName || 'Mẫu đề xuất thanh toán';
 }
 
-function canPreviewTemplate(template) {
-  const type = String(template.fileType || '').toLowerCase();
-  const extension = String(template.fileName || '').split('.').pop().toLowerCase();
-  return type === 'application/pdf' || type === 'text/html' || type.startsWith('image/') || ['pdf', 'html', 'htm', 'txt'].includes(extension);
+const previewLibraryPromises = new Map();
+
+function loadPreviewLibrary(globalName, source) {
+  if (window[globalName]) return Promise.resolve(window[globalName]);
+  if (!previewLibraryPromises.has(globalName)) {
+    previewLibraryPromises.set(globalName, new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = source;
+      script.async = true;
+      script.onload = () => window[globalName] ? resolve(window[globalName]) : reject(new Error('Không tải được công cụ xem trước.'));
+      script.onerror = () => reject(new Error('Không tải được công cụ xem trước.'));
+      document.head.append(script);
+    }));
+  }
+  return previewLibraryPromises.get(globalName);
 }
 
-function openTemplatePreview() {
+function templatePreviewKind(template) {
+  const type = String(template.fileType || '').toLowerCase();
+  const extension = String(template.fileName || '').split('.').pop().toLowerCase();
+  if (type === 'application/pdf' || extension === 'pdf') return 'browser';
+  if (type === 'text/html' || ['html', 'htm', 'txt'].includes(extension) || type.startsWith('image/')) return 'browser';
+  if (extension === 'docx' || type.includes('wordprocessingml')) return 'docx';
+  if (['xls', 'xlsx'].includes(extension) || type.includes('spreadsheetml') || type.includes('ms-excel')) return 'spreadsheet';
+  return '';
+}
+
+function previewDocumentHtml(content) {
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0 auto;padding:36px 28px;max-width:820px;background:#fff;color:#243142;font:15px/1.65 'Segoe UI',sans-serif}h1,h2,h3{color:#173f78;line-height:1.3}table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:13px}th,td{border:1px solid #d6e0ea;padding:7px 9px;text-align:left;vertical-align:top}th{background:#eef4fa;color:#173f78}img{max-width:100%;height:auto}@media(max-width:600px){body{padding:18px 14px}table{font-size:12px}}</style></head><body>${content}</body></html>`;
+}
+
+function sanitizeWordPreview(html) {
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  parsed.querySelectorAll('script,iframe,object,embed,form,link,meta,style').forEach((element) => element.remove());
+  parsed.body.querySelectorAll('*').forEach((element) => {
+    [...element.attributes].forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      if (name.startsWith('on') || !['class', 'href', 'src', 'alt', 'title', 'colspan', 'rowspan'].includes(name)) {
+        element.removeAttribute(attribute.name);
+      } else if (name === 'href' && !/^https?:|^mailto:/i.test(attribute.value)) {
+        element.removeAttribute(attribute.name);
+      } else if (name === 'src' && !/^data:image\//i.test(attribute.value)) {
+        element.removeAttribute(attribute.name);
+      }
+    });
+  });
+  return parsed.body.innerHTML;
+}
+
+async function renderSpreadsheetPreview(arrayBuffer, XLSX) {
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const documentFragment = document.createElement('div');
+  workbook.SheetNames.forEach((sheetName) => {
+    const section = document.createElement('section');
+    const heading = document.createElement('h2');
+    heading.textContent = sheetName;
+    const table = document.createElement('table');
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
+    const displayedRows = rows.slice(0, 500);
+    displayedRows.forEach((row, rowIndex) => {
+      const tableRow = document.createElement('tr');
+      row.slice(0, 32).forEach((cell) => {
+        const cellElement = document.createElement(rowIndex === 0 ? 'th' : 'td');
+        cellElement.textContent = String(cell ?? '');
+        tableRow.append(cellElement);
+      });
+      table.append(tableRow);
+    });
+    section.append(heading, table);
+    if (rows.length > displayedRows.length) {
+      const note = document.createElement('p');
+      note.textContent = 'Bản xem trước giới hạn 500 dòng.';
+      section.append(note);
+    }
+    documentFragment.append(section);
+  });
+  return previewDocumentHtml(documentFragment.innerHTML);
+}
+
+async function openTemplatePreview() {
   if (!currentTemplateUrl) {
     setTemplateActionStatus('Chưa tải được file mẫu. Hãy thử tải lại trang.', 'error');
     return;
   }
   templatePreviewModal.querySelector('#payment-preview-title').textContent = currentTemplate.fileName || 'Mẫu đề xuất thanh toán';
-  const supported = canPreviewTemplate(currentTemplate);
+  const previewKind = templatePreviewKind(currentTemplate);
+  const supported = Boolean(previewKind);
   templatePreviewFrameWrap.hidden = !supported;
   templatePreviewFallback.hidden = supported;
   templatePreviewModal.hidden = false;
   if (!supported) {
-    setTemplateActionStatus('Định dạng này không hỗ trợ xem trước.', 'error');
+    templatePreviewFallback.querySelector('p').textContent = `Chưa hỗ trợ xem trước định dạng .${String(currentTemplate.fileName || '').split('.').pop()}. Bạn vẫn có thể tải file mẫu.`;
+    setTemplateActionStatus('Định dạng này không xem trực tiếp được.', 'error');
     return;
   }
   setTemplateActionStatus('Đang mở bản xem trước...', 'loading');
   templatePreviewFrame.onload = () => {
     if (!templatePreviewModal.hidden) setTemplateActionStatus('Bản xem trước đã sẵn sàng.', 'success');
   };
-  templatePreviewFrame.src = currentTemplateUrl;
+  try {
+    if (previewKind === 'docx') {
+      const mammoth = await loadPreviewLibrary('mammoth', 'https://cdn.jsdelivr.net/npm/mammoth@1.9.0/mammoth.browser.min.js');
+      const arrayBuffer = await (await fetch(currentTemplateUrl)).arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      templatePreviewFrame.srcdoc = previewDocumentHtml(sanitizeWordPreview(result.value));
+    } else if (previewKind === 'spreadsheet') {
+      const XLSX = await loadPreviewLibrary('XLSX', 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+      const arrayBuffer = await (await fetch(currentTemplateUrl)).arrayBuffer();
+      templatePreviewFrame.srcdoc = await renderSpreadsheetPreview(arrayBuffer, XLSX);
+    } else {
+      templatePreviewFrame.src = currentTemplateUrl;
+    }
+  } catch (error) {
+    templatePreviewFrameWrap.hidden = true;
+    templatePreviewFallback.hidden = false;
+    templatePreviewFallback.querySelector('p').textContent = error.message || 'Không thể tạo bản xem trước. Bạn vẫn có thể tải file.';
+    setTemplateActionStatus('Không thể tạo bản xem trước; hãy tải file để mở bằng ứng dụng phù hợp.', 'error');
+  }
 }
 
 function closeTemplatePreview() {
@@ -146,6 +239,16 @@ async function downloadTemplate() {
   downloadButton.disabled = true;
   setTemplateActionStatus('Đang chuẩn bị tải file mẫu...', 'loading');
   try {
+    if (window.Capacitor?.isNativePlatform?.()) {
+      const link = document.createElement('a');
+      link.href = '/api/payment-template/download';
+      link.rel = 'noopener';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTemplateActionStatus('Đã bắt đầu tải. Theo dõi tiến trình trong thông báo điện thoại.', 'success');
+      return;
+    }
     const response = await fetch(currentTemplateUrl);
     if (!response.ok) throw new Error('Không thể tải file mẫu.');
     const blobUrl = URL.createObjectURL(await response.blob());
