@@ -7,6 +7,28 @@ const mobileMenuToggle = document.querySelector("[data-mobile-menu-toggle]");
 const mobileMenuBackdrop = document.querySelector("[data-mobile-menu-backdrop]");
 const adminMenu = document.querySelector("[data-admin-menu]");
 const adminMenuLabel = document.querySelector("[data-admin-menu-label]");
+const loginImageWelcome = document.querySelector("[data-login-image-welcome]");
+
+if (loginImageWelcome && new URLSearchParams(location.search).get("showWelcome") === "1") {
+  const closeButton = loginImageWelcome.querySelector("[data-login-image-close]");
+  const closeWelcomeImage = () => {
+    loginImageWelcome.hidden = true;
+    const url = new URL(location.href);
+    url.searchParams.delete("showWelcome");
+    history.replaceState(history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    document.removeEventListener("keydown", onWelcomeKeydown);
+  };
+  const onWelcomeKeydown = (event) => {
+    if (event.key === "Escape") closeWelcomeImage();
+  };
+  loginImageWelcome.hidden = false;
+  closeButton?.focus({ preventScroll: true });
+  closeButton?.addEventListener("click", closeWelcomeImage);
+  loginImageWelcome.addEventListener("click", (event) => {
+    if (event.target === loginImageWelcome) closeWelcomeImage();
+  });
+  document.addEventListener("keydown", onWelcomeKeydown);
+}
 
 function setAdminMenuVisibility(visible) {
   if (adminMenu) adminMenu.hidden = !visible;

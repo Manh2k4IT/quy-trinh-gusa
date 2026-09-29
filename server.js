@@ -323,7 +323,9 @@ async function completeGoogleAuth(req, res) {
   sessions.set(sessionId, { userId: profile.sub, createdAt: Date.now() });
   saveSessions();
   const destination = users.get(profile.sub).status === "pending" ? "/pending.html" : stateData.returnTo;
-  redirect(res, destination, [cookie("gusa_session", sessionId, { maxAge: 60 * 60 * 8 }), cookie("google_oauth_state", "", { maxAge: 0 })]);
+  const destinationUrl = new URL(destination, "http://localhost");
+  if (destinationUrl.pathname === "/organization-chart.html") destinationUrl.searchParams.set("showWelcome", "1");
+  redirect(res, `${destinationUrl.pathname}${destinationUrl.search}${destinationUrl.hash}`, [cookie("gusa_session", sessionId, { maxAge: 60 * 60 * 8 }), cookie("google_oauth_state", "", { maxAge: 0 })]);
 }
 
 async function completeMobileAuth(req, res) {
@@ -390,7 +392,7 @@ async function completeMobileAuth(req, res) {
   const sessionId = crypto.randomBytes(32).toString("hex");
   sessions.set(sessionId, { userId: profile.sub, createdAt: Date.now() });
   saveSessions();
-  const redirectTo = nextUser.status === "pending" ? "/pending.html" : "/organization-chart.html";
+  const redirectTo = nextUser.status === "pending" ? "/pending.html" : "/organization-chart.html?showWelcome=1";
   res.writeHead(200, {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",

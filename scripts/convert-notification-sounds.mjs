@@ -53,6 +53,16 @@ function encodePcmWav(channelData, sampleRate) {
   return wav;
 }
 
+function repeatAudioWithPause(channelData, sampleRate) {
+  const pauseSamples = Math.round(sampleRate * 0.4);
+  return channelData.map((channel) => {
+    const repeated = new Float32Array(channel.length * 2 + pauseSamples);
+    repeated.set(channel);
+    repeated.set(channel, channel.length + pauseSamples);
+    return repeated;
+  });
+}
+
 const decoder = new MPEGDecoder();
 await decoder.ready;
 
@@ -64,7 +74,8 @@ try {
     const mp3Data = new Uint8Array(fs.readFileSync(path.join(root, sourceName)));
     const decoded = decoder.decode(mp3Data);
     if (decoded.errors?.length || !decoded.channelData?.length) throw new Error(`Could not decode ${sourceName}`);
-    const wavData = encodePcmWav(decoded.channelData, decoded.sampleRate);
+    const repeatedAudio = repeatAudioWithPause(decoded.channelData, decoded.sampleRate);
+    const wavData = encodePcmWav(repeatedAudio, decoded.sampleRate);
     fs.writeFileSync(path.join(outputDirectory, outputName), wavData);
     await decoder.reset();
   }
