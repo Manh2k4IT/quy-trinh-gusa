@@ -7,6 +7,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sounds = [
   ['ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3', 'proposal_new_general.wav'],
   ['ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_b5e06310-5fad-4e0d-a280-47d4bca56183.mp3', 'proposal_new_payment.wav'],
+  ['ban_co_de_xuat_thanh_toan_truc_tiep_tu_nhan_su_59b1405d-69b2-4eb7-aa6e-81bd7f8c45c3.mp3', 'proposal_payment_direct_accountant.wav'],
+  ['ban_co_de_xuat_thanh_toan_da_duoc_duyet_tu_ceo_c69e7e0e-7155-40ae-8f27-cd3b676a2493.mp3', 'proposal_payment_ceo_approved.wav'],
+  ['ke_toan_da_xac_nhan_don_duyet_cua_ban_8e3f1f90-f4ef-49c8-b578-cb2a2b1e3806.mp3', 'proposal_payment_accounting_confirmed.wav'],
   ['de_xuat_cua_ban_da_duoc_duyet_0f638daa-fee3-4942-adb5-f8242adc7a72 (1).mp3', 'proposal_approved.wav'],
   ['de_xuat_cua_ban_da_bi_tu_choi_2a0d6172-489b-4f49-aac2-54f0f765504b.mp3', 'proposal_rejected.wav'],
 ];

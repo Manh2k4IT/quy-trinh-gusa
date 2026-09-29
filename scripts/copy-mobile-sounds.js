@@ -5,6 +5,9 @@ const root = path.resolve(__dirname, '..');
 const sounds = [
   ['mobile/sounds/proposal_new_general.wav', 'proposal_new_general.wav'],
   ['mobile/sounds/proposal_new_payment.wav', 'proposal_new_payment.wav'],
+  ['mobile/sounds/proposal_payment_direct_accountant.wav', 'proposal_payment_direct_accountant.wav'],
+  ['mobile/sounds/proposal_payment_ceo_approved.wav', 'proposal_payment_ceo_approved.wav'],
+  ['mobile/sounds/proposal_payment_accounting_confirmed.wav', 'proposal_payment_accounting_confirmed.wav'],
   ['mobile/sounds/proposal_approved.wav', 'proposal_approved.wav'],
   ['mobile/sounds/proposal_rejected.wav', 'proposal_rejected.wav'],
 ];

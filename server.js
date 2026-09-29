@@ -579,10 +579,14 @@ function publishProposalEvent(proposal) {
   });
 }
 
-function publishProposalStatusEvent(proposal) {
-  const payload = `event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type })}\n\n`;
+function publishProposalStatusEvent(proposal, notificationKind = "proposal-status") {
+  const isAccountingConfirmation = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "completed";
   proposalEventClients.forEach((client) => {
-    if (client.userId === proposal.userId) client.response.write(payload);
+    if (isAccountingConfirmation && isManagementUser({ role: client.role })) {
+      client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind: "payment-accounting-confirmed" })}\n\n`);
+    } else if (client.userId === proposal.userId) {
+      client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind })}\n\n`);
+    }
   });
 }
 
@@ -657,28 +661,35 @@ function getFirebaseAuth() {
   return firebaseApp ? getAuth(firebaseApp) : null;
 }
 
-async function sendProposalStatusPush(proposal) {
-  const devices = getPushDevices().filter((device) => device.userId === proposal.userId);
+async function sendProposalStatusPush(proposal, { managementApproval = false } = {}) {
+  const isAccountingConfirmation = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "completed";
+  const isManagementApproval = managementApproval && proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "accounting";
+  const recipientIds = new Set([proposal.userId]);
+  if (isAccountingConfirmation) {
+    [...users.values()].filter((user) => user.status === "active" && isManagementUser(user)).forEach((user) => recipientIds.add(getAttendanceUserKey(user)));
+  }
+  const devices = getPushDevices().filter((device) => recipientIds.has(device.userId));
   if (!devices.length) return;
   const messaging = getFirebaseMessaging();
   if (!messaging) {
     console.warn("Push skipped: configure FIREBASE_SERVICE_ACCOUNT_JSON on the server.");
     return;
   }
-  const approved = proposal.status === "approved";
-  const soundName = approved ? "proposal_approved" : "proposal_rejected";
-  const title = approved ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối";
-  const body = approved ? "Đề xuất của bạn đã được duyệt." : "Đề xuất của bạn đã bị từ chối.";
+  const approved = isManagementApproval || proposal.status === "approved";
+  const soundName = isAccountingConfirmation ? "proposal_payment_accounting_confirmed" : approved ? "proposal_approved" : "proposal_rejected";
+  const channelId = isAccountingConfirmation ? "proposal-payment-accounting-confirmed-v1" : `proposal-${approved ? "approved" : "rejected"}`;
+  const title = isAccountingConfirmation ? "Kế toán đã xác nhận đề xuất" : isManagementApproval ? "Đề xuất thanh toán đã được CEO/Admin duyệt" : approved ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối";
+  const body = isAccountingConfirmation ? "Đề xuất thanh toán đã được kế toán xác nhận." : isManagementApproval ? "Đề xuất của bạn đã được CEO/Admin duyệt và chuyển đến kế toán xác nhận." : approved ? "Đề xuất của bạn đã được duyệt." : "Đề xuất của bạn đã bị từ chối.";
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
       await messaging.send({
         token: device.token,
         notification: { title, body },
-        data: { type: "proposal-status", proposalId: proposal.id, status: proposal.status, url: "https://quytrinh.gusa.vn/proposals.html" },
+        data: { type: "proposal-status", proposalId: proposal.id, status: proposal.status, notificationKind: isAccountingConfirmation ? "payment-accounting-confirmed" : isManagementApproval ? "payment-management-approved" : "proposal-status", url: isAccountingConfirmation || isManagementApproval ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html" },
         android: {
           priority: "high",
-          notification: { channelId: `proposal-${proposal.status}`, sound: soundName },
+          notification: { channelId, sound: soundName },
         },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: `${soundName}.wav` } } },
       });
@@ -702,10 +713,16 @@ async function sendProposalCreatedPush(proposal) {
   const messaging = getFirebaseMessaging();
   if (!messaging) return;
 
+  const isAccountingHandoff = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "accounting";
+  const isDirectAccountantProposal = proposal.type === "payment" && getPaymentFlow(proposal) === "accountant" && getPaymentStage(proposal) === "accounting";
   const flowLabel = proposal.type === "payment" ? getPaymentFlow(proposal) === "accountant" ? "thanh toán (Kế toán)" : "thanh toán (CEO)" : "nhân sự";
-  const body = `${proposal.userName || "Nhân viên"} vừa gửi đề xuất ${flowLabel}.`;
-  const soundName = proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
-  const channelId = proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
+  const body = isAccountingHandoff
+    ? "Đề xuất thanh toán đã được CEO/Admin duyệt. Vui lòng xác nhận."
+    : isDirectAccountantProposal
+      ? `${proposal.userName || "Nhân viên"} vừa gửi đề xuất thanh toán trực tiếp đến Kế toán.`
+    : `${proposal.userName || "Nhân viên"} vừa gửi đề xuất ${flowLabel}.`;
+  const soundName = isAccountingHandoff ? "proposal_payment_ceo_approved" : isDirectAccountantProposal ? "proposal_payment_direct_accountant" : proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
+  const channelId = isAccountingHandoff ? "proposal-created-payment-accounting-v1" : isDirectAccountantProposal ? "proposal-created-payment-accountant-direct-v1" : proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
@@ -714,7 +731,7 @@ async function sendProposalCreatedPush(proposal) {
         notification: { title: "Có đề xuất mới", body },
         data: { type: "proposal-created", proposalId: proposal.id, url: proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html" },
         android: { priority: "high", notification: { channelId, sound: soundName } },
-        apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } },
+        apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: isAccountingHandoff ? `${soundName}.wav` : "default" } } },
       });
     } catch (error) {
       if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(error.code)) expiredTokens.add(device.token);
@@ -770,11 +787,13 @@ async function updateProposalStatus(req, res) {
     proposal.reviewedAt = now;
   }
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
-  publishProposalStatusEvent(proposal);
   if (movedToAccounting) {
+    publishProposalStatusEvent(proposal, "payment-management-approved");
     publishProposalEvent(proposal);
+    sendProposalStatusPush(proposal, { managementApproval: true }).catch((error) => console.error("Proposal management-approval push failed:", error));
     sendProposalCreatedPush(proposal).catch((error) => console.error("Proposal accounting handoff push failed:", error));
   } else {
+    publishProposalStatusEvent(proposal);
     sendProposalStatusPush(proposal).catch((error) => console.error("Proposal push failed:", error));
   }
   sendJson(res, 200, { proposal, movedToAccounting });

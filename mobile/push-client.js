@@ -61,7 +61,10 @@ async function createAndroidChannels() {
   await Promise.all([
     FirebaseMessaging.createChannel({ id: 'proposal-created-general-v2', name: 'Đề xuất nhân sự mới', description: 'Thông báo đề xuất nhân sự mới cần xem xét', importance: 4, visibility: 1, sound: 'proposal_new_general', vibration: true }),
     FirebaseMessaging.createChannel({ id: 'proposal-created-payment-v2', name: 'Đề xuất thanh toán mới', description: 'Thông báo đề xuất thanh toán mới cần xem xét', importance: 4, visibility: 1, sound: 'proposal_new_payment', vibration: true }),
+    FirebaseMessaging.createChannel({ id: 'proposal-created-payment-accountant-direct-v1', name: 'Đề xuất thanh toán trực tiếp cho kế toán', description: 'Nhân viên gửi đề xuất thanh toán cho kế toán xác nhận', importance: 4, visibility: 1, sound: 'proposal_payment_direct_accountant', vibration: true }),
+    FirebaseMessaging.createChannel({ id: 'proposal-created-payment-accounting-v1', name: 'Thanh toán đã duyệt, chờ kế toán', description: 'Đề xuất thanh toán đã được CEO/Admin duyệt và cần kế toán xác nhận', importance: 4, visibility: 1, sound: 'proposal_payment_ceo_approved', vibration: true }),
     FirebaseMessaging.createChannel({ id: 'proposal-approved', name: 'Đề xuất được duyệt', description: 'Thông báo đề xuất đã được duyệt', importance: 4, visibility: 1, sound: 'proposal_approved', vibration: true }),
+    FirebaseMessaging.createChannel({ id: 'proposal-payment-accounting-confirmed-v1', name: 'Kế toán đã xác nhận đề xuất', description: 'Thông báo kế toán xác nhận đề xuất thanh toán đã được duyệt', importance: 4, visibility: 1, sound: 'proposal_payment_accounting_confirmed', vibration: true }),
     FirebaseMessaging.createChannel({ id: 'proposal-rejected', name: 'Đề xuất bị từ chối', description: 'Thông báo đề xuất bị từ chối', importance: 4, visibility: 1, sound: 'proposal_rejected', vibration: true }),
   ]);
 }

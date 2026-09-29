@@ -23,6 +23,14 @@ allDaysOption.textContent = 'Tất cả ngày';
 dayFilter.append(allDaysOption);
 document.querySelector('.report-toolbar')?.insertBefore(dayFilter, filter);
 dayFilter.value = '0';
+const paymentFlowTabs = document.createElement('div');
+paymentFlowTabs.className = 'payment-flow-tabs';
+paymentFlowTabs.setAttribute('role', 'tablist');
+paymentFlowTabs.setAttribute('aria-label', 'Nguồn đề xuất thanh toán');
+paymentFlowTabs.innerHTML = '<button type="button" class="is-active" data-payment-flow-filter="ceo" role="tab" aria-selected="true">Đã duyệt từ CEO/Admin</button><button type="button" data-payment-flow-filter="accountant" role="tab" aria-selected="false">Đề xuất trực tiếp</button>';
+paymentFlowTabs.hidden = !isPaymentReport;
+document.querySelector('.report-toolbar')?.prepend(paymentFlowTabs);
+let selectedPaymentFlow = 'ceo';
 const actionFeedback = document.createElement('p');
 actionFeedback.className = 'report-action-feedback';
 actionFeedback.setAttribute('role', 'status');
@@ -214,9 +222,10 @@ function render() {
     const dayOffset = proposalDayOffset(proposal);
     const matchesDay = dayFilter.value === 'all' || dayOffset === Number(dayFilter.value);
     const matchesType = isPaymentReport ? proposal.type === 'payment' : proposal.type !== 'payment';
+    const matchesPaymentFlow = !isPaymentReport || (proposal.paymentFlow || 'ceo') === selectedPaymentFlow;
     const matchesStatus = filter.value === 'all' || proposal.status === filter.value;
     const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''}`.toLowerCase().includes(query);
-    return matchesDay && matchesType && matchesStatus && matchesSearch;
+    return matchesDay && matchesType && matchesPaymentFlow && matchesStatus && matchesSearch;
   }).sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date));
   list.innerHTML = visible.length ? visible.map((proposal) => {
     const isPayment = proposal.type === 'payment';
@@ -241,7 +250,11 @@ function render() {
 }
 
 function renderSummary() {
-  const reportProposals = proposals.filter((proposal) => isPaymentReport ? proposal.type === 'payment' : proposal.type !== 'payment');
+  const reportProposals = proposals.filter((proposal) => {
+    const matchesType = isPaymentReport ? proposal.type === 'payment' : proposal.type !== 'payment';
+    const matchesPaymentFlow = !isPaymentReport || (proposal.paymentFlow || 'ceo') === selectedPaymentFlow;
+    return matchesType && matchesPaymentFlow;
+  });
   summaryTotal.textContent = reportProposals.length;
   summaryPending.textContent = reportProposals.filter((proposal) => proposal.status === 'pending').length;
   summaryApproved.textContent = reportProposals.filter((proposal) => proposal.status === 'approved').length;
@@ -328,6 +341,18 @@ document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && 
 search.addEventListener('input', render);
 filter.addEventListener('change', render);
 dayFilter.addEventListener('change', render);
+paymentFlowTabs.addEventListener('click', (event) => {
+  const selectedTab = event.target.closest('[data-payment-flow-filter]');
+  if (!selectedTab) return;
+  selectedPaymentFlow = selectedTab.dataset.paymentFlowFilter;
+  paymentFlowTabs.querySelectorAll('[data-payment-flow-filter]').forEach((tab) => {
+    const selected = tab === selectedTab;
+    tab.classList.toggle('is-active', selected);
+    tab.setAttribute('aria-selected', String(selected));
+  });
+  renderSummary();
+  render();
+});
 refreshButton.addEventListener('click', () => load(true).catch((error) => { list.innerHTML = `<p>${error.message}</p>`; }));
 load().catch((error) => { list.innerHTML = `<p>${error.message}</p>`; });
 setInterval(() => load().catch(() => {}), 3000);
