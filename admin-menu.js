@@ -205,6 +205,7 @@ if (sidebarScroll) {
       <a class="menu-item" href="proposals.html"><span class="menu-icon">☷</span><span>Đề xuất nhân sự</span></a>
       <a class="menu-item" href="payment-proposal.html"><span class="menu-icon">₫</span><span>Đề xuất thanh toán</span></a>
       <a class="menu-item" href="proposal-report.html" data-admin-proposal-report><span class="menu-icon">▥</span><span>Báo cáo đề xuất</span></a>
+      <a class="menu-item" href="proposal-report.html?type=payment" data-admin-proposal-report><span class="menu-icon">₫</span><span>Báo cáo đề xuất thanh toán</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
     <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt giao diện</span></a><a class="menu-item" href="interface-settings.html#audio-permission"><span class="menu-icon">♬</span><span>Cài đặt quyền âm thanh</span></a></nav>
@@ -283,8 +284,9 @@ if (sidebarScroll) {
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');
       if (employeeAttendanceOverview) employeeAttendanceOverview.hidden = isAdmin;
-      const proposalReport = sidebarScroll.querySelector('[data-admin-proposal-report]');
-      if (proposalReport) proposalReport.hidden = !isAdmin;
+      sidebarScroll.querySelectorAll('[data-admin-proposal-report]').forEach((link) => {
+        link.hidden = !isAdmin;
+      });
       sidebarScroll.querySelectorAll('a[href^="attendance-overview.html"]').forEach((link) => {
         link.hidden = !isAdmin;
       });

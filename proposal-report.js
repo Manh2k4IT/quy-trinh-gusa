@@ -15,7 +15,6 @@ allDaysOption.value = 'all';
 allDaysOption.textContent = 'Tất cả ngày';
 dayFilter.append(allDaysOption);
 document.querySelector('.report-toolbar')?.insertBefore(dayFilter, filter);
-dayFilter.value = '0';
 const refreshButton = document.querySelector('[data-proposal-refresh]');
 const typeTabs = document.querySelectorAll('[data-proposal-type]');
 const summaryTotal = document.querySelector('[data-report-total]');
@@ -36,9 +35,15 @@ const detailFileName = document.querySelector('[data-detail-file-name]');
 const detailPhoto = document.querySelector('[data-detail-photo]');
 const detailLocation = document.querySelector('[data-detail-location]');
 let proposals = [];
-let selectedType = 'all';
+let selectedType = new URLSearchParams(window.location.search).get('type') === 'payment' ? 'payment' : 'all';
 let notificationInitialized = false;
 let notificationTimer;
+dayFilter.value = selectedType === 'payment' ? 'all' : '0';
+typeTabs.forEach((tab) => {
+  const isSelected = tab.dataset.proposalType === selectedType;
+  tab.classList.toggle('is-active', isSelected);
+  tab.setAttribute('aria-selected', String(isSelected));
+});
 
 const topbar = document.querySelector('.topbar');
 const notificationButton = document.createElement('button');
