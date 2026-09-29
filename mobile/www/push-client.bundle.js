@@ -4198,6 +4198,26 @@
   var apiOrigin = "https://quytrinh.gusa.vn";
   var tokenStorageKey = "gusa-mobile-fcm-token";
   var initialized = false;
+  var initializing = false;
+  var tokenListenerRegistered = false;
+  var actionListenerRegistered = false;
+  var permissionDenied = false;
+  var retryTimer;
+  var retryAttempt = 0;
+  function clearRetry() {
+    if (!retryTimer) return;
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+  function scheduleRetry() {
+    if (retryTimer || !Capacitor.isNativePlatform()) return;
+    const delay = Math.min(6e4, 3e3 * 2 ** retryAttempt);
+    retryAttempt += 1;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      window.initializeGusaMobilePush?.();
+    }, delay);
+  }
   async function registerDeviceToken(token) {
     if (!token) return;
     const response = await fetch(`${apiOrigin}/api/push/devices`, {
@@ -4208,6 +4228,8 @@
     });
     if (!response.ok) throw new Error(`Kh\xF4ng \u0111\u0103ng k\xFD \u0111\u01B0\u1EE3c thi\u1EBFt b\u1ECB nh\u1EADn push (${response.status}).`);
     localStorage.setItem(tokenStorageKey, token);
+    retryAttempt = 0;
+    clearRetry();
   }
   async function removeDeviceToken() {
     const token = localStorage.getItem(tokenStorageKey);
@@ -4233,27 +4255,66 @@
     ]);
   }
   window.initializeGusaMobilePush = async () => {
-    if (initialized || !Capacitor.isNativePlatform()) return;
-    initialized = true;
+    if (initialized || initializing || !Capacitor.isNativePlatform()) return;
+    initializing = true;
     try {
-      await FirebaseMessaging.addListener("tokenReceived", ({ token }) => {
-        registerDeviceToken(token).catch((error) => console.error(error));
-      });
-      await FirebaseMessaging.addListener("notificationActionPerformed", ({ notification }) => {
-        const targetUrl = notification.data?.url;
-        if (typeof targetUrl === "string" && new URL(targetUrl).origin === apiOrigin) window.location.assign(targetUrl);
-      });
+      if (!tokenListenerRegistered) {
+        await FirebaseMessaging.addListener("tokenReceived", ({ token }) => {
+          registerDeviceToken(token).then(() => {
+            initialized = true;
+          }).catch((error) => {
+            initialized = false;
+            console.error("Kh\xF4ng \u0111\u0103ng k\xFD \u0111\u01B0\u1EE3c FCM token:", error.code || error.name || "unknown");
+            scheduleRetry();
+          });
+        });
+        tokenListenerRegistered = true;
+      }
+      if (!actionListenerRegistered) {
+        await FirebaseMessaging.addListener("notificationActionPerformed", ({ notification }) => {
+          const targetUrl = notification.data?.url;
+          if (typeof targetUrl === "string" && new URL(targetUrl).origin === apiOrigin) window.location.assign(targetUrl);
+        });
+        actionListenerRegistered = true;
+      }
       let permission = await FirebaseMessaging.checkPermissions();
       if (permission.receive !== "granted") permission = await FirebaseMessaging.requestPermissions();
-      if (permission.receive !== "granted") return;
+      if (permission.receive !== "granted") {
+        permissionDenied = true;
+        return;
+      }
+      permissionDenied = false;
       await createAndroidChannels();
       const result = await FirebaseMessaging.getToken();
+      if (!result.token) throw new Error("Firebase kh\xF4ng tr\u1EA3 v\u1EC1 FCM token.");
       await registerDeviceToken(result.token);
+      initialized = true;
     } catch (error) {
       initialized = false;
-      console.error("Kh\xF4ng th\u1EC3 b\u1EADt push notification:", error);
+      console.error("Kh\xF4ng th\u1EC3 b\u1EADt push notification:", error.code || error.name || "unknown");
+      scheduleRetry();
+    } finally {
+      initializing = false;
     }
   };
+  async function retryPushAfterResume() {
+    if (!Capacitor.isNativePlatform()) return;
+    if (permissionDenied) {
+      try {
+        const permission = await FirebaseMessaging.checkPermissions();
+        if (permission.receive !== "granted") return;
+        permissionDenied = false;
+      } catch {
+        return;
+      }
+    }
+    window.initializeGusaMobilePush?.();
+  }
+  window.addEventListener("online", retryPushAfterResume);
+  window.addEventListener("focus", retryPushAfterResume);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") retryPushAfterResume();
+  });
   document.addEventListener("click", (event) => {
     const logoutLink = event.target.closest('a[href="/auth/logout"]');
     if (!logoutLink || !localStorage.getItem(tokenStorageKey)) return;
