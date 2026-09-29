@@ -97,7 +97,7 @@ function initializeSharedProposalNotifications() {
   let knownIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
   let hasLoadedOnce = false;
   let notificationTimer;
-  const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất nhân sự'}.`;
+  const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? `đề xuất thanh toán (${proposal.paymentFlow === 'accountant' ? 'Kế toán' : 'CEO'})` : 'đề xuất nhân sự'}.`;
   const showNotifications = async (newProposals) => {
     if (!newProposals.length) return;
     if (!(await window.claimProposalNotification(newProposals[0].id))) return;
@@ -128,7 +128,7 @@ function initializeSharedProposalNotifications() {
     if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   });
   const poll = async () => {
-    const response = await fetch(`/api/proposals?scope=all&refresh=${Date.now()}`, { cache: 'no-store' });
+    const response = await fetch(`/api/proposals?scope=review-queue&refresh=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) return;
     const nextProposals = (await response.json()).proposals || [];
     const nextIds = new Set(nextProposals.map((proposal) => proposal.id));
@@ -203,7 +203,8 @@ if (sidebarScroll) {
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">
       <a class="menu-item" href="proposals.html"><span class="menu-icon">☷</span><span>Đề xuất nhân sự</span></a>
-      <a class="menu-item" href="payment-proposal.html"><span class="menu-icon">₫</span><span>Đề xuất thanh toán</span></a>
+      <a class="menu-item" href="payment-proposal.html?flow=ceo"><span class="menu-icon">₫</span><span>Đề xuất thanh toán (CEO)</span></a>
+      <a class="menu-item" href="payment-proposal.html?flow=accountant"><span class="menu-icon">₫</span><span>Đề xuất thanh toán (Kế toán)</span></a>
       <a class="menu-item" href="proposal-report.html" data-admin-proposal-report><span class="menu-icon">▥</span><span>Báo cáo nhân sự</span></a>
       <a class="menu-item" href="proposal-report.html?type=payment" data-payment-proposal-report><span class="menu-icon">₫</span><span>Báo cáo đề xuất thanh toán</span></a>
     </nav>
@@ -280,6 +281,7 @@ if (sidebarScroll) {
       const isAccountant = user?.role === 'accountant';
       initializeProposalApprovalNotifications();
       initializeMobilePush();
+      if (isAdmin || isAccountant) initializeSharedProposalNotifications();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');
@@ -292,15 +294,12 @@ if (sidebarScroll) {
         link.hidden = !isAdmin;
       });
       if (isCeo) {
-        sidebarScroll.querySelectorAll('a[href="attendance.html"], a[href="attendance.html?view=online"], a[href="proposals.html"], a[href="payment-proposal.html"]').forEach((link) => {
+        sidebarScroll.querySelectorAll('a[href="attendance.html"], a[href="attendance.html?view=online"], a[href="proposals.html"]').forEach((link) => {
           link.hidden = true;
         });
         sidebarScroll.querySelectorAll('[data-admin-menu] .menu-item[href="#"]').forEach((link) => {
           link.hidden = true;
         });
-      }
-      if (isAdmin) {
-        initializeSharedProposalNotifications();
       }
     })
     .catch(() => {

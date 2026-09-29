@@ -11,8 +11,14 @@ const paymentButton = document.querySelector('[data-open-payment]');
 const paymentReview = document.querySelector('[data-payment-review]');
 const cancelButton = document.querySelector('[data-cancel-payment]');
 const cancelMainButton = document.querySelector('[data-cancel-payment-main]');
+const paymentFlow = new URLSearchParams(window.location.search).get('flow') === 'accountant' ? 'accountant' : 'ceo';
+const paymentFlowLabel = paymentFlow === 'accountant' ? 'Kế toán' : 'CEO';
 let currentTemplate = { fileName: 'payment-template.html', fileData: 'payment-template.html' };
 let currentProposal = null;
+document.title = `Đề xuất thanh toán (${paymentFlowLabel}) - Quy Trình`;
+document.querySelector('.breadcrumbs strong').textContent = `Đề xuất thanh toán (${paymentFlowLabel})`;
+document.querySelector('.payment-ribbon').textContent = `Đề xuất thanh toán (${paymentFlowLabel})`;
+document.querySelector('.payment-modal-card h2').textContent = `Đề xuất thanh toán (${paymentFlowLabel})`;
 const newPaymentButton = document.createElement('button');
 newPaymentButton.type = 'button';
 newPaymentButton.className = 'payment-new-proposal';
@@ -37,7 +43,7 @@ function setPaymentButton(proposal) {
   if (!currentProposal) {
     paymentButton.textContent = 'ĐỀ XUẤT';
   } else if (currentProposal.status === 'approved') {
-    paymentButton.textContent = 'ĐÃ DUYỆT';
+    paymentButton.textContent = 'ĐÃ XÁC NHẬN';
     paymentButton.classList.add('is-approved');
     newPaymentButton.hidden = false;
   } else if (currentProposal.status === 'rejected') {
@@ -54,7 +60,7 @@ async function loadPaymentProposal() {
   const response = await fetch('/api/proposals', { cache: 'no-store' });
   if (!response.ok) return;
   const data = await response.json();
-  setPaymentButton((data.proposals || []).find((proposal) => proposal.type === 'payment'));
+  setPaymentButton((data.proposals || []).find((proposal) => proposal.type === 'payment' && (proposal.paymentFlow || 'ceo') === paymentFlow));
 }
 
 function applyTemplate(template) {
@@ -86,7 +92,7 @@ paymentButton.addEventListener('click', () => {
     form.hidden = true;
     paymentReview.hidden = false;
     paymentReview.className = `payment-review is-${currentProposal.status}`;
-    const state = currentProposal.status === 'approved' ? 'ĐÃ DUYỆT' : currentProposal.status === 'rejected' ? 'TỪ CHỐI' : 'ĐANG CHỜ DUYỆT';
+    const state = currentProposal.status === 'approved' ? 'ĐÃ XÁC NHẬN' : currentProposal.status === 'rejected' ? 'TỪ CHỐI' : currentProposal.paymentStage === 'accounting' ? 'ĐANG CHỜ KẾ TOÁN XÁC NHẬN' : 'ĐANG CHỜ CEO/ADMIN DUYỆT';
     paymentReview.innerHTML = `<strong>${state}</strong><span>Ngày đề xuất: ${currentProposal.date}</span><span>Hạng mục: ${currentProposal.category}</span><span>Số tiền: ${Number(currentProposal.amount).toLocaleString('vi-VN')} VNĐ</span><a href="${currentProposal.paymentFileData}" download="${currentProposal.paymentFileName || 'bieu-mau-de-xuat'}">Tải lại file đã gửi</a>`;
     cancelButton.hidden = currentProposal.status !== 'pending';
     return;
@@ -169,6 +175,7 @@ form.addEventListener('submit', async (event) => {
   status.textContent = 'Đang gửi...';
   const payload = Object.fromEntries(new FormData(form));
   payload.type = 'payment';
+  payload.paymentFlow = paymentFlow;
   const file = paymentFileInput.files?.[0];
   if (!file) {
     status.textContent = 'Vui lòng tải file biểu mẫu đề xuất.';
@@ -187,7 +194,7 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.message || 'Không thể gửi đề xuất.');
-    status.textContent = 'Đã gửi đề xuất, đang chờ duyệt.';
+    status.textContent = paymentFlow === 'accountant' ? 'Đã gửi đề xuất, đang chờ kế toán xác nhận.' : 'Đã gửi đề xuất, đang chờ CEO/Admin duyệt.';
     form.reset();
     await loadPaymentProposal();
   } catch (error) {

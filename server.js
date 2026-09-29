@@ -507,6 +507,23 @@ function getProposals() {
   }
 }
 
+function getPaymentFlow(proposal) {
+  return proposal.paymentFlow === "accountant" ? "accountant" : "ceo";
+}
+
+function getPaymentStage(proposal) {
+  return proposal.paymentStage || (getPaymentFlow(proposal) === "accountant" ? "accounting" : "management");
+}
+
+function needsManagementReview(proposal) {
+  if (proposal.status !== "pending") return false;
+  return proposal.type !== "payment" || (getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "management");
+}
+
+function needsAccountingReview(proposal) {
+  return proposal.type === "payment" && proposal.status === "pending" && getPaymentStage(proposal) === "accounting";
+}
+
 function serveProposals(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -516,8 +533,16 @@ function serveProposals(req, res) {
   const proposals = scope === "all"
     ? isManagementUser(currentUser) ? getProposals() : null
     : scope === "payment-report"
-      ? canViewPaymentReport ? getProposals().filter((proposal) => proposal.type === "payment") : null
-      : getProposals().filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser));
+      ? canViewPaymentReport
+        ? getProposals().filter((proposal) => proposal.type === "payment" && (isManagementUser(currentUser) || getPaymentStage(proposal) === "accounting" || getPaymentStage(proposal) === "completed" || getPaymentFlow(proposal) === "accountant"))
+        : null
+      : scope === "review-queue"
+        ? isManagementUser(currentUser)
+          ? getProposals().filter(needsManagementReview)
+          : currentUser.role === "accountant"
+            ? getProposals().filter(needsAccountingReview)
+            : null
+        : getProposals().filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser));
   if (!proposals) return send(res, 403, "Forbidden");
   const enrichedProposals = proposals.map((proposal) => {
     const proposer = users.get(proposal.userId);
@@ -528,7 +553,11 @@ function serveProposals(req, res) {
       userPicture: proposal.userPicture || proposer?.picture || "",
     };
   });
-  sendJson(res, 200, { proposals: enrichedProposals, canReview: isManagementUser(currentUser) });
+  sendJson(res, 200, {
+    proposals: enrichedProposals,
+    canReview: isManagementUser(currentUser) || currentUser.role === "accountant",
+    viewerRole: currentUser.role,
+  });
 }
 
 function serveProposalEvents(req, res) {
@@ -536,7 +565,7 @@ function serveProposalEvents(req, res) {
   if (!currentUser || currentUser.status !== "active") return send(res, 401, "Unauthorized");
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
   res.write("event: connected\ndata: {}\n\n");
-  const client = { response: res, userId: getAttendanceUserKey(currentUser), canReview: isManagementUser(currentUser) };
+  const client = { response: res, userId: getAttendanceUserKey(currentUser), role: currentUser.role };
   proposalEventClients.add(client);
   req.on("close", () => proposalEventClients.delete(client));
 }
@@ -544,7 +573,9 @@ function serveProposalEvents(req, res) {
 function publishProposalEvent(proposal) {
   const payload = `event: proposal\ndata: ${JSON.stringify(proposal)}\n\n`;
   proposalEventClients.forEach((client) => {
-    if (client.canReview) client.response.write(payload);
+    const shouldNotifyAccountant = needsAccountingReview(proposal) && client.role === "accountant";
+    const shouldNotifyManagement = needsManagementReview(proposal) && isManagementUser({ role: client.role });
+    if (shouldNotifyAccountant || shouldNotifyManagement) client.response.write(payload);
   });
 }
 
@@ -661,7 +692,7 @@ async function sendProposalStatusPush(proposal) {
 
 async function sendProposalCreatedPush(proposal) {
   const reviewerIds = new Set([...users.values()]
-    .filter((user) => user.status === "active" && isManagementUser(user))
+    .filter((user) => user.status === "active" && (needsAccountingReview(proposal) ? user.role === "accountant" : isManagementUser(user)))
     .map(getAttendanceUserKey));
   const devices = getPushDevices().filter((device) => reviewerIds.has(device.userId));
   if (!devices.length) {
@@ -671,7 +702,8 @@ async function sendProposalCreatedPush(proposal) {
   const messaging = getFirebaseMessaging();
   if (!messaging) return;
 
-  const body = `${proposal.userName || "Nhân viên"} vừa gửi ${proposal.type === "payment" ? "đề xuất thanh toán" : "đề xuất nhân sự"}.`;
+  const flowLabel = proposal.type === "payment" ? getPaymentFlow(proposal) === "accountant" ? "thanh toán (Kế toán)" : "thanh toán (CEO)" : "nhân sự";
+  const body = `${proposal.userName || "Nhân viên"} vừa gửi đề xuất ${flowLabel}.`;
   const soundName = proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
   const channelId = proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
   const expiredTokens = new Set();
@@ -680,7 +712,7 @@ async function sendProposalCreatedPush(proposal) {
       await messaging.send({
         token: device.token,
         notification: { title: "Có đề xuất mới", body },
-        data: { type: "proposal-created", proposalId: proposal.id, url: "https://quytrinh.gusa.vn/proposals.html" },
+        data: { type: "proposal-created", proposalId: proposal.id, url: proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html" },
         android: { priority: "high", notification: { channelId, sound: soundName } },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } },
       });
@@ -695,19 +727,57 @@ async function sendProposalCreatedPush(proposal) {
 
 async function updateProposalStatus(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
   const proposals = getProposals();
   const proposal = proposals.find((item) => item.id === String(payload.id || ""));
-  if (!proposal || !["approved", "rejected"].includes(payload.status)) return send(res, 400, "Đề xuất hoặc trạng thái không hợp lệ.");
-  proposal.status = payload.status;
-  proposal.reviewedAt = new Date().toISOString();
+  if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
+  const now = new Date().toISOString();
+  let movedToAccounting = false;
+  if (proposal.type === "payment") {
+    const paymentFlow = getPaymentFlow(proposal);
+    const paymentStage = getPaymentStage(proposal);
+    if (proposal.status !== "pending") return send(res, 409, "Đề xuất này đã được xử lý.");
+    if (payload.action === "confirm") {
+      if (currentUser.role !== "accountant" || paymentStage !== "accounting") return send(res, 403, "Chỉ kế toán được xác nhận đề xuất đang chờ kế toán.");
+      proposal.status = "approved";
+      proposal.paymentStage = "completed";
+      proposal.accountingConfirmedAt = now;
+      proposal.accountingConfirmedBy = getAttendanceUserKey(currentUser);
+      proposal.reviewedAt = now;
+    } else {
+      if (!isManagementUser(currentUser) || !["approved", "rejected"].includes(payload.status)) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");
+      if (paymentFlow !== "ceo" || paymentStage !== "management") return send(res, 409, "Đề xuất này không còn ở bước duyệt của CEO/Admin.");
+      proposal.managementReviewedAt = now;
+      proposal.managementReviewedBy = getAttendanceUserKey(currentUser);
+      if (payload.status === "rejected") {
+        proposal.status = "rejected";
+        proposal.paymentStage = "rejected";
+        proposal.reviewedAt = now;
+      } else {
+        proposal.status = "pending";
+        proposal.paymentStage = "accounting";
+        movedToAccounting = true;
+      }
+    }
+  } else {
+    if (!isManagementUser(currentUser)) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");
+    if (! ["approved", "rejected"].includes(payload.status)) return send(res, 400, "Trạng thái đề xuất không hợp lệ.");
+    if (proposal.status !== "pending") return send(res, 409, "Đề xuất này đã được xử lý.");
+    proposal.status = payload.status;
+    proposal.reviewedAt = now;
+  }
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
   publishProposalStatusEvent(proposal);
-  sendProposalStatusPush(proposal).catch((error) => console.error("Proposal push failed:", error));
-  sendJson(res, 200, { proposal });
+  if (movedToAccounting) {
+    publishProposalEvent(proposal);
+    sendProposalCreatedPush(proposal).catch((error) => console.error("Proposal accounting handoff push failed:", error));
+  } else {
+    sendProposalStatusPush(proposal).catch((error) => console.error("Proposal push failed:", error));
+  }
+  sendJson(res, 200, { proposal, movedToAccounting });
 }
 
 async function cancelProposal(req, res, proposalId) {
@@ -746,7 +816,8 @@ async function createProposal(req, res) {
   const validPayment = type === "payment" && category && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0;
   const validPaymentFile = type === "payment" && paymentFileName && paymentFileData.startsWith("data:") && paymentFileData.length <= 9.5 * 1024 * 1024;
   if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || (!reason && type !== "payment") || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Đề xuất đi trễ cần có ảnh và vị trí xác nhận." : "Vui lòng nhập đầy đủ thông tin đề xuất.");
-  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "payment" ? { category, amount, paymentFileName, paymentFileType, paymentFileData } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
+  const paymentFlow = payload.paymentFlow === "accountant" ? "accountant" : "ceo";
+  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
   const proposals = getProposals();
   proposals.unshift(proposal);
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
