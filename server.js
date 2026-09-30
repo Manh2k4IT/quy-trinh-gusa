@@ -525,6 +525,7 @@ function applyApprovedLeaveToAttendance(proposal) {
     delete record.attendanceType;
     delete record.onlineProof;
     delete record.late;
+    delete record.lateMinutes;
     records[date] = record;
   }
   attendance[proposal.userId] = records;
@@ -969,7 +970,10 @@ async function updateAttendance(req, res) {
     record.status = "working";
     record.workMode = mode;
     record.attendanceType = mode === "office" ? attendanceType : "full-day";
-    record.late = getLocalMinutes() > (8 * 60 + 35);
+    const lateThreshold = record.attendanceType === "half-day-afternoon" ? 13 * 60 : 8 * 60 + 35;
+    record.lateMinutes = Math.max(0, getLocalMinutes() - lateThreshold);
+    record.late = record.lateMinutes > 0;
+    if (!record.late) delete record.lateMinutes;
     if (mode === "online") record.onlineProof = { photoCapturedAt: payload.onlineProof.photoCapturedAt, photoData: payload.onlineProof.photoData, latitude: Number(payload.onlineProof.latitude), longitude: Number(payload.onlineProof.longitude), accuracy: Number(payload.onlineProof.accuracy) || null };
     else delete record.onlineProof;
   } else {

@@ -100,13 +100,24 @@ function getReportAvatar(user) {
 	return user.picture ? `<img class="attendance-report-avatar" src="${user.picture}" referrerpolicy="no-referrer" alt="Ảnh đại diện Gmail của ${user.name}">` : `<span class="attendance-report-avatar attendance-report-avatar-fallback" aria-hidden="true">${(user.name || '?').charAt(0).toUpperCase()}</span>`;
 }
 
+function getLateMinutes(record) {
+	if (record.lateMinutes !== undefined && Number.isFinite(Number(record.lateMinutes))) return Math.max(0, Math.trunc(Number(record.lateMinutes)));
+	if (!record.checkIn) return 0;
+	const checkIn = new Date(record.checkIn);
+	if (Number.isNaN(checkIn.getTime())) return 0;
+	const threshold = record.attendanceType === 'half-day-afternoon' ? 13 * 60 : 8 * 60 + 35;
+	return Math.max(1, checkIn.getHours() * 60 + checkIn.getMinutes() - threshold);
+}
+
 function renderLateReport() {
 	const lateEntries = users.flatMap((user) => Object.values(user.records || {}).filter((record) => record.date?.startsWith(monthSelect.value) && record.late).map((record) => ({ user, record })));
 	const entriesMarkup = lateEntries
 		.sort((a, b) => `${a.record.date}${a.record.checkIn}`.localeCompare(`${b.record.date}${b.record.checkIn}`))
 		.map(({ user, record }) => {
 			const workMode = record.workMode === 'online' || record.onlineProof ? 'Làm online' : 'Làm tại công ty';
-			return `<article class="attendance-report-entry"><span class="late-report-avatar">${getReportAvatar(user)}</span><span class="attendance-report-details"><b>${user.name}</b><small class="late-report-date"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17"/></svg>${record.date} · ${formatTime(record.checkIn)}</small><em class="attendance-work-mode ${workMode === 'Làm online' ? 'is-online' : 'is-office'}"><i></i>${workMode}</em></span></article>`;
+			const attendanceTypeLabel = { 'full-day': 'Cả ngày', 'half-day-morning': 'Nửa buổi sáng', 'half-day-afternoon': 'Nửa buổi chiều' }[record.attendanceType] || 'Cả ngày';
+			const lateMinutes = getLateMinutes(record);
+			return `<article class="attendance-report-entry"><span class="late-report-avatar">${getReportAvatar(user)}</span><span class="attendance-report-details"><b>${user.name}</b><small class="late-report-date"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17"/></svg>${record.date} · ${formatTime(record.checkIn)}</small><span class="late-report-labels"><em class="attendance-work-mode ${workMode === 'Làm online' ? 'is-online' : 'is-office'}"><i></i>${workMode}</em><em class="attendance-shift-badge">${attendanceTypeLabel}</em></span></span><span class="late-report-minutes" aria-label="Trễ ${lateMinutes} phút"><b>${lateMinutes}</b><small>phút trễ</small></span></article>`;
 		}).join('');
 	lateReport.innerHTML = `<div class="late-report-month-panel"><h3 class="late-report-month-heading">Báo cáo đi trễ tháng ${monthSelect.value}</h3>${entriesMarkup ? `<div class="attendance-late-report-list">${entriesMarkup}</div>` : '<p class="late-report-empty">Không có nhân sự đi trễ trong tháng này.</p>'}</div>`;
 }
