@@ -6,11 +6,11 @@
     <title>Chấm công - Quy Trình</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Caveat:wght@400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20260929-2" />
-    <link rel="stylesheet" href="attendance.css" />
+    <link rel="stylesheet" href="attendance.css?v=20260930-1" />
   </head>
-  <body>
+  <body class="attendance-screen">
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
     <div class="app-shell">
       <aside class="sidebar">
@@ -21,8 +21,47 @@
       <main class="workspace">
         <header class="topbar"><button class="mobile-menu-toggle" type="button" data-mobile-menu-toggle aria-label="Mở menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button><div class="breadcrumbs"><span>Quy Trình</span><span class="crumb-separator">/</span><strong>Chấm Công</strong></div><div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip is-selected" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div></header>
         <section class="attendance-content">
-          <div class="attendance-heading"><div><span class="eyebrow">NHÂN SỰ</span><h1>Chấm Công</h1><p>Theo dõi thời gian làm việc của bạn.</p></div><label class="attendance-month">Tháng<select data-attendance-month></select></label></div>
-          <div class="attendance-summary"><article class="attendance-clock-card"><span class="attendance-kicker">HÔM NAY</span><strong data-current-time>--:--:--</strong><span data-current-date>Đang tải ngày...</span><fieldset class="attendance-type-choice" data-attendance-type-choice><legend>Loại chấm công</legend><label><input type="radio" name="attendanceType" value="full-day" checked /> Cả ngày</label><label><input type="radio" name="attendanceType" value="half-day-morning" /> Nửa ngày sáng <small>(08:30–12:00)</small></label><label><input type="radio" name="attendanceType" value="half-day-afternoon" /> Nửa ngày chiều <small>(13:00–17:30)</small></label></fieldset><div class="attendance-status" data-attendance-status>Chưa vào ca</div><div class="attendance-actions"><button class="attendance-primary" type="button" data-check-in>Check-in</button><button class="attendance-secondary" type="button" data-check-out disabled>Check-out</button></div><p class="attendance-message" data-attendance-message role="status"></p></article><div class="attendance-stats"><article><span>Ngày công</span><strong data-stat-days>0</strong><small>quy đổi trong tháng này</small></article><article><span>Đang làm việc</span><strong data-stat-hours>0h</strong><small>tổng thời gian</small></article><article><span>Đi muộn</span><strong data-stat-late>0</strong><small>lần trong tháng</small></article></div></div>
+          <div class="attendance-heading">
+            <div class="attendance-heading-copy">
+              <span class="eyebrow"><span aria-hidden="true">♟</span> NHÂN SỰ</span>
+              <h1>Chấm Công</h1>
+              <p>Theo dõi thời gian làm việc của bạn.</p>
+            </div>
+            <p class="attendance-motto">Làm việc<br />đúng giờ<br />là tôn trọng<br />chính mình.</p>
+          </div>
+          <label class="attendance-month">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17M8 13h2m4 0h2m-8 3h2" /></svg>
+            <select data-attendance-month aria-label="Chọn tháng chấm công"></select>
+          </label>
+          <div class="attendance-summary">
+            <article class="attendance-clock-card">
+              <div class="attendance-live">
+                <div class="attendance-live-copy">
+                  <span class="attendance-kicker"><span aria-hidden="true">◷</span> HÔM NAY</span>
+                  <strong data-current-time>--:--:--</strong>
+                  <span data-current-date>Đang tải ngày...</span>
+                </div>
+                <div class="attendance-clock-art" aria-hidden="true"><span class="attendance-clock-face"><i></i><b></b></span><span class="attendance-clock-leaf leaf-one"></span><span class="attendance-clock-leaf leaf-two"></span></div>
+              </div>
+              <fieldset class="attendance-type-choice" data-attendance-type-choice>
+                <legend><span aria-hidden="true">♟</span> Loại chấm công</legend>
+                <label><input type="radio" name="attendanceType" value="full-day" checked /> Cả ngày</label>
+                <label><input type="radio" name="attendanceType" value="half-day-morning" /> Nửa ngày sáng <small>(08:30–12:00)</small></label>
+                <label><input type="radio" name="attendanceType" value="half-day-afternoon" /> Nửa ngày chiều <small>(13:00–17:30)</small></label>
+              </fieldset>
+              <div class="attendance-status" data-attendance-status>Chưa vào ca</div>
+              <div class="attendance-actions">
+                <button class="attendance-primary" type="button" data-check-in><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>Check-in</button>
+                <button class="attendance-secondary" type="button" data-check-out disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4h6v16h-6M3 12h12m-4-4 4 4-4 4" /></svg>Check-out</button>
+              </div>
+              <p class="attendance-message" data-attendance-message role="status"></p>
+            </article>
+            <div class="attendance-stats">
+              <article class="stat-days"><div class="attendance-stat-title"><span aria-hidden="true">▦</span><span>Ngày công</span></div><strong data-stat-days>0</strong><small>quy đổi trong tháng này</small></article>
+              <article class="stat-hours"><div class="attendance-stat-title"><span aria-hidden="true">◷</span><span>Đang làm việc</span></div><strong data-stat-hours>0h</strong><small>tổng thời gian</small></article>
+              <article class="stat-late"><div class="attendance-stat-title"><span aria-hidden="true">☾</span><span>Đi muộn</span></div><strong data-stat-late>0</strong><small>lần trong tháng</small></article>
+            </div>
+          </div>
           <section class="attendance-history"><div class="attendance-section-heading"><div><span class="eyebrow">LỊCH SỬ</span><h2>Bảng công tháng này</h2></div><button type="button" class="attendance-outline-button" data-refresh-attendance>↻ Làm mới</button></div><div class="attendance-table-wrap attendance-person-wrap"><div class="attendance-person-matrix" data-attendance-list><div class="attendance-empty-state">Đang tải dữ liệu...</div></div></div></section>
           <section class="attendance-admin-overview" data-admin-overview hidden><div class="attendance-section-heading"><div><span class="eyebrow">QUẢN TRỊ</span><h2>Tổng quan nhân sự</h2></div><span class="attendance-admin-note">Dữ liệu check-in/check-out hôm nay</span></div><div class="attendance-admin-kpis"><article><span>Tổng nhân sự</span><strong data-admin-total>0</strong></article><article class="is-success"><span>Đã check-in</span><strong data-admin-checked-in>0</strong></article><article class="is-info"><span>Đã hoàn tất</span><strong data-admin-completed>0</strong></article><article class="is-warning"><span>Chưa check-in</span><strong data-admin-not-checked>0</strong></article></div><div class="attendance-admin-toolbar"><label>Tìm nhân viên<input type="search" data-admin-search placeholder="Nhập tên nhân viên..." /></label><label>Trạng thái<select data-admin-status><option value="all">Tất cả trạng thái</option><option value="not-checked">Chưa check-in</option><option value="working">Đang làm việc</option><option value="completed">Đã check-out</option></select></label><div class="attendance-legend"><span><i class="legend-dot is-success"></i>Đã hoàn tất</span><span><i class="legend-dot is-warning"></i>Chưa check-in</span></div></div><div class="attendance-table-wrap attendance-overview-table"><table><thead><tr><th>Nhân viên</th><th>Trạng thái hôm nay</th><th>Giờ vào</th><th>Giờ ra</th><th>Tổng giờ</th></tr></thead><tbody data-attendance-overview><tr><td colspan="5">Đang tải dữ liệu...</td></tr></tbody></table></div></section>
         </section>
