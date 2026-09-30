@@ -8,7 +8,7 @@
     "start": "node server.js",
     "desktop": "electron .",
     "dist:win": "electron-builder --win nsis",
-    "mobile:build": "esbuild mobile/push-client.js --bundle --format=iife --target=es2020 --outfile=mobile/www/push-client.bundle.js && esbuild mobile/native-auth.js --bundle --format=iife --target=es2020 --outfile=mobile/www/native-auth.bundle.js",
+    "mobile:build": "esbuild mobile/push-client.js --bundle --format=iife --target=es2020 --outfile=mobile/www/push-client.bundle.js && esbuild mobile/native-auth.js --bundle --format=iife --target=es2020 --outfile=mobile/www/native-auth.bundle.js && esbuild mobile/native-settings.js --bundle --format=iife --target=es2020 --outfile=mobile/www/native-settings.bundle.js",
     "mobile:convert-sounds": "node scripts/convert-notification-sounds.mjs",
     "mobile:copy-sounds": "node scripts/copy-mobile-sounds.js",
     "mobile:add:android": "npm run mobile:build && npm run mobile:convert-sounds && cap add android && npm run mobile:copy-sounds",

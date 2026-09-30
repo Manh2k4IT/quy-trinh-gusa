@@ -22,6 +22,9 @@ const lateProof = form.querySelector('[data-late-proof]');
 const latePhotoInput = form.querySelector('[name="latePhoto"]');
 const locationButton = form.querySelector('[data-proposal-location]');
 const locationStatus = form.querySelector('[data-proposal-location-status]');
+const locationPermissionModal = document.querySelector('[data-location-permission-modal]');
+const openLocationSettingsButton = document.querySelector('[data-open-location-settings]');
+const closeLocationPermissionButton = document.querySelector('[data-close-location-permission]');
 const proposalListPanel = document.querySelector('[data-proposal-list-panel]');
 const proposalCards = document.querySelector('[data-proposal-cards]');
 const proposalList = document.querySelector('[data-proposal-list]');
@@ -196,6 +199,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
 
 function closeModal() {
   modal.hidden = true;
+  locationPermissionModal.hidden = true;
   form.reset();
   form.hidden = false;
   detail.hidden = true;
@@ -235,6 +239,10 @@ locationButton.addEventListener('click', () => {
     locationButton.textContent = 'Đã chia sẻ vị trí';
   }, (error) => {
     locationButton.disabled = false;
+    if (error.code === error.PERMISSION_DENIED) {
+      locationPermissionModal.hidden = false;
+      openLocationSettingsButton.focus();
+    }
     locationStatus.textContent = error.code === error.PERMISSION_DENIED
       ? 'Bạn chưa cấp quyền vị trí cho ứng dụng. Hãy bật quyền vị trí trong Cài đặt rồi thử lại.'
       : error.code === error.POSITION_UNAVAILABLE
@@ -245,9 +253,27 @@ locationButton.addEventListener('click', () => {
   }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
 });
 
+openLocationSettingsButton.addEventListener('click', async () => {
+  locationPermissionModal.hidden = true;
+  locationStatus.textContent = 'Đang mở cài đặt quyền vị trí...';
+  try {
+    const opened = await window.openNativeLocationSettings?.();
+    locationStatus.textContent = opened
+      ? 'Đã mở Cài đặt. Bật quyền vị trí rồi quay lại ứng dụng.'
+      : 'Không mở được Cài đặt tự động. Hãy bật quyền vị trí cho ứng dụng trong Cài đặt điện thoại.';
+  } catch {
+    locationStatus.textContent = 'Không mở được Cài đặt. Hãy bật quyền vị trí cho ứng dụng trong Cài đặt điện thoại.';
+  }
+});
+
+closeLocationPermissionButton.addEventListener('click', () => { locationPermissionModal.hidden = true; });
+
 document.querySelector('[data-close-proposal]')?.addEventListener('click', closeModal);
 modal?.addEventListener('click', (event) => {
   if (event.target === modal) closeModal();
+});
+locationPermissionModal?.addEventListener('click', (event) => {
+  if (event.target === locationPermissionModal) locationPermissionModal.hidden = true;
 });
 document.querySelector('[data-proposal-refresh]')?.addEventListener('click', () => loadProposals().catch((error) => { status.textContent = error.message; }));
 
