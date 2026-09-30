@@ -306,6 +306,9 @@ body.is-late-report .attendance-section-heading h2 { margin: 0; color: #27364b; 
 .late-report-heading-copy p { margin: 0; color: #8190a3; font-size: .88rem; }
 .attendance-late-report[hidden] { display: none; }
 body.is-late-report .attendance-late-report { display: block; margin: 0; padding: 1.1rem; border: 1px solid #e7ebf1; border-radius: 15px; background: linear-gradient(145deg, #fafbfd, #f6f8fa); }
+.late-report-filters { display: flex; justify-content: flex-end; margin-bottom: .65rem; }
+.late-report-filters label { display: flex; align-items: center; gap: .5rem; color: #537467; font-size: .72rem; font-weight: 700; }
+.late-report-filters select { min-width: 185px; height: 38px; padding: 0 .7rem; border: 1px solid #d4dfeb; border-radius: 10px; color: #34485e; background: #fff; font: inherit; font-size: .72rem; }
 .late-report-month-panel { display: grid; gap: .9rem; }
 .late-report-month-heading { margin: 0; border-left: 6px solid #4a927c; padding: .05rem 0 .05rem .9rem; color: #27364b; font-size: 1.12rem; }
 .attendance-late-report-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: .7rem; }
@@ -429,6 +432,9 @@ body[data-theme="dark"] .attendance-table-wrap th { background: #252a31; }
 	.late-report-title-icon { width: 52px; height: 52px; flex-basis: 52px; font-size: 1.8rem; }
 	body.is-late-report .attendance-section-heading h2 { font-size: 1.25rem; }
 	body.is-late-report .attendance-late-report { padding: .75rem; }
+	.late-report-filters { justify-content: stretch; }
+	.late-report-filters label { width: 100%; justify-content: space-between; }
+	.late-report-filters select { width: min(68%, 230px); min-width: 0; height: 38px; }
 	.late-report-month-panel { gap: .65rem; }
 	.late-report-month-heading { font-size: .95rem; }
 	.attendance-late-report-list .attendance-report-entry { min-height: 88px; gap: .6rem; padding: .7rem; border-radius: 12px; }
