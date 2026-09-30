@@ -229,8 +229,6 @@ body.is-late-report .attendance-late-report { display: block; margin: 0; padding
 .attendance-late-report-list .attendance-work-mode { display: inline-flex; align-items: center; gap: .35rem; width: fit-content; margin-top: .15rem; padding: .24rem .55rem; border: 1px solid #f1d3c6; border-radius: 999px; color: #bc5d44; background: #ffebe4; font-size: .68rem; font-weight: 700; }
 .attendance-work-mode > i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .attendance-late-report-list .attendance-work-mode.is-online { border-color: #c5e1de; color: #337d79; background: #e6f5f2; }
-.late-report-arrow { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border: 1px solid #f0e2d0; border-radius: 50%; color: #927e67; background: rgba(255, 255, 255, .38); }
-.late-report-arrow svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
 .late-report-empty { margin: 0; padding: 1.5rem; border-radius: 12px; color: #7c8998; background: #fff; text-align: center; }
 .attendance-table-wrap { margin-top: .7rem; overflow-x: auto; border: 1px solid #dce5f0; border-radius: 12px; background: #fff; }
 .attendance-overview-table { overflow: auto; }
@@ -320,15 +318,16 @@ body[data-theme="dark"] .attendance-table-wrap th { background: #252a31; }
 
 @media (max-width: 650px) {
 	body.is-late-report .attendance-content { padding: .55rem .7rem 1.5rem; }
-	body.is-late-report .attendance-heading { grid-template-columns: minmax(0, 1fr) minmax(112px, .78fr); min-height: 258px; padding: 1rem .95rem 7.2rem; }
+	body.is-late-report .attendance-heading { grid-template-columns: minmax(0, 1fr) minmax(112px, .78fr); min-height: 0; padding: 1rem .95rem .8rem; row-gap: .65rem; }
 	body.is-late-report .attendance-heading h1 { max-width: 210px; font-size: 2.1rem; }
 	body.is-late-report .attendance-heading p { max-width: 220px; margin-top: .55rem; font-size: .8rem; }
 	body.is-late-report .attendance-month { grid-column: 1 / -1; width: 100%; justify-self: stretch; margin-top: .35rem; }
-	.late-report-illustration { width: 72%; height: 154px; }
-	.late-report-calendar { right: 18%; bottom: 8px; transform: rotate(7deg) scale(.86); transform-origin: bottom right; }
-	.late-report-plant { left: 12%; bottom: 10px; transform: scale(.82); transform-origin: bottom left; }
+	.late-report-illustration { top: .9rem; right: .35rem; bottom: auto; width: 44%; height: 112px; }
+	.late-report-calendar { right: 12%; bottom: 7px; transform: rotate(7deg) scale(.72); transform-origin: bottom right; }
+	.late-report-plant { left: 10%; bottom: 7px; transform: scale(.68); transform-origin: bottom left; }
 	body.is-late-report .attendance-admin-overview { padding: .85rem; border-radius: 0 0 14px 14px; }
-	body.is-late-report .attendance-section-heading { margin-bottom: .65rem; }
+	body.is-late-report .attendance-section-heading { align-items: center; justify-content: flex-start; flex-direction: row; margin-bottom: .65rem; }
+	body.is-late-report .attendance-section-heading > div { width: 100%; justify-content: flex-start; }
 	.late-report-title-icon { width: 52px; height: 52px; flex-basis: 52px; font-size: 1.8rem; }
 	body.is-late-report .attendance-section-heading h2 { font-size: 1.25rem; }
 	body.is-late-report .attendance-late-report { padding: .75rem; }
@@ -340,7 +339,6 @@ body[data-theme="dark"] .attendance-table-wrap th { background: #252a31; }
 	.attendance-late-report-list .attendance-report-details b { font-size: .86rem; }
 	.late-report-date { font-size: .7rem; }
 	.attendance-late-report-list .attendance-work-mode { font-size: .62rem; }
-	.late-report-arrow { width: 34px; height: 34px; flex-basis: 34px; }
 }
 
 @media (max-width: 600px) {
