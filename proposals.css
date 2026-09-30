@@ -96,6 +96,13 @@
 .proposal-duration legend { width: 100%; margin-bottom: .1rem; }
 .proposal-duration label { display: flex; grid-template-columns: auto; align-items: center; gap: .35rem; font-weight: 600; }
 .proposal-duration input { width: auto; accent-color: #5b4aa8; }
+.proposal-half-day-period { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .8rem; margin: 0; border: 1px solid #dce5f0; border-radius: 10px; padding: .65rem .75rem; color: #34445a; background: #f8fafd; font-size: .74rem; font-weight: 700; }
+.proposal-half-day-period[hidden] { display: none; }
+.proposal-half-day-period legend { grid-column: 1 / -1; color: #173f78; font-size: .74rem; font-weight: 800; }
+.proposal-half-day-period label { display: flex; align-items: center; gap: .4rem; }
+.proposal-half-day-period input { width: auto; accent-color: #247a58; }
+.proposal-modal-card .proposal-form .proposal-half-day-period input[type="radio"] { width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; margin: 0; border: 0; border-radius: 50%; padding: 0; background: transparent; box-shadow: none; accent-color: #278d70; }
+.proposal-half-day-period label:has(input:checked) { color: #236c53; }
 .proposal-date-range { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
 .proposal-date-range[hidden], .proposal-duration[hidden] { display: none; }
 .proposal-modal-card .proposal-form button { min-height: 44px; margin-top: .2rem; border-radius: 9px; background: linear-gradient(100deg, #174b8e, #315fa5); box-shadow: 0 7px 16px rgba(23, 75, 142, .2); letter-spacing: .02em; }

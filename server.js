@@ -507,7 +507,27 @@ function getAttendance() {
 }
 
 function applyApprovedLeaveToAttendance(proposal) {
-  if (!proposal.userId || !["leave", "unauthorized-leave"].includes(proposal.type)) return;
+  if (!proposal.userId) return;
+  if (proposal.type === "half-day") {
+    const date = proposal.date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return;
+    const attendanceType = ["half-day-morning", "half-day-afternoon"].includes(proposal.attendanceType)
+      ? proposal.attendanceType
+      : proposal.time >= "13:00" ? "half-day-afternoon" : "half-day-morning";
+    proposal.attendanceType = attendanceType;
+    const attendance = getAttendance();
+    const records = attendance[proposal.userId] || {};
+    const record = records[date] || { date };
+    record.date = date;
+    record.status = record.checkOut ? "completed" : "working";
+    record.attendanceType = attendanceType;
+    record.halfDayApproved = true;
+    records[date] = record;
+    attendance[proposal.userId] = records;
+    fs.writeFileSync(attendancePath, JSON.stringify(attendance, null, 2));
+    return;
+  }
+  if (!["leave", "unauthorized-leave"].includes(proposal.type)) return;
   const startDate = proposal.dateFrom || proposal.date;
   const endDate = proposal.dateTo || proposal.date || startDate;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate || "") || !/^\d{4}-\d{2}-\d{2}$/.test(endDate || "") || endDate < startDate) return;
@@ -527,6 +547,7 @@ function applyApprovedLeaveToAttendance(proposal) {
     delete record.onlineProof;
     delete record.late;
     delete record.lateMinutes;
+    delete record.halfDayApproved;
     records[date] = record;
   }
   attendance[proposal.userId] = records;
@@ -909,6 +930,7 @@ async function createProposal(req, res) {
   const dateFrom = String(payload.dateFrom || "");
   const dateTo = String(payload.dateTo || "");
   const time = String(payload.time || "");
+  const halfDayPeriod = String(payload.halfDayPeriod || "");
   const category = String(payload.category || "").trim().slice(0, 200);
   const amount = String(payload.amount || "").trim();
   const reason = String(payload.reason || "").trim().slice(0, 1000);
@@ -919,10 +941,11 @@ async function createProposal(req, res) {
   const hasLateProof = type === "late" && typeof payload.latePhotoData === "string" && payload.latePhotoData.startsWith("data:image/") && payload.latePhotoData.length <= 7 * 1024 * 1024 && Number.isFinite(Number(payload.latitude)) && Number.isFinite(Number(payload.longitude));
   const validPayment = type === "payment" && category && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0;
   const validPaymentFile = type === "payment" && paymentFileName && paymentFileData.startsWith("data:") && paymentFileData.length <= 9.5 * 1024 * 1024;
+  if (type === "half-day" && !["half-day-morning", "half-day-afternoon"].includes(halfDayPeriod)) return send(res, 400, "Vui lòng chọn buổi sáng hoặc buổi chiều.");
   if (type === "late" && !/^\d{2}:\d{2}$/.test(time)) return send(res, 400, "Vui lòng nhập giờ dự kiến đến công ty.");
   if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || (!reason && type !== "payment") || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Đề xuất đi trễ cần có ảnh và vị trí xác nhận." : "Vui lòng nhập đầy đủ thông tin đề xuất.");
   const paymentFlow = payload.paymentFlow === "accountant" ? "accountant" : "ceo";
-  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
+  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
   const proposals = getProposals();
   proposals.unshift(proposal);
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));

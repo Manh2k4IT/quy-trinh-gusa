@@ -241,7 +241,10 @@ function getStatusMeta(record, date) {
 }
 function renderRecords() {
   const entryList = Object.values(records).sort((a, b) => b.date.localeCompare(a.date));
-  const workingDays = entryList.reduce((total, record) => total + (record.checkIn && record.checkOut && record.status === 'completed' ? (record.attendanceType === 'full-day' ? 1 : 0.5) : 0), 0);
+  const workingDays = entryList.reduce((total, record) => {
+    if (record.halfDayApproved) return total + (record.attendanceType === 'full-day' ? 1 : 0.5);
+    return total + (record.checkIn && record.checkOut && record.status === 'completed' ? (record.attendanceType === 'full-day' ? 1 : 0.5) : 0);
+  }, 0);
   document.querySelector('[data-stat-days]').textContent = workingDays.toLocaleString('vi-VN', { maximumFractionDigits: 1 });
   document.querySelector('[data-stat-late]').textContent = entryList.filter((record) => record.late).length;
   const totalHours = entryList.reduce((sum, record) => sum + (record.checkIn && record.checkOut ? (new Date(record.checkOut) - new Date(record.checkIn)) / 3600000 : 0), 0);

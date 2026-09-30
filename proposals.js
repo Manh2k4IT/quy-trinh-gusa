@@ -13,6 +13,11 @@ const dateFromInput = form.querySelector('[name="dateFrom"]');
 const dateToInput = form.querySelector('[name="dateTo"]');
 const timeField = form.querySelector('[data-proposal-time]');
 const timeInput = form.querySelector('[name="time"]');
+const halfDayPeriodField = document.createElement('fieldset');
+halfDayPeriodField.className = 'proposal-half-day-period';
+halfDayPeriodField.dataset.halfDayPeriod = '';
+halfDayPeriodField.innerHTML = '<legend>Buổi làm việc</legend><label><input type="radio" name="halfDayPeriod" value="half-day-morning" /> Buổi sáng</label><label><input type="radio" name="halfDayPeriod" value="half-day-afternoon" /> Buổi chiều</label>';
+timeField.before(halfDayPeriodField);
 const lateProof = form.querySelector('[data-late-proof]');
 const latePhotoInput = form.querySelector('[name="latePhoto"]');
 const locationButton = form.querySelector('[data-proposal-location]');
@@ -54,15 +59,23 @@ function isProposalExpired(proposal) {
 
 function updateDurationFields() {
   const isLeave = ['leave', 'unauthorized-leave'].includes(typeInput.value);
+  const isHalfDay = typeInput.value === 'half-day';
   const isMultiple = form.querySelector('input[name="duration"]:checked')?.value === 'multiple';
+  const dateLabels = { late: 'Ngày áp dụng đi trễ', 'early-leave': 'Ngày áp dụng về sớm', 'half-day': 'Ngày làm 1/2 ngày', leave: 'Ngày nghỉ', 'unauthorized-leave': 'Ngày nghỉ' };
+  singleDateField.firstChild.textContent = dateLabels[typeInput.value] || 'Ngày áp dụng';
   durationChoice.hidden = !isLeave;
   dateRange.hidden = !isLeave || !isMultiple;
   singleDateField.hidden = isLeave && isMultiple;
   dateInput.required = !isLeave || !isMultiple;
   dateFromInput.required = isLeave && isMultiple;
   dateToInput.required = isLeave && isMultiple;
-  timeField.hidden = isLeave;
+  timeField.hidden = isLeave || isHalfDay;
   timeInput.required = typeInput.value === 'late';
+  halfDayPeriodField.hidden = !isHalfDay;
+  halfDayPeriodField.querySelectorAll('input').forEach((input) => {
+    input.disabled = !isHalfDay;
+    input.required = isHalfDay;
+  });
   lateProof.hidden = typeInput.value !== 'late';
   if (typeInput.value !== 'late') {
     latePhotoData = '';
@@ -79,6 +92,7 @@ const typeLabels = {
   'unauthorized-leave': 'Đề xuất nghỉ không phép',
 };
 const proposalStatusLabels = { pending: 'Đang chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', canceled: 'Đã hủy' };
+const attendancePeriodLabels = { 'half-day-morning': 'Nửa buổi sáng', 'half-day-afternoon': 'Nửa buổi chiều' };
 
 function renderProposals(proposals) {
   if (!proposals.length) return;
@@ -151,7 +165,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.hidden = true;
       detail.hidden = false;
       detail.innerHTML = typedProposals.length
-        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}</article>`).join('')
+        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}</article>`).join('')
         : '<p>Chưa có đề xuất nào.</p>';
       modal.hidden = false;
       return;
@@ -170,7 +184,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       const dateText = proposal.dateFrom && proposal.dateTo ? `${formatProposalDate(proposal.dateFrom)} đến ${formatProposalDate(proposal.dateTo)}` : formatProposalDate(proposal.date);
       const statusText = proposal.status === 'approved' ? 'Đề xuất của bạn đã được duyệt' : proposal.status === 'rejected' ? 'Đề xuất của bạn đã bị từ chối' : 'Đề xuất đã được gửi đi';
       const statusClass = proposal.status === 'approved' ? 'is-approved' : proposal.status === 'rejected' ? 'is-rejected' : '';
-      detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong><span>Ngày áp dụng: ${dateText}</span>${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}`;
+      detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong><span>Ngày áp dụng: ${dateText}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}`;
     } else {
       form.hidden = false;
       detail.hidden = true;
