@@ -10277,7 +10277,7 @@
     if (window.location.pathname === "/" || window.location.pathname === "/index.html") {
       fetch("/api/me", { credentials: "include", cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((data) => {
         if (!data?.user) return;
-        const destination = data.user.status === "pending" ? "/pending.html" : "/organization-chart.html";
+        const destination = data.user.status === "pending" ? "/pending.html" : "/organization-chart.html?showWelcome=1";
         window.location.replace(destination);
       }).catch(() => {
       });
