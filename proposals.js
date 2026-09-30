@@ -233,10 +233,16 @@ locationButton.addEventListener('click', () => {
     lateLocation = { latitude: position.coords.latitude, longitude: position.coords.longitude };
     locationStatus.textContent = 'Đã chia sẻ vị trí.';
     locationButton.textContent = 'Đã chia sẻ vị trí';
-  }, () => {
+  }, (error) => {
     locationButton.disabled = false;
-    locationStatus.textContent = 'Không lấy được vị trí. Hãy cấp quyền và thử lại.';
-  });
+    locationStatus.textContent = error.code === error.PERMISSION_DENIED
+      ? 'Bạn chưa cấp quyền vị trí cho ứng dụng. Hãy bật quyền vị trí trong Cài đặt rồi thử lại.'
+      : error.code === error.POSITION_UNAVAILABLE
+        ? 'Không xác định được vị trí. Hãy bật GPS và thử lại.'
+        : error.code === error.TIMEOUT
+          ? 'Lấy vị trí quá lâu. Hãy thử lại ở nơi có tín hiệu GPS tốt hơn.'
+          : 'Không lấy được vị trí. Hãy bật GPS và quyền vị trí rồi thử lại.';
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
 });
 
 document.querySelector('[data-close-proposal]')?.addEventListener('click', closeModal);

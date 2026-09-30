@@ -14,17 +14,24 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.webkit.CookieManager;
+import android.webkit.GeolocationPermissions;
 import android.webkit.URLUtil;
 import android.webkit.WebView;
 import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.app.NotificationCompat;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
 
 public class MainActivity extends BridgeActivity {
     private static final String DOWNLOAD_CHANNEL_ID = "payment-template-downloads-v1";
     private static final int DOWNLOAD_PERMISSION_REQUEST = 7301;
     private final Handler downloadHandler = new Handler(Looper.getMainLooper());
+    private ActivityResultLauncher<String[]> locationPermissionLauncher;
+    private GeolocationPermissions.Callback pendingGeolocationCallback;
+    private String pendingGeolocationOrigin;
     private boolean backPressPending;
 
     @Override
@@ -34,6 +41,30 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() == null) return;
 
         WebView webView = getBridge().getWebView();
+        locationPermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), permissions -> {
+            if (pendingGeolocationCallback == null) return;
+            boolean granted = hasLocationPermission();
+            pendingGeolocationCallback.invoke(pendingGeolocationOrigin, granted, false);
+            pendingGeolocationCallback = null;
+            pendingGeolocationOrigin = null;
+        });
+        webView.setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                Uri requestedOrigin = Uri.parse(origin);
+                if (!"https".equalsIgnoreCase(requestedOrigin.getScheme()) || !"quytrinh.gusa.vn".equalsIgnoreCase(requestedOrigin.getHost())) {
+                    callback.invoke(origin, false, false);
+                    return;
+                }
+                if (hasLocationPermission()) {
+                    callback.invoke(origin, true, false);
+                    return;
+                }
+                pendingGeolocationOrigin = origin;
+                pendingGeolocationCallback = callback;
+                locationPermissionLauncher.launch(new String[] { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION });
+            }
+        });
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -85,6 +116,11 @@ public class MainActivity extends BridgeActivity {
             trackDownload(downloadManager, downloadId, fileName);
             Toast.makeText(this, "Đang tải: " + fileName, Toast.LENGTH_SHORT).show();
         });
+    }
+
+    private boolean hasLocationPermission() {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void createDownloadNotificationChannel() {
