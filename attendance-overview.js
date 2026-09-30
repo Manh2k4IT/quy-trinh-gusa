@@ -69,7 +69,7 @@ document.querySelector('.attendance-overview-table')?.before(lateReport);
 statusFilter.innerHTML = '<option value="all">Tất cả trạng thái</option><option value="absent">Không chấm công</option><option value="present">Đã chấm công</option><option value="half-day">Làm 1/2 ngày</option><option value="leave">Xin nghỉ phép</option><option value="unauthorized-leave">Nghỉ không phép</option><option value="online">Xin làm online</option>';
 
 const adminKpis = document.querySelector('.attendance-admin-kpis');
-if (adminKpis) adminKpis.innerHTML = '<article class="is-warning"><span>Không chấm công</span><strong data-status-count="absent">0</strong></article><article class="is-success"><span>Đã chấm công</span><strong data-status-count="present">0</strong></article><article class="is-half-day"><span>Làm 1/2 ngày</span><strong data-status-count="half-day">0</strong></article><article class="is-leave"><span>Xin nghỉ phép</span><strong data-status-count="leave">0</strong></article><article class="is-unauthorized"><span>Nghỉ không phép</span><strong data-status-count="unauthorized-leave">0</strong></article><article class="is-online"><span>Xin làm online</span><strong data-status-count="online">0</strong></article>';
+if (adminKpis) adminKpis.innerHTML = '<article class="is-warning overview-kpi-absent"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17M9 13l6 6m0-6-6 6"/></svg></span><span>Không chấm công</span><strong data-status-count="absent">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-success overview-kpi-present"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17m1 6.5 2 2 4-4"/></svg></span><span>Đã chấm công</span><strong data-status-count="present">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-half-day overview-kpi-half"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M8 2h8"/></svg></span><span>Làm 1/2 ngày</span><strong data-status-count="half-day">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-leave overview-kpi-leave"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 12 18-8-8 18-2-8-8-2zM11 14l4-4"/></svg></span><span>Xin nghỉ phép</span><strong data-status-count="leave">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-unauthorized overview-kpi-unauthorized"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg></span><span>Nghỉ không phép</span><strong data-status-count="unauthorized-leave">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-online overview-kpi-online"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M2 21h20m-8-4 1 4m-6-4-1 4"/></svg></span><span>Xin làm online</span><strong data-status-count="online">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article>';
 ['total', 'checked-in', 'completed', 'not-checked'].forEach((name) => { const legacy = document.createElement('span'); legacy.hidden = true; legacy.dataset.admin = name; document.body.append(legacy); });
 document.querySelector('[data-admin="total"]').setAttribute('data-admin-total', '');
 document.querySelector('[data-admin="checked-in"]').setAttribute('data-admin-checked-in', '');
@@ -117,6 +117,27 @@ function renderOnlineReport() {
 }
 
 const reportMode = new URLSearchParams(window.location.search).get('report');
+if (!reportMode) {
+	document.body.classList.add('is-attendance-overview');
+	const heading = document.querySelector('.attendance-heading');
+	const headingCopy = heading?.firstElementChild;
+	headingCopy?.classList.add('attendance-overview-heading-copy');
+	const motto = document.createElement('p');
+	motto.className = 'attendance-overview-motto';
+	motto.innerHTML = 'Cùng xây dựng<br>một đội ngũ vững mạnh<span>♡</span>';
+	heading?.append(motto);
+	const headingArt = document.createElement('div');
+	headingArt.className = 'late-report-illustration overview-hero-illustration';
+	headingArt.setAttribute('aria-hidden', 'true');
+	headingArt.innerHTML = '<span class="late-report-ground"></span><span class="late-report-plant"><i></i><i></i><i></i><b></b></span><span class="late-report-calendar"><i class="calendar-ring"></i><i class="calendar-ring"></i><i class="calendar-ring"></i><i class="calendar-ring"></i><i class="calendar-ring"></i><i class="calendar-ring"></i><span class="late-report-calendar-grid"><i></i><i></i><i></i><i></i><i></i><i></i></span><b>✓</b></span><span class="late-report-rays"><i></i><i></i><i></i></span>';
+	heading?.append(headingArt);
+	const monthLabel = document.querySelector('.attendance-month');
+	monthLabel?.childNodes.forEach((node) => { if (node.nodeType === Node.TEXT_NODE) node.remove(); });
+	monthLabel?.insertAdjacentHTML('afterbegin', '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17M8 13h2m4 0h2"/></svg>');
+	const sectionTitle = document.querySelector('.attendance-section-heading > div');
+	if (sectionTitle) sectionTitle.innerHTML = '<span class="overview-section-icon" aria-hidden="true">▥</span><span><span class="eyebrow">BẢNG CÔNG</span><h2>Chấm công theo tháng</h2></span>';
+	if (legend && !legend.querySelector('.is-half-day')) legend.insertAdjacentHTML('beforeend', '<span><i class="legend-dot is-half-day"></i>Làm 1/2 ngày</span>');
+}
 if (reportMode === 'late' || reportMode === 'online') {
 	lateReport.hidden = false;
 	if (reportMode === 'online') {

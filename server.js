@@ -505,6 +505,32 @@ function getAttendance() {
   }
 }
 
+function applyApprovedLeaveToAttendance(proposal) {
+  if (!proposal.userId || !["leave", "unauthorized-leave"].includes(proposal.type)) return;
+  const startDate = proposal.dateFrom || proposal.date;
+  const endDate = proposal.dateTo || proposal.date || startDate;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate || "") || !/^\d{4}-\d{2}-\d{2}$/.test(endDate || "") || endDate < startDate) return;
+
+  const attendance = getAttendance();
+  const records = attendance[proposal.userId] || {};
+  const endTime = Date.parse(`${endDate}T00:00:00.000Z`);
+  for (let time = Date.parse(`${startDate}T00:00:00.000Z`); time <= endTime; time += 86400000) {
+    const date = new Date(time).toISOString().slice(0, 10);
+    const record = records[date] || { date };
+    record.date = date;
+    record.status = proposal.type;
+    delete record.checkIn;
+    delete record.checkOut;
+    delete record.workMode;
+    delete record.attendanceType;
+    delete record.onlineProof;
+    delete record.late;
+    records[date] = record;
+  }
+  attendance[proposal.userId] = records;
+  fs.writeFileSync(attendancePath, JSON.stringify(attendance, null, 2));
+}
+
 function getLocalDateKey(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
@@ -838,6 +864,7 @@ async function updateProposalStatus(req, res) {
     if (proposal.status !== "pending") return send(res, 409, "Đề xuất này đã được xử lý.");
     proposal.status = payload.status;
     proposal.reviewedAt = now;
+    if (payload.status === "approved") applyApprovedLeaveToAttendance(proposal);
   }
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
   if (movedToAccounting) {
