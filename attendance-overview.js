@@ -267,7 +267,8 @@ function addStatusCountColumns() {
 			online: dayCells.filter((cell) => cell.classList.contains('attendance-day-online')).length,
 		};
 		const totalCell = row.querySelector('.attendance-total');
-		if (totalCell) totalCell.textContent = counts.present + counts['half-day'] + counts.leave + counts.online;
+		const totalWorkdays = counts.present + counts['half-day'] * 0.5 + counts.leave + counts.unauthorized + counts.online;
+		if (totalCell) totalCell.textContent = totalWorkdays.toLocaleString('vi-VN', { maximumFractionDigits: 1 });
 		labels.forEach(([className, key, countKey]) => {
 			const cell = document.createElement('td');
 			cell.className = `attendance-count-cell ${className}`;

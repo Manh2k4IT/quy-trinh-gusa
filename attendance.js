@@ -299,11 +299,11 @@ function renderRecords() {
     `;
   }).join('');
 
-  const totalCount = statusCounter.present + statusCounter.leave + statusCounter.online + statusCounter['unauthorized-leave'] + statusCounter['half-day'];
+  const totalCount = statusCounter.present + statusCounter.leave + statusCounter.online + statusCounter['unauthorized-leave'] + statusCounter['half-day'] * 0.5;
   list.innerHTML = `
     <div class="attendance-weekly-shell">
       <div class="attendance-weekly-header">
-        <div class="attendance-week-header-name">${name}</div>
+        <div class="attendance-week-person"><div class="attendance-week-header-name">${name}</div><div class="attendance-week-total"><span>Tổng ngày công</span><strong>${totalCount.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}</strong></div></div>
         <div class="attendance-week-summary">
           <span class="legend-pill present"><span class="legend-dot"></span> ${statusCounter.present}</span>
           <span class="legend-pill leave"><span class="legend-dot"></span> ${statusCounter.leave}</span>
@@ -322,7 +322,6 @@ function renderRecords() {
         <span><i class="attendance-legend-dot is-unauthorized"></i> Nghỉ không phép</span>
       </div>
       ${rows}
-      <div class="attendance-week-total">Tổng ngày: <strong>${totalCount}</strong></div>
     </div>
   `;
 }

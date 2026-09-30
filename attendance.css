@@ -78,7 +78,11 @@
 .attendance-empty-state { padding: 1rem; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); background: #f8fafd; text-align: center; }
 .attendance-weekly-shell { display: grid; gap: .75rem; }
 .attendance-weekly-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .55rem .7rem; border: 1px solid #dce5f0; border-radius: 10px; background: #fff; }
-.attendance-week-header-name { color: var(--ink); font-size: .76rem; font-weight: 800; }
+.attendance-week-person { display: flex; min-width: 0; flex: 1; align-items: center; justify-content: space-between; gap: .75rem; }
+.attendance-week-header-name { min-width: 0; overflow: hidden; color: var(--ink); font-size: .76rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.attendance-week-total { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .5rem; min-height: 38px; margin-left: auto; padding: .35rem .65rem; border: 1px solid #d4e7dc; border-radius: 11px; color: #42755f; background: linear-gradient(120deg, #f3faf4, #e7f4eb); box-shadow: 0 3px 9px rgba(44, 105, 76, .07); }
+.attendance-week-total span { color: #668575; font-size: .62rem; font-weight: 700; white-space: nowrap; }
+.attendance-week-total strong { color: #176343; font-size: 1.05rem; font-variant-numeric: tabular-nums; line-height: 1; }
 .attendance-week-summary { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }
 .legend-pill { display: inline-flex; align-items: center; gap: .3rem; min-width: 22px; height: 24px; padding: 0 .45rem; border-radius: 999px; font-size: .62rem; font-weight: 800; }
 .legend-pill.present { background: #dff7ec; color: #1f8a57; }
@@ -396,6 +400,9 @@ body[data-theme="dark"] .attendance-overview-table th { background: #252a31; }
 body[data-theme="dark"] .attendance-overview-table .attendance-person,
 body[data-theme="dark"] .attendance-overview-table .attendance-total { color: #edf0f4; background: #2d323a; }
 body[data-theme="dark"] .attendance-day-future { background: #2d323a; }
+body[data-theme="dark"] .attendance-week-total { border-color: #3f6654; background: #293d34; }
+body[data-theme="dark"] .attendance-week-total span { color: #b8cdbf; }
+body[data-theme="dark"] .attendance-week-total strong { color: #b8e0c8; }
 .attendance-table-wrap table { width: 100%; border-collapse: collapse; color: var(--ink); font-size: .74rem; }
 .attendance-table-wrap th, .attendance-table-wrap td { padding: .75rem .85rem; border-bottom: 1px solid #edf0f4; text-align: left; white-space: nowrap; }
 .attendance-table-wrap th { color: var(--muted); background: #f8fafd; font-size: .66rem; text-transform: uppercase; }
@@ -502,7 +509,12 @@ body[data-theme="dark"] .attendance-table-wrap th { background: #252a31; }
 	.attendance-admin-toolbar { align-items: stretch; flex-direction: column; gap: .55rem; }
 	.attendance-admin-toolbar input, .attendance-admin-toolbar select { width: 100%; min-width: 0; height: 44px; font-size: .78rem; }
 	.attendance-legend { margin-left: 0; padding-bottom: 0; }
-	.attendance-weekly-header { align-items: flex-start; flex-direction: column; }
+	.attendance-weekly-header { align-items: stretch; flex-direction: column; }
+	.attendance-week-person { width: 100%; }
+	.attendance-week-total { min-height: 36px; padding: .3rem .55rem; }
+	.attendance-week-total span { font-size: .58rem; }
+	.attendance-week-total strong { font-size: 1rem; }
+	.attendance-week-summary { justify-content: flex-start; }
 	.attendance-section-actions { align-items: flex-start; flex-direction: column; gap: .45rem; }
 	.attendance-section-actions .attendance-outline-button { width: 100%; }
 	.attendance-week-block { padding: .45rem; }
