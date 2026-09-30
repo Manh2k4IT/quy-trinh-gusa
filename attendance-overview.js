@@ -102,7 +102,13 @@ function getReportAvatar(user) {
 
 function renderLateReport() {
 	const lateEntries = users.flatMap((user) => Object.values(user.records || {}).filter((record) => record.date?.startsWith(monthSelect.value) && record.late).map((record) => ({ user, record })));
-	lateReport.innerHTML = lateEntries.length ? `<strong>Báo cáo đi trễ tháng ${monthSelect.value}</strong><div class="attendance-late-report-list">${lateEntries.sort((a, b) => `${a.record.date}${a.record.checkIn}`.localeCompare(`${b.record.date}${b.record.checkIn}`)).map(({ user, record }) => { const workMode = record.workMode === 'online' || record.onlineProof ? 'Làm online' : 'Làm tại công ty'; return `<span class="attendance-report-entry">${getReportAvatar(user)}<span class="attendance-report-details"><b>${user.name}</b><small>${record.date} · ${formatTime(record.checkIn)}</small><em class="attendance-work-mode ${workMode === 'Làm online' ? 'is-online' : 'is-office'}">${workMode}</em></span></span>`; }).join('')}</div>` : '<strong>Không có nhân sự đi trễ trong tháng này.</strong>';
+	const entriesMarkup = lateEntries
+		.sort((a, b) => `${a.record.date}${a.record.checkIn}`.localeCompare(`${b.record.date}${b.record.checkIn}`))
+		.map(({ user, record }) => {
+			const workMode = record.workMode === 'online' || record.onlineProof ? 'Làm online' : 'Làm tại công ty';
+			return `<article class="attendance-report-entry"><span class="late-report-avatar">${getReportAvatar(user)}</span><span class="attendance-report-details"><b>${user.name}</b><small class="late-report-date"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17"/></svg>${record.date} · ${formatTime(record.checkIn)}</small><em class="attendance-work-mode ${workMode === 'Làm online' ? 'is-online' : 'is-office'}"><i></i>${workMode}</em></span><span class="late-report-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span></article>`;
+		}).join('');
+	lateReport.innerHTML = `<div class="late-report-month-panel"><h3 class="late-report-month-heading">Báo cáo đi trễ tháng ${monthSelect.value}</h3>${entriesMarkup ? `<div class="attendance-late-report-list">${entriesMarkup}</div>` : '<p class="late-report-empty">Không có nhân sự đi trễ trong tháng này.</p>'}</div>`;
 }
 
 function renderOnlineReport() {
@@ -121,9 +127,18 @@ if (reportMode === 'late' || reportMode === 'online') {
 		document.querySelector('.attendance-admin-toolbar')?.setAttribute('hidden', '');
 	document.querySelector('.attendance-overview-table')?.setAttribute('hidden', '');
 	} else {
+		document.body.classList.add('is-late-report');
 		document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Báo cáo đi trễ'));
+		document.querySelector('.attendance-heading p')?.replaceChildren(document.createTextNode('Theo dõi tình trạng chấm công của toàn bộ nhân viên.'));
 		document.querySelector('.attendance-section-heading h2')?.replaceChildren(document.createTextNode('Báo cáo đi trễ'));
 		document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Báo cáo đi trễ'));
+		const reportHeader = document.querySelector('.attendance-section-heading > div');
+		if (reportHeader) reportHeader.innerHTML = '<span class="late-report-title-icon" aria-hidden="true">◷</span><span><h2>Bảng công</h2><p>Báo cáo đi trễ</p></span>';
+		const headingArt = document.createElement('div');
+		headingArt.className = 'late-report-illustration';
+		headingArt.setAttribute('aria-hidden', 'true');
+		headingArt.innerHTML = '<span class="late-report-ground"></span><span class="late-report-plant"><i></i><i></i><i></i><b></b></span><span class="late-report-calendar"><i class="calendar-ring"></i><i class="calendar-ring"></i><i class="calendar-ring"></i><i class="calendar-ring"></i><i class="calendar-ring"></i><i class="calendar-ring"></i><span class="late-report-calendar-grid"><i></i><i></i><i></i><i></i><i></i><i></i></span><b>✓</b></span><span class="late-report-rays"><i></i><i></i><i></i></span>';
+		document.querySelector('.attendance-heading')?.append(headingArt);
 		document.querySelector('.attendance-admin-kpis')?.setAttribute('hidden', '');
 		document.querySelector('.attendance-admin-toolbar')?.setAttribute('hidden', '');
 		document.querySelector('.attendance-overview-table')?.setAttribute('hidden', '');
