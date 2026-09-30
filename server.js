@@ -9,6 +9,7 @@ const { getMessaging } = require("firebase-admin/messaging");
 loadEnvFile();
 
 const port = Number(process.env.PORT || 5500);
+const applicationTimeZone = "Asia/Ho_Chi_Minh";
 const publicUrl = process.env.RENDER_EXTERNAL_URL;
 const redirectUri = process.env.GOOGLE_REDIRECT_URI || (publicUrl ? `${publicUrl}/auth/callback` : `http://localhost:${port}/auth/callback`);
 const fixedAdminEmail = "manh98627@gmail.com";
@@ -533,12 +534,15 @@ function applyApprovedLeaveToAttendance(proposal) {
 }
 
 function getLocalDateKey(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: applicationTimeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function getLocalMinutes(date = new Date()) {
-  return date.getHours() * 60 + date.getMinutes();
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: applicationTimeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return Number(values.hour) * 60 + Number(values.minute);
 }
 
 function getAttendanceUserKey(user) {
@@ -915,6 +919,7 @@ async function createProposal(req, res) {
   const hasLateProof = type === "late" && typeof payload.latePhotoData === "string" && payload.latePhotoData.startsWith("data:image/") && payload.latePhotoData.length <= 7 * 1024 * 1024 && Number.isFinite(Number(payload.latitude)) && Number.isFinite(Number(payload.longitude));
   const validPayment = type === "payment" && category && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0;
   const validPaymentFile = type === "payment" && paymentFileName && paymentFileData.startsWith("data:") && paymentFileData.length <= 9.5 * 1024 * 1024;
+  if (type === "late" && !/^\d{2}:\d{2}$/.test(time)) return send(res, 400, "Vui lòng nhập giờ dự kiến đến công ty.");
   if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || (!reason && type !== "payment") || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Đề xuất đi trễ cần có ảnh và vị trí xác nhận." : "Vui lòng nhập đầy đủ thông tin đề xuất.");
   const paymentFlow = payload.paymentFlow === "accountant" ? "accountant" : "ceo";
   const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
@@ -939,7 +944,10 @@ function serveAttendanceOverview(req, res) {
     picture: user.picture || "",
     records: Object.fromEntries(Object.entries(attendance[user.id] || {}).filter(([date]) => date.startsWith(month))),
   }));
-  sendJson(res, 200, { month, users: overview });
+  const lateProposalReviews = getProposals()
+    .filter((proposal) => proposal.type === "late" && ["approved", "rejected"].includes(proposal.status) && proposal.date?.startsWith(month))
+    .map(({ userId, date, status }) => ({ userId, date, status }));
+  sendJson(res, 200, { month, users: overview, lateProposalReviews });
 }
 
 async function updateAttendance(req, res) {
@@ -963,14 +971,20 @@ async function updateAttendance(req, res) {
     if (mode === "online" && (!payload.onlineProof?.photoCapturedAt || !payload.onlineProof.photoData?.startsWith("data:image/") || !Number.isFinite(Number(payload.onlineProof.latitude)) || !Number.isFinite(Number(payload.onlineProof.longitude)))) return send(res, 400, "Vui lòng chụp ảnh và chia sẻ vị trí trước khi check-in online.");
     if (mode === "office") {
       const currentMinutes = getLocalMinutes();
-      if (attendanceType === "half-day-morning" && (currentMinutes < 8 * 60 + 30 || currentMinutes >= 12 * 60)) return send(res, 400, "Ca sáng nhận chấm công từ 08:30 đến trước 12:00.");
-      if (attendanceType === "half-day-afternoon" && (currentMinutes < 13 * 60 || currentMinutes > 17 * 60 + 25)) return send(res, 400, "Ca chiều nhận chấm công từ 13:00 đến 17:25.");
+      const isAfternoon = attendanceType === "half-day-afternoon";
+      const checkInStartsAt = isAfternoon ? 11 * 60 : 6 * 60;
+      const checkInEndsAt = isAfternoon ? 15 * 60 : 12 * 60;
+      if (currentMinutes < checkInStartsAt || currentMinutes > checkInEndsAt) {
+        const startLabel = isAfternoon ? "11:00" : "06:00";
+        const endLabel = isAfternoon ? "15:00" : "12:00";
+        return send(res, 400, `Khung giờ check-in cho ca này là ${startLabel}–${endLabel}.`);
+      }
     }
     record.checkIn = now;
     record.status = "working";
     record.workMode = mode;
     record.attendanceType = mode === "office" ? attendanceType : "full-day";
-    const lateThreshold = record.attendanceType === "half-day-afternoon" ? 13 * 60 : 8 * 60 + 35;
+    const lateThreshold = record.attendanceType === "half-day-afternoon" ? 13 * 60 : 8 * 60 + 30;
     record.lateMinutes = Math.max(0, getLocalMinutes() - lateThreshold);
     record.late = record.lateMinutes > 0;
     if (!record.late) delete record.lateMinutes;
@@ -979,8 +993,8 @@ async function updateAttendance(req, res) {
   } else {
     if (!record.checkIn) return send(res, 400, "Bạn chưa check-in hôm nay");
     if (record.checkOut) return sendJson(res, 409, { message: "Bạn đã check-out hôm nay.", record });
-    const checkoutMinutes = record.attendanceType === "half-day-morning" ? 12 * 60 : 17 * 60 + 25;
-    if (getLocalMinutes() < checkoutMinutes) return send(res, 400, `Bạn chỉ có thể check-out từ ${record.attendanceType === "half-day-morning" ? "12:00" : "17:25"}.`);
+    const checkoutMinutes = 17 * 60 + 30;
+    if (getLocalMinutes() < checkoutMinutes) return send(res, 400, "Bạn chỉ có thể check-out từ 17:30.");
     record.checkOut = now;
     record.status = "completed";
   }

@@ -322,6 +322,8 @@ body.is-late-report .attendance-late-report { display: block; margin: 0; padding
 .attendance-work-mode > i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .attendance-late-report-list .attendance-work-mode.is-online { border-color: #c5e1de; color: #337d79; background: #e6f5f2; }
 .attendance-shift-badge { display: inline-flex; align-items: center; width: fit-content; margin-top: .15rem; padding: .24rem .55rem; border: 1px solid #dce5ed; border-radius: 999px; color: #637487; background: #f2f5f8; font-size: .68rem; font-style: normal; font-weight: 700; }
+.late-proposal-approved { display: inline-flex; align-items: center; width: fit-content; margin-top: .15rem; padding: .24rem .55rem; border: 1px solid #c5e5cf; border-radius: 999px; color: #287747; background: #e8f6ec; font-size: .68rem; font-style: normal; font-weight: 700; }
+.late-proposal-rejected { display: inline-flex; align-items: center; width: fit-content; margin-top: .15rem; padding: .24rem .55rem; border: 1px solid #f1c8cb; border-radius: 999px; color: #b73e49; background: #fff0f0; font-size: .68rem; font-style: normal; font-weight: 700; }
 .late-report-minutes { display: grid; flex: 0 0 auto; justify-items: end; align-content: center; gap: .08rem; min-width: 68px; margin-left: .2rem; border-left: 1px solid rgba(205, 176, 139, .45); padding-left: .75rem; color: #c2553d; text-align: right; }
 .late-report-minutes b { font-size: .92rem; line-height: 1.1; white-space: nowrap; }
 .late-report-minutes small { color: #a77463; font-size: .64rem; white-space: nowrap; }
@@ -436,6 +438,8 @@ body[data-theme="dark"] .attendance-table-wrap th { background: #252a31; }
 	.late-report-date { font-size: .7rem; }
 	.attendance-late-report-list .attendance-work-mode { font-size: .62rem; }
 	.attendance-shift-badge { font-size: .62rem; }
+	.late-proposal-approved { font-size: .62rem; }
+	.late-proposal-rejected { font-size: .62rem; }
 	.late-report-minutes { min-width: 58px; margin-left: 0; padding-left: .5rem; }
 	.late-report-minutes b { font-size: .78rem; }
 	.late-report-minutes small { font-size: .58rem; }

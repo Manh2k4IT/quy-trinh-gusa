@@ -156,10 +156,55 @@ function setAdminVisibility(isAdmin, role = 'employee') {
     button.classList.toggle('is-selected', current);
   });
 }
-function updateClock() { const now = new Date(); currentTime.textContent = now.toLocaleTimeString('vi-VN'); currentDate.textContent = now.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }); if (Object.keys(records).length) setStatus(records); }
+function updateClock() { const now = new Date(); currentTime.textContent = now.toLocaleTimeString('vi-VN'); currentDate.textContent = now.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }); setStatus(records); }
 function formatTime(value) { return value ? new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'; }
 function todayKey() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; }
-function setStatus(record) { const today = record?.[todayKey()]; const now = new Date(); const currentMinutes = now.getHours() * 60 + now.getMinutes(); const checkoutMinutes = today?.attendanceType === 'half-day-morning' ? 12 * 60 : 17 * 60 + 25; const checkoutAvailable = currentMinutes >= checkoutMinutes; status.className = 'attendance-status'; if (attendanceTypeChoice) { attendanceTypeChoice.querySelectorAll('input').forEach((input) => { input.disabled = Boolean(today?.checkIn); if (today?.attendanceType) input.checked = input.value === today.attendanceType; }); } if (!today?.checkIn) { status.textContent = 'Chưa vào ca'; checkIn.disabled = isOnlineAttendance ? !onlineProof?.photoCapturedAt || onlineProof.latitude === undefined : false; checkOut.disabled = true; updateOnlineCheckIn(); return; } if (!today.checkOut) { status.classList.add('is-working'); status.textContent = today.late ? `Đi muộn, đang làm việc từ ${formatTime(today.checkIn)}` : `Đang làm việc từ ${formatTime(today.checkIn)}`; checkIn.disabled = true; checkOut.disabled = !checkoutAvailable; if (!checkoutAvailable) status.textContent += ` - Check-out mở lúc ${today.attendanceType === 'half-day-morning' ? '12:00' : '17:30'}`; return; } status.classList.add('is-completed'); status.textContent = `Đã hoàn thành lúc ${formatTime(today.checkOut)}`; checkIn.disabled = true; checkOut.disabled = true; }
+function setStatus(record) {
+  const today = record?.[todayKey()];
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const selectedType = today?.attendanceType || attendanceTypeChoice?.querySelector('input:checked')?.value || 'full-day';
+  const isAfternoon = selectedType === 'half-day-afternoon';
+  const checkInStartsAt = isAfternoon ? 11 * 60 : 6 * 60;
+  const checkInEndsAt = isAfternoon ? 15 * 60 : 12 * 60;
+  const checkoutAvailable = currentMinutes >= 17 * 60 + 30;
+  status.className = 'attendance-status';
+
+  if (attendanceTypeChoice) {
+    attendanceTypeChoice.querySelectorAll('input').forEach((input) => {
+      input.disabled = Boolean(today?.checkIn);
+      if (today?.attendanceType) input.checked = input.value === today.attendanceType;
+    });
+  }
+
+  if (!today?.checkIn) {
+    status.textContent = 'Chưa vào ca';
+    if (isOnlineAttendance) {
+      checkIn.disabled = !onlineProof?.photoCapturedAt || onlineProof.latitude === undefined;
+    } else {
+      checkIn.disabled = currentMinutes < checkInStartsAt || currentMinutes > checkInEndsAt;
+      if (currentMinutes < checkInStartsAt) status.textContent += ` · Mở check-in lúc ${isAfternoon ? '11:00' : '06:00'}`;
+      else if (currentMinutes > checkInEndsAt) status.textContent += ` · Đã hết giờ check-in (${isAfternoon ? '11:00–15:00' : '06:00–12:00'})`;
+    }
+    checkOut.disabled = true;
+    updateOnlineCheckIn();
+    return;
+  }
+
+  if (!today.checkOut) {
+    status.classList.add('is-working');
+    status.textContent = today.late ? `Đi muộn, đang làm việc từ ${formatTime(today.checkIn)}` : `Đang làm việc từ ${formatTime(today.checkIn)}`;
+    checkIn.disabled = true;
+    checkOut.disabled = !checkoutAvailable;
+    if (!checkoutAvailable) status.textContent += ' - Check-out mở lúc 17:30';
+    return;
+  }
+
+  status.classList.add('is-completed');
+  status.textContent = `Đã hoàn thành lúc ${formatTime(today.checkOut)}`;
+  checkIn.disabled = true;
+  checkOut.disabled = true;
+}
 function applyUserAvatar(element, src, name) {
   const fallbackText = (name || 'U').trim().charAt(0).toUpperCase() || 'U';
   const image = document.createElement('img');
@@ -285,7 +330,7 @@ async function loadAttendance() { const response = await fetch(`/api/attendance?
 async function submitAttendance(action) { checkIn.disabled = true; checkOut.disabled = true; message.textContent = 'Đang cập nhật...'; try { const selectedType = document.querySelector('input[name="attendanceType"]:checked')?.value || 'full-day'; const response = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, mode: isOnlineAttendance ? 'online' : 'office', attendanceType: selectedType, onlineProof }) }); const responseText = await response.text(); let data = {}; try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; } if (!response.ok) throw new Error(data.message || 'Không thể cập nhật chấm công.'); message.textContent = action === 'check-in' ? 'Đã check-in thành công.' : 'Đã check-out thành công.'; await loadAttendance(); } catch (error) { message.textContent = error.message; setStatus(records); } }
 const today = new Date(); for (let offset = 0; offset < 12; offset += 1) { const date = new Date(today.getFullYear(), today.getMonth() - offset, 1); const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; monthSelect.append(new Option(date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }), value)); }
 monthSelect.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-monthSelect.addEventListener('change', loadAttendance); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => submitAttendance('check-out')); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
+monthSelect.addEventListener('change', loadAttendance); attendanceTypeChoice?.addEventListener('change', () => setStatus(records)); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => submitAttendance('check-out')); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
 fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin, user.role); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : user.role === 'accountant' ? 'Kế toán' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'ceo'
       ? originalRole === 'CEO'
       : user.role === 'admin'

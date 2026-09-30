@@ -12,6 +12,7 @@ const dateInput = form.querySelector('[name="date"]');
 const dateFromInput = form.querySelector('[name="dateFrom"]');
 const dateToInput = form.querySelector('[name="dateTo"]');
 const timeField = form.querySelector('[data-proposal-time]');
+const timeInput = form.querySelector('[name="time"]');
 const lateProof = form.querySelector('[data-late-proof]');
 const latePhotoInput = form.querySelector('[name="latePhoto"]');
 const locationButton = form.querySelector('[data-proposal-location]');
@@ -61,6 +62,7 @@ function updateDurationFields() {
   dateFromInput.required = isLeave && isMultiple;
   dateToInput.required = isLeave && isMultiple;
   timeField.hidden = isLeave;
+  timeInput.required = typeInput.value === 'late';
   lateProof.hidden = typeInput.value !== 'late';
   if (typeInput.value !== 'late') {
     latePhotoData = '';
