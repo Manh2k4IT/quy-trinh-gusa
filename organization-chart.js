@@ -365,7 +365,7 @@ function renderBranch(parentId, target, depth = 0) {
     const mainRow = document.createElement("div");
     mainRow.className = "chart-leadership-main";
     normalNodes.forEach((node) => renderNode(node, mainRow, depth));
-    leadership.append(aboveRow, connector, mainRow);
+    leadership.append(mainRow, connector, aboveRow);
     target.append(leadership);
     return;
   }
