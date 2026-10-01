@@ -929,7 +929,7 @@ function fitPresentationBoard() {
   const viewportWidth = chartTreeViewport.clientWidth;
   const boardWidth = chartTree.offsetWidth;
   const isMobile = window.matchMedia("(max-width: 650px)").matches;
-  const scale = isMobile ? 0.75 : Math.min(1, viewportWidth / boardWidth);
+  const scale = isMobile ? 1 : Math.min(1, viewportWidth / boardWidth);
   if (isMobile) {
     chartTree.style.zoom = String(scale);
     chartTree.style.transform = "none";
