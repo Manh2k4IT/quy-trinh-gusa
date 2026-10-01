@@ -9,6 +9,16 @@ const memberAdd = document.querySelector("[data-member-add]");
 const memberForm = document.querySelector("[data-member-form]");
 const memberCancel = document.querySelector("[data-member-cancel]");
 const memberStatus = document.querySelector("[data-member-status]");
+const startDateField = memberForm?.elements.workYears;
+if (startDateField) {
+  startDateField.name = "startDate";
+  startDateField.type = "date";
+  startDateField.removeAttribute("min");
+  startDateField.removeAttribute("max");
+  startDateField.removeAttribute("step");
+  startDateField.placeholder = "";
+  startDateField.closest("label").firstChild.textContent = "Ngày bắt đầu";
+}
 const topSearch = document.querySelector(".search-box input");
 const memberStatusFilter = document.querySelector("[data-member-status-filter]");
 const appShell = document.querySelector(".app-shell");
@@ -196,6 +206,19 @@ function memberAvatar(member) {
   return document.createTextNode(member.name.charAt(0).toUpperCase());
 }
 
+function formatTenure(member) {
+  if (!member.startDate) return member.workYears ? `${member.workYears} năm` : "Chưa cập nhật ngày bắt đầu";
+  const startDate = new Date(`${member.startDate}T00:00:00`);
+  const today = new Date();
+  if (Number.isNaN(startDate.getTime()) || startDate > today) return "Ngày bắt đầu không hợp lệ";
+  let years = today.getFullYear() - startDate.getFullYear();
+  let months = today.getMonth() - startDate.getMonth();
+  if (today.getDate() < startDate.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  if (!years && !months) return "Dưới 1 tháng";
+  return `${years ? `${years} năm` : ""}${years && months ? " " : ""}${months ? `${months} tháng` : ""}`;
+}
+
 function renderMembers() {
   memberList.replaceChildren();
   if (!members.length) {
@@ -233,7 +256,7 @@ function renderMembers() {
     contact.textContent = member.email || member.phone || "Chưa có thông tin liên hệ";
     const workTime = document.createElement("span");
     workTime.className = "member-card-work-time";
-    workTime.textContent = member.workYears ? `${member.workYears} năm làm việc` : "Chưa cập nhật số năm làm việc";
+    workTime.textContent = `Thâm niên: ${formatTenure(member)}`;
     identity.append(name, title, contact);
     identity.append(workTime);
     const status = document.createElement("span");
@@ -256,7 +279,7 @@ function renderMembers() {
 }
 
 function openMemberForm(member = null) {
-  ["id", "name", "title", "email", "phone", "workYears", "status", "description"].forEach((key) => {
+  ["id", "name", "title", "email", "phone", "startDate", "status", "description"].forEach((key) => {
     memberForm.elements[key].value = member?.[key] || "";
   });
   memberForm.elements.avatar.value = "";

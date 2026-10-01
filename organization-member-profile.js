@@ -11,9 +11,33 @@ const memberEdit = document.querySelector("[data-member-edit]");
 const memberDelete = document.querySelector("[data-member-delete]");
 const memberCancel = document.querySelector("[data-member-cancel]");
 const memberStatus = document.querySelector("[data-member-status]");
+const startDateField = memberForm?.elements.workYears;
+if (startDateField) {
+  startDateField.name = "startDate";
+  startDateField.type = "date";
+  startDateField.removeAttribute("min");
+  startDateField.removeAttribute("max");
+  startDateField.removeAttribute("step");
+  startDateField.placeholder = "";
+  startDateField.closest("label").firstChild.textContent = "Ngày bắt đầu";
+}
 const appShell = document.querySelector(".app-shell");
 const sidebarToggle = document.querySelector(".sidebar-toggle");
 const memberHeader = document.querySelector(".member-profile-heading");
+document.querySelector("[data-member-work-years]")?.previousElementSibling.replaceChildren(document.createTextNode("Thâm niên"));
+
+function formatTenure(member) {
+  if (!member.startDate) return member.workYears ? `${member.workYears} năm` : "Chưa cập nhật ngày bắt đầu";
+  const startDate = new Date(`${member.startDate}T00:00:00`);
+  const today = new Date();
+  if (Number.isNaN(startDate.getTime()) || startDate > today) return "Ngày bắt đầu không hợp lệ";
+  let years = today.getFullYear() - startDate.getFullYear();
+  let months = today.getMonth() - startDate.getMonth();
+  if (today.getDate() < startDate.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  if (!years && !months) return "Dưới 1 tháng";
+  return `${years ? `${years} năm` : ""}${years && months ? " " : ""}${months ? `${months} tháng` : ""}`;
+}
 
 document.querySelector(".profile-content > .profile-back-link")?.remove();
 
@@ -160,7 +184,7 @@ function showMember() {
   memberTitle.textContent = `Chức danh: ${member.title || "Chưa cập nhật"}`;
   document.querySelector("[data-member-email]").textContent = member.email || "Chưa cập nhật";
   document.querySelector("[data-member-phone]").textContent = member.phone || "Chưa cập nhật";
-  document.querySelector("[data-member-work-years]").textContent = member.workYears ? `${member.workYears} năm làm việc` : "Chưa cập nhật";
+  document.querySelector("[data-member-work-years]").textContent = formatTenure(member);
   const statusBadge = document.querySelector("[data-member-status-badge]");
   const status = member.status || "working";
   statusBadge.className = `member-status member-status-${status}`;
@@ -173,7 +197,7 @@ function showMember() {
 }
 
 function openForm() {
-  ["name", "title", "email", "phone", "workYears", "status", "description"].forEach((key) => {
+  ["name", "title", "email", "phone", "startDate", "status", "description"].forEach((key) => {
     memberForm.elements[key].value = member[key] || "";
   });
   memberForm.elements.avatar.value = "";

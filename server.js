@@ -1117,10 +1117,14 @@ async function updateOrganizationMember(req, res, nodeId) {
   const member = payload.member || {};
   if (!String(member.name || "").trim()) return send(res, 400, "Thành viên cần có họ tên");
   const avatar = String(member.avatar || "").trim();
+  const startDate = String(member.startDate || "").trim();
+  const today = new Date().toISOString().slice(0, 10);
+  if (startDate && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate > today)) return send(res, 400, "Ngày bắt đầu không hợp lệ.");
   if (avatar && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar) && !/^https?:\/\//.test(avatar)) return send(res, 400, "Ảnh đại diện không hợp lệ");
   if (Buffer.byteLength(avatar, "utf8") > 7 * 1024 * 1024) return send(res, 413, "Ảnh đại diện không được vượt quá 5 MB");
   const membersByNode = getOrganizationMembers();
   const members = membersByNode[nodeId] || [];
+  const existingMember = members.find((item) => item.id === String(member.id || ""));
   const cleanMember = {
     id: String(member.id || crypto.randomUUID()),
     name: String(member.name).trim().slice(0, 120),
@@ -1128,7 +1132,8 @@ async function updateOrganizationMember(req, res, nodeId) {
     avatar: avatar.slice(0, 7 * 1024 * 1024),
     email: String(member.email || "").trim().slice(0, 160),
     phone: String(member.phone || "").trim().slice(0, 40),
-    workYears: Math.max(0, Math.min(80, Number(member.workYears) || 0)),
+    startDate,
+    ...(startDate || !existingMember?.workYears ? {} : { workYears: Math.max(0, Math.min(80, Number(existingMember.workYears) || 0)) }),
     status: ["working", "leave", "former"].includes(member.status) ? member.status : "working",
     description: String(member.description || "").trim().slice(0, 1000),
   };

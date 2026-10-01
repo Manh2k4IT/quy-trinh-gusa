@@ -33,7 +33,11 @@ function openWelcomeImage() {
 
 const isDesktopApp = Boolean(window.desktopSettings?.isDesktop);
 const isWelcomeLogin = new URLSearchParams(location.search).get("showWelcome") === "1";
-if (isDesktopApp || isWelcomeLogin) openWelcomeImage();
+const desktopWelcomeShownKey = "gusa-desktop-welcome-shown";
+if (isWelcomeLogin || (isDesktopApp && sessionStorage.getItem(desktopWelcomeShownKey) !== "true")) {
+  if (isDesktopApp) sessionStorage.setItem(desktopWelcomeShownKey, "true");
+  openWelcomeImage();
+}
 window.desktopSettings?.onAppOpened?.(openWelcomeImage);
 
 function setAdminMenuVisibility(visible) {
