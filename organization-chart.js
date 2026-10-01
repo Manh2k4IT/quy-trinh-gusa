@@ -331,12 +331,19 @@ function createNodeCard(node) {
   remove.textContent = "Xóa";
   remove.addEventListener("click", (event) => {
     event.stopPropagation();
-    const hasChildren = nodes.some((child) => child.parentId === node.id);
-    if (hasChildren) {
-      chartStatus.textContent = "Hãy xóa hoặc chuyển các cấp con trước.";
-      return;
+    const idsToRemove = new Set([node.id]);
+    let hasChildren = true;
+    while (hasChildren) {
+      hasChildren = false;
+      nodes.forEach((child) => {
+        if (idsToRemove.has(child.parentId)) {
+          idsToRemove.add(child.id);
+          hasChildren = true;
+        }
+      });
     }
-    nodes = nodes.filter((item) => item.id !== node.id);
+    if (idsToRemove.size > 1 && !window.confirm(`Vị trí này có ${idsToRemove.size - 1} cấp con. Bạn có chắc muốn xóa cả nhánh không?`)) return;
+    nodes = nodes.filter((item) => !idsToRemove.has(item.id));
     resetForm();
     renderChart();
     saveChart();

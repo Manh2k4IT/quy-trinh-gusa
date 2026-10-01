@@ -1201,7 +1201,7 @@ async function updateOrganizationChart(req, res) {
     name: String(node.name || "").trim().slice(0, 120),
     role: String(node.role || "").trim().slice(0, 120),
     staff: Math.max(0, Math.min(99999, Number(node.staff) || 0)),
-    ...(node.placement === "above" ? { placement: "above" } : {}),
+    ...(["above", "left", "right"].includes(node.placement) ? { placement: node.placement === "above" ? "right" : node.placement } : {}),
   }));
   if (cleanNodes.some((node) => !node.id || !node.name)) return send(res, 400, "Mỗi vị trí cần có tên");
   const ids = new Set(cleanNodes.map((node) => node.id));
