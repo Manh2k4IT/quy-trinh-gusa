@@ -836,13 +836,6 @@ function renderPresentationChart() {
   editorPanel.hidden = true;
   document.querySelector("[data-presentation-view]")?.remove();
   document.querySelector("[data-canvas-color]")?.remove();
-  const editButton = document.createElement("button");
-  editButton.type = "button";
-  editButton.dataset.presentationEdit = "";
-  editButton.className = "google-add-button";
-  editButton.textContent = "Chỉnh sửa sơ đồ";
-  editButton.addEventListener("click", renderCanvasChart);
-  document.querySelector(".page-heading")?.append(editButton);
   const departmentData = [
     { name: "HỆ THỐNG\nCHI NHÁNH", tone: "terracotta", icon: "♟", groups: [{ name: "CHI NHÁNH 1", items: ["Sale", "Vận hành"] }, { name: "CHI NHÁNH 2", items: ["Sale", "Vận hành"] }] },
     { name: "MARKETING", tone: "sage", icon: "⌁", groups: [{ name: "THƯƠNG HIỆU\n& CONTENT", items: ["Branding", "Content Marketing", "Digital Marketing"] }, { name: "DIGITAL\nMARKETING", items: ["Growth", "Website & SEO", "Social Media"] }, { name: "MEDIA\nCONTENT", items: ["Video", "Hình ảnh"] }] },

@@ -4364,6 +4364,12 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
 
   .chart-content {
     padding: 1rem 0.7rem 2rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .chart-content::-webkit-scrollbar {
+    display: none;
   }
 
   .chart-content .page-heading {
@@ -4420,6 +4426,8 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    -ms-overflow-style: none;
+    scrollbar-color: transparent transparent;
   }
 
   .chart-tree-viewport::-webkit-scrollbar {
