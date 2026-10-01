@@ -960,10 +960,9 @@ function fitPresentationBoard() {
     });
     return;
   }
-  chartTree.style.zoom = "";
-  chartTree.style.transform = `scale(${scale})`;
-  chartTree.style.transformOrigin = "top left";
-  chartTree.style.marginBottom = `${-(1 - scale) * chartTree.offsetHeight}px`;
+  chartTree.style.zoom = String(scale);
+  chartTree.style.transform = "none";
+  chartTree.style.marginBottom = "0";
   chartTreeViewport.scrollLeft = 0;
 }
 
