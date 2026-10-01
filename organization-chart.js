@@ -195,6 +195,7 @@ let canvasPositions = new Map();
 let canvasCards = new Map();
 let connectingNodeId = null;
 let connectMode = false;
+let connectionPreview = null;
 addRootButton.hidden = true;
 editorPanel.hidden = true;
 
@@ -287,6 +288,10 @@ function createNodeCard(node) {
   card.addEventListener("click", (event) => {
     if (card.dataset.dragged === "true") {
       delete card.dataset.dragged;
+      return;
+    }
+    if (card.dataset.connectionDragged === "true") {
+      delete card.dataset.connectionDragged;
       return;
     }
     if (connectMode) {
@@ -521,6 +526,46 @@ function updateCanvasConnections() {
   svg.setAttribute("height", String(maxY));
 }
 
+function startConnectionDrag(event, sourceCard, sourceNode) {
+  if (!connectMode) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  const sourcePosition = canvasPositions.get(sourceNode.id);
+  const startX = sourcePosition.x + sourceCard.offsetWidth / 2;
+  const startY = sourcePosition.y + sourceCard.offsetHeight / 2;
+  const svg = chartTree.querySelector(".chart-connector-layer");
+  const preview = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  preview.classList.add("is-preview");
+  svg.append(preview);
+  connectionPreview = preview;
+  const bounds = chartTree.getBoundingClientRect();
+  const toCanvasPoint = (moveEvent) => ({
+    x: (moveEvent.clientX - bounds.left) / (chartZoom || 1),
+    y: (moveEvent.clientY - bounds.top) / (chartZoom || 1),
+  });
+  const onMove = (moveEvent) => {
+    const point = toCanvasPoint(moveEvent);
+    preview.setAttribute("d", `M ${startX} ${startY} L ${point.x} ${point.y}`);
+  };
+  const onUp = (upEvent) => {
+    const target = document.elementFromPoint(upEvent.clientX, upEvent.clientY)?.closest(".chart-canvas-card");
+    if (target && target !== sourceCard) {
+      const targetId = target.dataset.nodeId;
+      sourceNode.connections = [...new Set([...(sourceNode.connections || []), targetId])];
+      sourceCard.dataset.connectionDragged = "true";
+      renderChart();
+      saveChart();
+    }
+    preview.remove();
+    connectionPreview = null;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp, { once: true });
+  return true;
+}
+
 function attachCanvasInteraction(card, node) {
   if (!isAdmin) return;
   const position = canvasPositions.get(node.id);
@@ -529,8 +574,13 @@ function attachCanvasInteraction(card, node) {
   output.className = "chart-connector-handle chart-connector-output";
   output.textContent = "+";
   output.title = "Bắt đầu nối nhánh";
+  output.addEventListener("pointerdown", (event) => startConnectionDrag(event, card, node));
   output.addEventListener("click", (event) => {
     event.stopPropagation();
+    if (card.dataset.connectionDragged === "true") {
+      delete card.dataset.connectionDragged;
+      return;
+    }
     connectingNodeId = node.id;
     canvasCards.forEach((item) => item.classList.toggle("is-connection-source", item === card));
     chartStatus.textContent = "Đã chọn điểm nối. Bấm dấu + ở ô đích để nối nhánh.";
@@ -586,6 +636,7 @@ function attachCanvasInteraction(card, node) {
   card.append(input, output, resize);
   card.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, .chart-resize-handle")) return;
+    if (startConnectionDrag(event, card, node)) return;
     const startX = event.clientX;
     const startY = event.clientY;
     const originalX = position.x;
@@ -626,7 +677,7 @@ function initializeConnectModeButton() {
     connectingNodeId = null;
     chartTree.classList.toggle("is-connect-mode", connectMode);
     button.classList.toggle("is-active", connectMode);
-    chartStatus.textContent = connectMode ? "Chế độ nối: bấm ô nguồn rồi bấm ô đích." : "";
+    chartStatus.textContent = connectMode ? "Chế độ nối: kéo từ ô nguồn hoặc dấu + sang ô đích." : "";
   });
   tools.append(button);
 }

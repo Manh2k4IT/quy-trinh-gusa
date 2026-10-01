@@ -2729,6 +2729,12 @@ body[data-theme="dark"] .profile-form textarea {
   stroke-width: 1.5;
 }
 
+.chart-connector-layer path.is-preview {
+  stroke: var(--navy);
+  stroke-dasharray: 6 4;
+  stroke-width: 2;
+}
+
 .chart-canvas-card {
   position: absolute;
   z-index: 1;
