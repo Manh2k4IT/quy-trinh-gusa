@@ -198,6 +198,7 @@ let connectingNodeId = null;
 let connectMode = false;
 let connectionPreview = null;
 let canvasFillColor = "#e5a05b";
+let selectedCanvasNode = null;
 addRootButton.hidden = true;
 editorPanel.hidden = true;
 
@@ -314,6 +315,14 @@ function createNodeCard(node) {
       return;
     }
     if (!event.target.closest("button")) openProfile();
+  });
+  card.addEventListener("dblclick", (event) => {
+    if (!chartTree.classList.contains("chart-free-canvas") || event.target.closest("button, .chart-resize-handle")) return;
+    const name = window.prompt("Nội dung ô", node.name);
+    if (!name?.trim()) return;
+    node.name = name.trim();
+    renderCanvasChart();
+    saveChart();
   });
   card.addEventListener("keydown", (event) => {
     if ((event.key === "Enter" || event.key === " ") && !event.target.closest("button")) {
@@ -676,6 +685,7 @@ function attachCanvasInteraction(card, node) {
   card.append(input, output, resize);
   card.addEventListener("pointerdown", (event) => {
     if (event.target.closest("button, .chart-resize-handle")) return;
+    selectedCanvasNode = node;
     if (startConnectionDrag(event, card, node)) return;
     const startX = event.clientX;
     const startY = event.clientY;
@@ -744,7 +754,14 @@ function renderCanvasChart() {
     colorPicker.value = canvasFillColor;
     colorPicker.dataset.canvasColor = "";
     colorPicker.title = "Màu ô mới";
-    colorPicker.addEventListener("input", () => { canvasFillColor = colorPicker.value; });
+    colorPicker.addEventListener("input", () => {
+      canvasFillColor = colorPicker.value;
+      if (selectedCanvasNode) {
+        selectedCanvasNode.color = canvasFillColor;
+        renderCanvasChart();
+        saveChart();
+      }
+    });
     document.querySelector(".chart-view-tools")?.append(colorPicker);
   }
   chartTree.className = "chart-tree chart-free-canvas";
