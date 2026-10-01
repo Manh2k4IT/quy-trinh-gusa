@@ -934,7 +934,13 @@ function fitPresentationBoard() {
     chartTree.style.zoom = String(scale);
     chartTree.style.transform = "none";
     chartTree.style.marginBottom = "0";
-    chartTreeViewport.scrollLeft = 0;
+    requestAnimationFrame(() => {
+      const director = document.querySelector(".presentation-leader-primary");
+      if (!director) return;
+      const viewportRect = chartTreeViewport.getBoundingClientRect();
+      const directorRect = director.getBoundingClientRect();
+      chartTreeViewport.scrollLeft = Math.max(0, directorRect.left + directorRect.width / 2 - (viewportRect.left + viewportRect.width / 2));
+    });
     return;
   }
   chartTree.style.zoom = "";
