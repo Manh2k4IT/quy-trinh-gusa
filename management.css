@@ -2768,8 +2768,9 @@ body[data-theme="dark"] .profile-form textarea {
 
 .presentation-leaders {
   position: relative;
-  width: 100%;
+  width: 800px;
   height: 220px;
+  margin: 0 auto;
 }
 
 .presentation-leader,
@@ -2780,29 +2781,42 @@ body[data-theme="dark"] .profile-form textarea {
   align-items: center;
   justify-content: center;
   gap: 0.65rem;
-  min-height: 58px;
-  border-radius: 9px;
+  min-height: 50px;
+  border-radius: 7px;
   color: #fff;
-  font-size: 1rem;
+  font-size: 0.98rem;
   letter-spacing: 0.02em;
 }
 
 .presentation-leader {
-  left: 50%;
-  width: 265px;
-  transform: translateX(-50%);
+  left: 0;
+  width: 196px;
+  transform: none;
   color: #2d2119;
-  background: #e5a05b;
+  background: #7d4a3e;
   box-shadow: 0 4px 0 rgba(122, 67, 21, 0.13);
 }
 
 .presentation-leader-primary {
   top: 1rem;
+  color: #fff;
 }
 
 .presentation-leader-deputy {
-  top: 6.4rem;
-  width: 275px;
+  top: 7.5rem;
+  width: 196px;
+  color: #fff;
+  background: #249c4f;
+}
+
+.presentation-leader-deputy::before {
+  position: absolute;
+  top: -3.4rem;
+  left: 98px;
+  width: 1px;
+  height: 3.4rem;
+  content: "";
+  background: #151515;
 }
 
 .presentation-leader-icon,
@@ -2811,12 +2825,17 @@ body[data-theme="dark"] .profile-form textarea {
   font-size: 1.35rem;
 }
 
+.presentation-leader-icon,
+.presentation-internal-icon {
+  display: none;
+}
+
 .presentation-internal-control {
   position: absolute;
-  top: 3.4rem;
-  left: calc(50% + 185px);
-  width: 185px;
-  min-height: 58px;
+  top: 4.2rem;
+  left: 247px;
+  width: 155px;
+  min-height: 50px;
   color: #4d3926;
   border: 1px solid #c6b27f;
   background: #f0e5c8;
@@ -2826,7 +2845,7 @@ body[data-theme="dark"] .profile-form textarea {
   position: absolute;
   top: 50%;
   right: 100%;
-  width: 185px;
+  width: 149px;
   height: 1px;
   content: "";
   background: #6f522e;
@@ -2834,17 +2853,17 @@ body[data-theme="dark"] .profile-form textarea {
 
 .presentation-internal-groups {
   position: absolute;
-  top: 2.4rem;
-  left: calc(50% + 400px);
-  width: 185px;
+  top: 0.7rem;
+  left: 402px;
+  width: 155px;
   height: 150px;
 }
 
 .presentation-internal-groups::before {
   position: absolute;
-  top: 3.5rem;
-  left: -2.4rem;
-  width: 2.4rem;
+  top: 1.55rem;
+  left: 0;
+  width: 1px;
   height: 1px;
   content: "";
   background: #6f522e;
@@ -2852,8 +2871,8 @@ body[data-theme="dark"] .profile-form textarea {
 
 .presentation-internal-groups::after {
   position: absolute;
-  top: 3.5rem;
-  left: -2.4rem;
+  top: 1.55rem;
+  left: 0;
   width: 1px;
   height: 5.8rem;
   content: "";
@@ -2863,27 +2882,21 @@ body[data-theme="dark"] .profile-form textarea {
 .presentation-internal-groups > div {
   position: absolute;
   left: 0;
-  width: 185px;
-  min-height: 48px;
+  width: 155px;
+  min-height: 50px;
   padding: 0.45rem;
   color: #526044;
   border: 1px solid #c8b784;
   background: #f3ead5;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   text-align: center;
 }
 
 .presentation-internal-groups > div:first-child { top: 0; }
-.presentation-internal-groups > div:last-child { top: 6rem; }
+.presentation-internal-groups > div:last-child { top: 5.8rem; }
 
 .presentation-leaders::after {
-  position: absolute;
-  top: 4.7rem;
-  left: 50%;
-  width: 1px;
-  height: 1.7rem;
-  content: "";
-  background: #6f522e;
+  display: none;
 }
 
 .presentation-departments {
