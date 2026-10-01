@@ -2931,10 +2931,21 @@ body[data-theme="dark"] .profile-form textarea {
 .presentation-department {
   position: relative;
   min-width: 0;
+  cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--presentation-tone) 45%, #d8ddd2);
   border-radius: 12px;
   background: color-mix(in srgb, var(--presentation-tone) 7%, #fff);
   overflow: visible;
+}
+
+.presentation-department:focus-visible {
+  outline: 3px solid #355e43;
+  outline-offset: 3px;
+}
+
+.presentation-department:hover {
+  filter: brightness(0.98);
+  transform: translateY(-2px);
 }
 
 .presentation-department::before {

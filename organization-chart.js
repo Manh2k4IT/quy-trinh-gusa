@@ -883,6 +883,24 @@ function renderPresentationChart() {
   departmentData.forEach((department) => {
     const column = document.createElement("section");
     column.className = `presentation-department presentation-tone-${department.tone}`;
+    const matchingNode = nodes.find((node) => normalizeSearchText(node.name) === normalizeSearchText(department.name.replace(/\n/g, " ")));
+    column.tabIndex = 0;
+    column.setAttribute("role", "link");
+    column.setAttribute("aria-label", `Mở thông tin ${department.name.replace(/\n/g, " ")}`);
+    const openDepartment = () => {
+      if (!matchingNode) {
+        chartStatus.textContent = `Chưa có dữ liệu thành viên cho ${department.name.replace(/\n/g, " ")}.`;
+        return;
+      }
+      window.location.href = `organization-profile.html?node=${encodeURIComponent(matchingNode.id)}`;
+    };
+    column.addEventListener("click", openDepartment);
+    column.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openDepartment();
+      }
+    });
     const heading = document.createElement("header");
     heading.innerHTML = `<span class="presentation-department-icon">${department.icon}</span><strong>${department.name.replace(/\n/g, "<br />")}</strong>`;
     column.append(heading);
