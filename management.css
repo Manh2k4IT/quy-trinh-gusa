@@ -2861,7 +2861,7 @@ body[data-theme="dark"] .profile-form textarea {
 
 .presentation-internal-groups::before {
   position: absolute;
-  top: 1.55rem;
+  top: 5.05rem;
   left: -40px;
   width: 40px;
   height: 1px;
@@ -2920,10 +2920,10 @@ body[data-theme="dark"] .profile-form textarea {
 
 .presentation-departments::after {
   position: absolute;
-  top: -5rem;
+  top: -4.35rem;
   left: 50%;
   width: 1px;
-  height: 5rem;
+  height: 4.35rem;
   content: "";
   background: #6f522e;
 }
