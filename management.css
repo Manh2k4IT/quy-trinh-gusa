@@ -2811,6 +2811,7 @@ body[data-theme="dark"] .profile-form textarea {
 }
 
 .presentation-internal-control {
+  position: absolute;
   top: 6.4rem;
   left: calc(50% + 185px);
   width: 185px;
@@ -2818,6 +2819,16 @@ body[data-theme="dark"] .profile-form textarea {
   color: #5d624b;
   border: 1px solid #b8bc9c;
   background: #e6e6d2;
+}
+
+.presentation-internal-control::before {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  width: 185px;
+  height: 1px;
+  content: "";
+  background: #355e43;
 }
 
 .presentation-internal-groups {
