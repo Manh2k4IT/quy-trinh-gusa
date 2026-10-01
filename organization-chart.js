@@ -463,13 +463,40 @@ function updateCanvasConnections() {
     const fromCard = canvasCards.get(fromId);
     const toCard = canvasCards.get(toId);
     if (!from || !to || !fromCard || !toCard) return;
-    const startX = from.x + fromCard.offsetWidth;
-    const startY = from.y + fromCard.offsetHeight / 2;
-    const endX = to.x;
-    const endY = to.y + toCard.offsetHeight / 2;
-    const bendX = startX + Math.max(24, (endX - startX) / 2);
+    const fromWidth = fromCard.offsetWidth;
+    const fromHeight = fromCard.offsetHeight;
+    const toWidth = toCard.offsetWidth;
+    const toHeight = toCard.offsetHeight;
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", `M ${startX} ${startY} H ${bendX} V ${endY} H ${endX}`);
+    if (to.y >= from.y + fromHeight) {
+      const startX = from.x + fromWidth / 2;
+      const startY = from.y + fromHeight;
+      const endX = to.x + toWidth / 2;
+      const endY = to.y;
+      const bendY = startY + Math.max(24, (endY - startY) / 2);
+      path.setAttribute("d", `M ${startX} ${startY} V ${bendY} H ${endX} V ${endY}`);
+    } else if (to.y + toHeight <= from.y) {
+      const startX = from.x + fromWidth / 2;
+      const startY = from.y;
+      const endX = to.x + toWidth / 2;
+      const endY = to.y + toHeight;
+      const bendY = endY + Math.min(-24, (startY - endY) / 2);
+      path.setAttribute("d", `M ${startX} ${startY} V ${bendY} H ${endX} V ${endY}`);
+    } else if (to.x >= from.x + fromWidth) {
+      const startX = from.x + fromWidth;
+      const startY = from.y + fromHeight / 2;
+      const endX = to.x;
+      const endY = to.y + toHeight / 2;
+      const bendX = startX + Math.max(24, (endX - startX) / 2);
+      path.setAttribute("d", `M ${startX} ${startY} H ${bendX} V ${endY} H ${endX}`);
+    } else {
+      const startX = from.x;
+      const startY = from.y + fromHeight / 2;
+      const endX = to.x + toWidth;
+      const endY = to.y + toHeight / 2;
+      const bendX = endX + Math.min(-24, (startX - endX) / 2);
+      path.setAttribute("d", `M ${startX} ${startY} H ${bendX} V ${endY} H ${endX}`);
+    }
     svg.append(path);
   });
   const maxX = Math.max(900, ...[...canvasPositions.values()].map((position) => position.x + 380));
