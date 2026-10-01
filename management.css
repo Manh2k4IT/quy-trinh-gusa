@@ -2727,12 +2727,14 @@ body[data-theme="dark"] .profile-form textarea {
   fill: none;
   stroke: #9baabd;
   stroke-width: 1.5;
+  pointer-events: stroke;
 }
 
 .chart-connector-layer path.is-preview {
   stroke: var(--navy);
   stroke-dasharray: 6 4;
   stroke-width: 2;
+  pointer-events: none;
 }
 
 .chart-canvas-card {

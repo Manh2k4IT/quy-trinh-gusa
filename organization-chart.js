@@ -478,6 +478,7 @@ function updateCanvasConnections() {
   const links = [];
   freeLines.forEach((line) => {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.classList.add("is-free-line");
     path.setAttribute("d", `M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`);
     svg.append(path);
   });
