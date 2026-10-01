@@ -194,6 +194,7 @@ let isAdmin = false;
 let canvasPositions = new Map();
 let canvasCards = new Map();
 let connectingNodeId = null;
+let connectMode = false;
 addRootButton.hidden = true;
 editorPanel.hidden = true;
 
@@ -286,6 +287,22 @@ function createNodeCard(node) {
   card.addEventListener("click", (event) => {
     if (card.dataset.dragged === "true") {
       delete card.dataset.dragged;
+      return;
+    }
+    if (connectMode) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!connectingNodeId) {
+        connectingNodeId = node.id;
+        card.classList.add("is-connection-source");
+        chartStatus.textContent = `Đã chọn “${node.name}”. Bấm ô đích để nối.`;
+      } else if (connectingNodeId !== node.id) {
+        const source = nodes.find((item) => item.id === connectingNodeId);
+        source.connections = [...new Set([...(source.connections || []), node.id])];
+        connectingNodeId = null;
+        renderChart();
+        saveChart();
+      }
       return;
     }
     if (!event.target.closest("button")) openProfile();
@@ -453,10 +470,7 @@ function updateCanvasConnections() {
   if (!svg) return;
   svg.replaceChildren();
   const links = [];
-  nodes.forEach((node) => {
-    if (node.parentId) links.push([node.parentId, node.id]);
-    (node.connections || []).forEach((targetId) => links.push([node.id, targetId]));
-  });
+  nodes.forEach((node) => (node.connections || []).forEach((targetId) => links.push([node.id, targetId])));
   links.forEach(([fromId, toId]) => {
     const from = canvasPositions.get(fromId);
     const to = canvasPositions.get(toId);
@@ -599,7 +613,26 @@ function attachCanvasInteraction(card, node) {
   });
 }
 
+function initializeConnectModeButton() {
+  const tools = document.querySelector(".chart-view-tools");
+  if (!tools || tools.querySelector("[data-connect-mode]")) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.connectMode = "";
+  button.textContent = "✎ Nối";
+  button.title = "Bật chế độ tự nối hai ô";
+  button.addEventListener("click", () => {
+    connectMode = !connectMode;
+    connectingNodeId = null;
+    chartTree.classList.toggle("is-connect-mode", connectMode);
+    button.classList.toggle("is-active", connectMode);
+    chartStatus.textContent = connectMode ? "Chế độ nối: bấm ô nguồn rồi bấm ô đích." : "";
+  });
+  tools.append(button);
+}
+
 function renderCanvasChart() {
+  initializeConnectModeButton();
   chartTree.classList.add("chart-free-canvas");
   chartTree.replaceChildren();
   canvasPositions = createCanvasPositions();

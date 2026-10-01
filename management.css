@@ -2774,8 +2774,14 @@ body[data-theme="dark"] .profile-form textarea {
 
 .chart-canvas-card:hover .chart-connector-handle,
 .chart-canvas-card:focus-within .chart-connector-handle,
-.chart-canvas-card.is-connection-source .chart-connector-handle {
+.chart-canvas-card.is-connection-source .chart-connector-handle,
+.chart-free-canvas.is-connect-mode .chart-canvas-card .chart-connector-handle {
   opacity: 1;
+}
+
+.chart-view-tools button[data-connect-mode].is-active {
+  color: #fff;
+  background: var(--navy);
 }
 
 .chart-canvas-card.is-connection-source {
