@@ -928,7 +928,8 @@ function fitPresentationBoard() {
   if (!chartTree.classList.contains("chart-presentation-board")) return;
   const viewportWidth = chartTreeViewport.clientWidth;
   const boardWidth = chartTree.offsetWidth;
-  const scale = Math.min(1, viewportWidth / boardWidth);
+  const isMobile = window.matchMedia("(max-width: 650px)").matches;
+  const scale = isMobile ? 0.72 : Math.min(1, viewportWidth / boardWidth);
   chartTree.style.transform = `scale(${scale})`;
   chartTree.style.transformOrigin = "top left";
   chartTree.style.marginBottom = `${-(1 - scale) * chartTree.offsetHeight}px`;
