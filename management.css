@@ -2790,6 +2790,18 @@ body[data-theme="dark"] .profile-form textarea {
   letter-spacing: 0.02em;
 }
 
+.presentation-clickable {
+  cursor: pointer;
+  transition: filter 140ms ease, transform 140ms ease;
+}
+
+.presentation-clickable:hover,
+.presentation-clickable:focus-visible {
+  filter: brightness(1.06);
+  outline: 2px solid #6f522e;
+  outline-offset: 3px;
+}
+
 .presentation-leader {
   left: 0;
   width: 196px;

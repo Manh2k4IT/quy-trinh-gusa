@@ -868,6 +868,29 @@ function renderPresentationChart() {
   const leaders = document.createElement("div");
   leaders.className = "presentation-leaders";
   leaders.append(director, deputy, internal, internalGroups);
+  const makePresentationLink = (element, name) => {
+    const matchingNode = nodes.find((node) => normalizeSearchText(node.name) === normalizeSearchText(name));
+    element.classList.add("presentation-clickable");
+    element.tabIndex = 0;
+    element.setAttribute("role", "link");
+    const open = () => {
+      if (!matchingNode) {
+        chartStatus.textContent = `Chưa có dữ liệu chi tiết cho ${name}.`;
+        return;
+      }
+      window.location.href = `organization-profile.html?node=${encodeURIComponent(matchingNode.id)}`;
+    };
+    element.addEventListener("click", open);
+    element.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  };
+  makePresentationLink(director, "GIÁM ĐỐC");
+  makePresentationLink(deputy, "P. GIÁM ĐỐC");
+  makePresentationLink(internal, "KIỂM SOÁT NỘI BỘ");
   top.append(leaders);
   chartTree.append(top);
   const departments = document.createElement("div");
