@@ -1,31 +1,23 @@
 const sidebarScroll = document.querySelector('.sidebar-scroll');
 
-function initializeGlobalNavigation() {
+function initializeBrowserNavigation() {
   const topbar = document.querySelector('.topbar');
-  if (!topbar || document.querySelector('[data-global-navigation]')) return;
+  if (!topbar || document.querySelector('[data-browser-navigation]')) return;
   const navigation = document.createElement('nav');
-  navigation.className = 'global-navigation';
-  navigation.dataset.globalNavigation = '';
-  navigation.setAttribute('aria-label', 'Điều hướng chính');
+  navigation.className = 'browser-navigation';
+  navigation.dataset.browserNavigation = '';
+  navigation.setAttribute('aria-label', 'Điều hướng trang');
   navigation.innerHTML = `
-    <a href="organization-chart.html" data-nav-path="organization-chart.html"><span class="global-navigation-icon">⌂</span><span>Tổng quan</span></a>
-    <a href="attendance-overview.html" data-nav-path="attendance-overview.html"><span class="global-navigation-icon">♙</span><span>Nhân sự</span></a>
-    <a href="attendance.html" data-nav-path="attendance.html"><span class="global-navigation-icon">◷</span><span>Chấm công</span></a>
-    <a href="proposals.html" data-nav-path="proposals.html"><span class="global-navigation-icon">☷</span><span>Đề xuất</span></a>
-    <a href="proposal-report.html" data-nav-path="proposal-report.html"><span class="global-navigation-icon">▥</span><span>Báo cáo</span></a>
-    <a href="interface-settings.html" data-nav-path="interface-settings.html"><span class="global-navigation-icon">⚙</span><span>Cài đặt</span></a>`;
-  topbar.insertAdjacentElement('afterend', navigation);
-
-  const currentPath = window.location.pathname.split('/').pop() || 'organization-chart.html';
-  navigation.querySelectorAll('a[data-nav-path]').forEach((link) => {
-    const isActive = link.dataset.navPath === currentPath
-      || (link.dataset.navPath === 'organization-chart.html' && ['organization-profile.html', 'organization-member-profile.html'].includes(currentPath));
-    link.classList.toggle('is-active', isActive);
-    if (isActive) link.setAttribute('aria-current', 'page');
-  });
+    <button type="button" data-browser-back aria-label="Quay lại" title="Quay lại"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg></button>
+    <button type="button" data-browser-reload aria-label="Tải lại trang" title="Tải lại trang"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1 4" /><path d="M20 5v6h-6" /></svg></button>
+    <button type="button" data-browser-home aria-label="Về trang chủ" title="Về trang chủ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></svg></button>`;
+  topbar.insertBefore(navigation, topbar.firstChild);
+  navigation.querySelector('[data-browser-back]').addEventListener('click', () => window.history.back());
+  navigation.querySelector('[data-browser-reload]').addEventListener('click', () => window.location.reload());
+  navigation.querySelector('[data-browser-home]').addEventListener('click', () => { window.location.href = 'organization-chart.html'; });
 }
 
-initializeGlobalNavigation();
+initializeBrowserNavigation();
 const proposalVoiceAudios = {
   general: new Audio('ban_co_de_xuat_moi_tu_nhan_su_trong_danh_muc_de_1e969bce-ab7b-4812-a7cd-a61a981e15cd.mp3'),
   leave: new Audio('ban_co_de_xuat_nghi_co_phep_tu_nhan_su_83c37535-136e-4f99-8602-573ecd286adb.mp3'),
