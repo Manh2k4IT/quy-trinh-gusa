@@ -1213,6 +1213,7 @@ async function updateOrganizationChart(req, res) {
     y: Math.max(0, Math.min(10000, Number(node.y) || 0)),
     width: Math.max(140, Math.min(360, Number(node.width) || 165)),
     height: Math.max(58, Math.min(260, Number(node.height) || 100)),
+    ...(typeof node.color === "string" && /^#[0-9a-f]{6}$/i.test(node.color) ? { color: node.color } : {}),
     ...(["above", "left", "right"].includes(node.placement) ? { placement: node.placement === "above" ? "right" : node.placement } : {}),
     ...(Array.isArray(node.connections) ? { connections: node.connections.map((id) => String(id)).slice(0, 100) } : {}),
   }));

@@ -197,6 +197,7 @@ let canvasCards = new Map();
 let connectingNodeId = null;
 let connectMode = false;
 let connectionPreview = null;
+let canvasFillColor = "#e5a05b";
 addRootButton.hidden = true;
 editorPanel.hidden = true;
 
@@ -279,6 +280,7 @@ function refreshParentOptions() {
 function createNodeCard(node) {
   const card = document.createElement("article");
   card.className = "chart-node-card";
+  if (node.color) card.style.background = node.color;
   card.dataset.searchText = normalizeSearchText(`${node.name} ${node.role || ""} ${node.staff} nhân sự`);
   card.tabIndex = 0;
   card.setAttribute("role", "link");
@@ -722,7 +724,30 @@ function initializeConnectModeButton() {
 
 function renderCanvasChart() {
   initializeConnectModeButton();
-  chartTree.classList.add("chart-free-canvas");
+  document.querySelector(".chart-view-tools")?.removeAttribute("hidden");
+  const pageHeading = document.querySelector(".page-heading");
+  pageHeading?.querySelector("[data-presentation-edit]")?.remove();
+  let doneButton = pageHeading?.querySelector("[data-presentation-view]");
+  if (!doneButton && pageHeading) {
+    doneButton = document.createElement("button");
+    doneButton.type = "button";
+    doneButton.dataset.presentationView = "";
+    doneButton.className = "google-add-button";
+    doneButton.textContent = "Xong";
+    doneButton.addEventListener("click", renderPresentationChart);
+    pageHeading.append(doneButton);
+  }
+  let colorPicker = document.querySelector("[data-canvas-color]");
+  if (!colorPicker) {
+    colorPicker = document.createElement("input");
+    colorPicker.type = "color";
+    colorPicker.value = canvasFillColor;
+    colorPicker.dataset.canvasColor = "";
+    colorPicker.title = "Màu ô mới";
+    colorPicker.addEventListener("input", () => { canvasFillColor = colorPicker.value; });
+    document.querySelector(".chart-view-tools")?.append(colorPicker);
+  }
+  chartTree.className = "chart-tree chart-free-canvas";
   chartTree.replaceChildren();
   canvasPositions = createCanvasPositions();
   canvasCards = new Map();
@@ -766,7 +791,7 @@ function createInlineCanvasNode(event) {
     const name = input.value.trim();
     input.remove();
     if (!save || !name) return;
-    nodes.push({ id: crypto.randomUUID(), parentId: null, name, role: "", staff: 1, x, y, width: 165, height: 100, placement: "below" });
+    nodes.push({ id: crypto.randomUUID(), parentId: null, name, role: "", staff: 1, x, y, width: 165, height: 100, placement: "below", color: canvasFillColor });
     renderChart();
     saveChart();
   };
@@ -792,6 +817,15 @@ function renderPresentationChart() {
   document.querySelector(".chart-view-tools")?.setAttribute("hidden", "true");
   addRootButton.hidden = true;
   editorPanel.hidden = true;
+  document.querySelector("[data-presentation-view]")?.remove();
+  document.querySelector("[data-canvas-color]")?.remove();
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.dataset.presentationEdit = "";
+  editButton.className = "google-add-button";
+  editButton.textContent = "Chỉnh sửa sơ đồ";
+  editButton.addEventListener("click", renderCanvasChart);
+  document.querySelector(".page-heading")?.append(editButton);
   const departmentData = [
     { name: "HỆ THỐNG\nCHI NHÁNH", tone: "terracotta", icon: "♟", groups: [{ name: "CHI NHÁNH 1", items: ["Sale", "Vận hành"] }, { name: "CHI NHÁNH 2", items: ["Sale", "Vận hành"] }] },
     { name: "MARKETING", tone: "sage", icon: "⌁", groups: [{ name: "THƯƠNG HIỆU\n& CONTENT", items: ["Branding", "Content Marketing", "Digital Marketing"] }, { name: "DIGITAL\nMARKETING", items: ["Growth", "Website & SEO", "Social Media"] }, { name: "MEDIA\nCONTENT", items: ["Video", "Hình ảnh"] }] },

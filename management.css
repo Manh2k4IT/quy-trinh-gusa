@@ -3076,6 +3076,16 @@ body[data-theme="dark"] .profile-form textarea {
   background: var(--navy);
 }
 
+.chart-view-tools input[data-canvas-color] {
+  width: 30px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid #cdd8e6;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+}
+
 .chart-canvas-card.is-connection-source {
   outline: 3px solid color-mix(in srgb, var(--navy) 28%, transparent);
 }
