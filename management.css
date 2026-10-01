@@ -2845,7 +2845,7 @@ body[data-theme="dark"] .profile-form textarea {
   position: absolute;
   top: 50%;
   right: 100%;
-  width: 93px;
+  width: 150px;
   height: 1px;
   content: "";
   background: #6f522e;
