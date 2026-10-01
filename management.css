@@ -2802,6 +2802,14 @@ body[data-theme="dark"] .profile-form textarea {
   outline-offset: 3px;
 }
 
+.presentation-department:hover,
+.presentation-department:focus-visible,
+.presentation-internal-groups > div:hover,
+.presentation-internal-groups > div:focus-visible {
+  outline: 2px solid #6f522e;
+  outline-offset: 3px;
+}
+
 .presentation-leader {
   left: 0;
   width: 196px;
@@ -2981,12 +2989,28 @@ body[data-theme="dark"] .profile-form textarea {
   border-radius: 11px;
   color: #fff;
   background: var(--presentation-tone);
-  font-size: 0.72rem;
+  font-size: 0.92rem;
+  font-weight: 700;
   line-height: 1.15;
   text-align: center;
 }
 
-.presentation-department-icon { font-size: 1.2rem; }
+.presentation-department header strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+  line-height: 1.18;
+  word-spacing: 0.08em;
+  white-space: normal;
+}
+
+.presentation-internal-control strong,
+.presentation-internal-groups > div {
+  font-size: 0.82rem;
+  line-height: 1.16;
+  word-spacing: 0.08em;
+  white-space: normal;
+}
 
 .presentation-groups {
   display: grid;
@@ -3002,12 +3026,14 @@ body[data-theme="dark"] .profile-form textarea {
   color: #3e5145;
   background: color-mix(in srgb, var(--presentation-tone) 13%, #fff);
   font-size: 0.65rem;
+  line-height: 1.42;
+  word-spacing: 0.06em;
 }
 
 .presentation-group strong {
   color: #455e4a;
   font-size: 0.67rem;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 
 .presentation-group span {
