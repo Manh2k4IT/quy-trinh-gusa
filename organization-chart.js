@@ -183,6 +183,11 @@ const chartStatus = document.querySelector("[data-chart-status]");
 const chartContent = document.querySelector(".chart-content");
 const editorPanel = document.querySelector("[data-editor-panel]");
 const editorClose = document.querySelector("[data-editor-close]");
+const placementField = document.createElement("label");
+placementField.textContent = "Hướng nhánh";
+placementField.innerHTML += '<select name="placement"><option value="below">Dọc xuống dưới</option><option value="right">Chỉa sang phải</option><option value="left">Chỉa sang trái</option></select>';
+nodeForm.elements.parentId.closest("label").after(placementField);
+const placementSelect = nodeForm.elements.placement;
 let nodes = [];
 let editingId = null;
 let isAdmin = false;
@@ -250,6 +255,7 @@ function resetForm() {
   editingId = null;
   nodeForm.reset();
   nodeForm.elements.staff.value = "1";
+  placementSelect.value = "below";
   formTitle.textContent = "Thêm vị trí";
   formSubmit.textContent = "Thêm vào sơ đồ";
   formCancel.hidden = true;
@@ -311,6 +317,7 @@ function createNodeCard(node) {
     nodeForm.elements.name.value = node.name;
     nodeForm.elements.role.value = node.role;
     nodeForm.elements.staff.value = node.staff;
+    placementSelect.value = node.placement === "above" ? "right" : node.placement || "below";
     refreshParentOptions();
     parentSelect.value = node.parentId || "";
     formTitle.textContent = "Chỉnh sửa vị trí";
@@ -351,21 +358,22 @@ function renderNode(node, target, depth) {
 
 function renderBranch(parentId, target, depth = 0) {
   const siblings = nodes.filter((node) => node.parentId === parentId);
-  const aboveNodes = siblings.filter((node) => node.placement === "above");
-  const normalNodes = siblings.filter((node) => node.placement !== "above");
+  const sideNodes = siblings.filter((node) => ["above", "left", "right"].includes(node.placement));
+  const normalNodes = siblings.filter((node) => !["above", "left", "right"].includes(node.placement));
 
-  if (aboveNodes.length && normalNodes.length) {
+  if (sideNodes.length && normalNodes.length) {
     const leadership = document.createElement("div");
     leadership.className = "chart-leadership";
     const aboveRow = document.createElement("div");
     aboveRow.className = "chart-leadership-above";
-    aboveNodes.forEach((node) => renderNode(node, aboveRow, depth));
+    sideNodes.forEach((node) => renderNode(node, aboveRow, depth));
     const connector = document.createElement("div");
     connector.className = "chart-leadership-connector";
     const mainRow = document.createElement("div");
     mainRow.className = "chart-leadership-main";
     normalNodes.forEach((node) => renderNode(node, mainRow, depth));
-    leadership.append(mainRow, connector, aboveRow);
+    const sideOnLeft = sideNodes.some((node) => node.placement === "left");
+    leadership.append(...(sideOnLeft ? [aboveRow, connector, mainRow] : [mainRow, connector, aboveRow]));
     target.append(leadership);
     return;
   }
@@ -410,6 +418,7 @@ nodeForm.addEventListener("submit", (event) => {
     name: String(formData.get("name")).trim(),
     role: String(formData.get("role")).trim(),
     staff: Number(formData.get("staff")) || 0,
+    placement: ["right", "left"].includes(formData.get("placement")) ? formData.get("placement") : "below",
   };
   const existingNode = nodes.find((item) => item.id === editingId);
   if (existingNode?.placement) node.placement = existingNode.placement;
