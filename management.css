@@ -2739,11 +2739,12 @@ body[data-theme="dark"] .profile-form textarea {
 }
 
 .chart-leadership {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: max-content 1.2rem max-content;
+  grid-template-areas: "main connector above";
+  align-items: start;
   gap: 1.2rem;
-  width: 100%;
+  width: max-content;
 }
 
 .chart-leadership-above,
@@ -2754,9 +2755,19 @@ body[data-theme="dark"] .profile-form textarea {
   gap: 1.2rem;
 }
 
+.chart-leadership-above {
+  grid-area: above;
+}
+
+.chart-leadership-main {
+  grid-area: main;
+}
+
 .chart-leadership-connector {
   width: 1.2rem;
   height: 1px;
+  align-self: center;
+  grid-area: connector;
   background: #9baabd;
 }
 
@@ -3950,6 +3961,10 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
   .chart-leadership-main {
     width: max-content;
     gap: 0.8rem;
+  }
+
+  .chart-leadership {
+    grid-template-columns: max-content 0.8rem max-content;
   }
 
   .chart-children {
