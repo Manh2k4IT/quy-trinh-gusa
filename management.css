@@ -2854,16 +2854,16 @@ body[data-theme="dark"] .profile-form textarea {
 .presentation-internal-groups {
   position: absolute;
   top: 0.7rem;
-  left: 402px;
-  width: 155px;
+  left: 442px;
+  width: 175px;
   height: 150px;
 }
 
 .presentation-internal-groups::before {
   position: absolute;
   top: 1.55rem;
-  left: 0;
-  width: 1px;
+  left: -40px;
+  width: 40px;
   height: 1px;
   content: "";
   background: #6f522e;
@@ -2881,7 +2881,7 @@ body[data-theme="dark"] .profile-form textarea {
 
 .presentation-internal-groups > div {
   position: absolute;
-  left: 0;
+  left: 20px;
   width: 155px;
   min-height: 50px;
   padding: 0.45rem;
