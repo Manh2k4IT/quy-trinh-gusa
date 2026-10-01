@@ -5,9 +5,14 @@ const { pathToFileURL } = require("node:url");
 
 const defaultServerUrl = "https://quytrinh.gusa.vn";
 const configPath = () => path.join(app.getPath("userData"), "config.json");
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 let mainWindow;
 let tray;
 let isQuitting = false;
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
 
 function readServerUrl() {
   try {
@@ -147,6 +152,9 @@ ipcMain.handle("server:save-url", async (event, value) => {
 });
 
 app.whenReady().then(() => {
+  app.on("second-instance", () => {
+    showMainWindow();
+  });
   configureNotificationPermissions();
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
