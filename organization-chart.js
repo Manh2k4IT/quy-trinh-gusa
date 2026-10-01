@@ -598,6 +598,38 @@ function renderCanvasChart() {
   applyChartSearch();
 }
 
+function createInlineCanvasNode(event) {
+  if (!isAdmin || event.target.closest(".chart-canvas-card, button, input")) return;
+  const zoom = chartZoom || 1;
+  const bounds = chartTree.getBoundingClientRect();
+  const x = Math.max(12, (event.clientX - bounds.left) / zoom - 75);
+  const y = Math.max(12, (event.clientY - bounds.top) / zoom - 28);
+  const input = document.createElement("input");
+  input.className = "chart-inline-node-editor";
+  input.type = "text";
+  input.maxLength = 120;
+  input.placeholder = "Nhập tên vị trí...";
+  input.style.left = `${x}px`;
+  input.style.top = `${y}px`;
+  chartTree.append(input);
+  input.focus();
+  const finish = (save) => {
+    const name = input.value.trim();
+    input.remove();
+    if (!save || !name) return;
+    nodes.push({ id: crypto.randomUUID(), parentId: null, name, role: "", staff: 1, x, y, width: 165, height: 100, placement: "below" });
+    renderChart();
+    saveChart();
+  };
+  input.addEventListener("keydown", (keyEvent) => {
+    if (keyEvent.key === "Enter") finish(true);
+    if (keyEvent.key === "Escape") finish(false);
+  });
+  input.addEventListener("blur", () => finish(true));
+}
+
+chartTree.addEventListener("dblclick", createInlineCanvasNode);
+
 function renderChart() {
   renderCanvasChart();
 }

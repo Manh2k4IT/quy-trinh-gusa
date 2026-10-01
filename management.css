@@ -2782,6 +2782,20 @@ body[data-theme="dark"] .profile-form textarea {
   outline: 3px solid color-mix(in srgb, var(--navy) 28%, transparent);
 }
 
+.chart-inline-node-editor {
+  position: absolute;
+  z-index: 6;
+  width: 165px;
+  min-height: 58px;
+  padding: 0.65rem 0.75rem;
+  border: 2px solid var(--navy);
+  border-radius: 0;
+  color: #243142;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(31, 50, 75, 0.18);
+  outline: 0;
+}
+
 .chart-resize-handle {
   position: absolute;
   right: 2px;
