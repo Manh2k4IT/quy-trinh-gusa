@@ -905,7 +905,7 @@ function renderPresentationChart() {
     column.setAttribute("aria-label", `Mở thông tin ${department.name.replace(/\n/g, " ")}`);
     const openDepartment = () => {
       if (!matchingNode) {
-        chartStatus.textContent = `Chưa có dữ liệu thành viên cho ${department.name.replace(/\n/g, " ")}.`;
+        window.location.href = `organization-profile.html?department=${encodeURIComponent(department.name.replace(/\n/g, " "))}`;
         return;
       }
       window.location.href = `organization-profile.html?node=${encodeURIComponent(matchingNode.id)}`;
@@ -918,7 +918,7 @@ function renderPresentationChart() {
       }
     });
     const heading = document.createElement("header");
-    heading.innerHTML = `<span class="presentation-department-icon">${department.icon}</span><strong>${department.name.replace(/\n/g, "<br />")}</strong>`;
+    heading.innerHTML = `<strong>${department.name.replace(/\n/g, "<br />")}</strong>`;
     column.append(heading);
     const groups = document.createElement("div");
     groups.className = "presentation-groups";

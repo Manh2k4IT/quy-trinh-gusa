@@ -1,5 +1,6 @@
 const query = new URLSearchParams(window.location.search);
 const nodeId = query.get("node");
+const departmentName = query.get("department");
 const nodeName = document.querySelector("[data-node-name]");
 const nodeRole = document.querySelector("[data-node-role]");
 const breadcrumbCurrent = document.querySelector(".breadcrumbs strong");
@@ -292,6 +293,19 @@ function openMemberForm(member = null) {
 }
 
 async function loadPage() {
+  if (!nodeId && departmentName) {
+    const meResponse = await fetch("/api/me", { cache: "no-store" });
+    if (!meResponse.ok) throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+    const me = await meResponse.json();
+    isAdmin = me.user?.role === "admin" || me.user?.role === "ceo";
+    members = [];
+    nodeName.textContent = departmentName;
+    nodeRole.textContent = "Hồ sơ vị trí trong sơ đồ tổ chức";
+    breadcrumbCurrent.textContent = `Sơ đồ tổ chức / ${departmentName}`;
+    memberAdd.hidden = !isAdmin;
+    renderMembers();
+    return;
+  }
   if (!nodeId) throw new Error("Thiếu vị trí cần xem");
   const [chartResponse, membersResponse, meResponse] = await Promise.all([
     fetch("/api/organization-chart", { cache: "no-store" }),
