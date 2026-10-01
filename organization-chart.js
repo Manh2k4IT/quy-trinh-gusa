@@ -353,7 +353,27 @@ function renderNode(node, target, depth) {
   branch.append(createNodeCard(node));
   const children = document.createElement("div");
   children.className = `chart-children${depth >= 2 ? " chart-children--vertical" : ""}`;
-  renderBranch(node.id, children, depth + 1);
+  const childNodes = nodes.filter((item) => item.parentId === node.id);
+  const sideNodes = childNodes.filter((item) => ["above", "left", "right"].includes(item.placement));
+  const normalNodes = childNodes.filter((item) => !["above", "left", "right"].includes(item.placement));
+  if (sideNodes.length && normalNodes.length) {
+    const sideLayout = document.createElement("div");
+    sideLayout.className = "chart-side-layout";
+    const mainColumn = document.createElement("div");
+    mainColumn.className = "chart-side-main";
+    const sideColumn = document.createElement("div");
+    sideColumn.className = "chart-side-column";
+    const sideConnector = document.createElement("div");
+    sideConnector.className = "chart-side-connector";
+    normalNodes.forEach((child) => renderNode(child, mainColumn, depth + 1));
+    sideNodes.forEach((child) => renderNode(child, sideColumn, depth + 1));
+    const sideOnLeft = sideNodes.some((child) => child.placement === "left");
+    sideLayout.append(...(sideOnLeft ? [sideColumn, sideConnector, mainColumn] : [mainColumn, sideConnector, sideColumn]));
+    children.classList.add("chart-children--side-root");
+    children.append(sideLayout);
+  } else {
+    renderBranch(node.id, children, depth + 1);
+  }
   if (children.childElementCount) branch.append(children);
   target.append(branch);
 }

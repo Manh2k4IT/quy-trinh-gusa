@@ -2859,6 +2859,41 @@ body[data-theme="dark"] .profile-form textarea {
   transform: none;
 }
 
+.chart-branch:has(> .chart-children--side-root) {
+  justify-items: start;
+}
+
+.chart-children--side-root {
+  width: max-content;
+  padding-top: 1.35rem;
+}
+
+.chart-children--side-root::before,
+.chart-children--side-root::after {
+  display: none;
+}
+
+.chart-side-layout {
+  display: grid;
+  grid-template-columns: max-content 1.35rem max-content;
+  align-items: start;
+  gap: 0;
+}
+
+.chart-side-main,
+.chart-side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.chart-side-connector {
+  width: 1.35rem;
+  height: 1px;
+  margin-top: 2.5rem;
+  background: #9baabd;
+}
+
 .chart-node-card {
   position: relative;
   width: 165px;
@@ -3973,6 +4008,27 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
     min-width: 0;
     gap: 0.7rem;
     padding: 1rem 0.5rem 0;
+  }
+
+  .chart-children--side-root {
+    display: block;
+    width: max-content;
+    min-width: 0;
+    padding: 1rem 0 0;
+  }
+
+  .chart-side-layout {
+    grid-template-columns: max-content 0.9rem max-content;
+  }
+
+  .chart-side-main,
+  .chart-side-column {
+    gap: 0.7rem;
+  }
+
+  .chart-side-connector {
+    width: 0.9rem;
+    margin-top: 2rem;
   }
 
   .chart-children--vertical {
