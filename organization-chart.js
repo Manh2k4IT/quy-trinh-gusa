@@ -847,6 +847,7 @@ function renderPresentationChart() {
     { name: "CSKH", tone: "lilac", icon: "⚙", groups: [{ name: "CSKH", items: [] }, { name: "HỖ TRỢ", items: [] }, { name: "SALE ADMIN", items: [] }, { name: "KHIẾU NẠI &\nKỸ THUẬT", items: ["Hỗ trợ kỹ thuật", "Quản lý dữ liệu"] }] },
     { name: "Pháp chế", tone: "sky", icon: "♧", groups: [{ name: "Pháp lý", items: [] }, { name: "Hợp đồng", items: [] }] },
   ];
+  const compactNodeName = (value) => normalizeSearchText(value).replace(/[^a-z0-9]/g, "");
   const top = document.createElement("div");
   top.className = "presentation-top-level";
   const director = document.createElement("div");
@@ -898,7 +899,7 @@ function renderPresentationChart() {
   departmentData.forEach((department) => {
     const column = document.createElement("section");
     column.className = `presentation-department presentation-tone-${department.tone}`;
-    const matchingNode = nodes.find((node) => normalizeSearchText(node.name) === normalizeSearchText(department.name.replace(/\n/g, " ")));
+    const matchingNode = nodes.find((node) => compactNodeName(node.name) === compactNodeName(department.name.replace(/\n/g, " ")));
     column.tabIndex = 0;
     column.setAttribute("role", "link");
     column.setAttribute("aria-label", `Mở thông tin ${department.name.replace(/\n/g, " ")}`);
