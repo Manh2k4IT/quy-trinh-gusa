@@ -329,7 +329,8 @@ function createNodeCard(node) {
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "Xóa";
-  remove.addEventListener("click", () => {
+  remove.addEventListener("click", (event) => {
+    event.stopPropagation();
     const hasChildren = nodes.some((child) => child.parentId === node.id);
     if (hasChildren) {
       chartStatus.textContent = "Hãy xóa hoặc chuyển các cấp con trước.";
@@ -338,6 +339,7 @@ function createNodeCard(node) {
     nodes = nodes.filter((item) => item.id !== node.id);
     resetForm();
     renderChart();
+    saveChart();
   });
   actions.append(addChild, edit, remove);
   if (isAdmin) card.append(heading, role, actions);
