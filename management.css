@@ -4426,6 +4426,10 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
     display: none;
   }
 
+  .chart-presentation-board {
+    min-height: 0;
+  }
+
   .chart-tree {
     width: max-content;
     min-width: 100%;

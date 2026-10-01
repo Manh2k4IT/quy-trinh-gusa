@@ -930,6 +930,14 @@ function fitPresentationBoard() {
   const boardWidth = chartTree.offsetWidth;
   const isMobile = window.matchMedia("(max-width: 650px)").matches;
   const scale = isMobile ? 0.75 : Math.min(1, viewportWidth / boardWidth);
+  if (isMobile) {
+    chartTree.style.zoom = String(scale);
+    chartTree.style.transform = "none";
+    chartTree.style.marginBottom = "0";
+    chartTreeViewport.scrollLeft = 0;
+    return;
+  }
+  chartTree.style.zoom = "";
   chartTree.style.transform = `scale(${scale})`;
   chartTree.style.transformOrigin = "top left";
   chartTree.style.marginBottom = `${-(1 - scale) * chartTree.offsetHeight}px`;
