@@ -2894,6 +2894,16 @@ body[data-theme="dark"] .profile-form textarea {
   background: #355e43;
 }
 
+.presentation-departments::after {
+  position: absolute;
+  top: -4rem;
+  left: 50%;
+  width: 1px;
+  height: 4rem;
+  content: "";
+  background: #355e43;
+}
+
 .presentation-department {
   position: relative;
   min-width: 0;
