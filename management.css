@@ -2739,9 +2739,10 @@ body[data-theme="dark"] .profile-form textarea {
 }
 
 .chart-leadership {
-  display: grid;
-  justify-items: center;
-  gap: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
   width: 100%;
 }
 
@@ -2754,8 +2755,8 @@ body[data-theme="dark"] .profile-form textarea {
 }
 
 .chart-leadership-connector {
-  width: 1px;
-  height: 1.2rem;
+  width: 1.2rem;
+  height: 1px;
   background: #9baabd;
 }
 
@@ -4002,7 +4003,8 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
   }
 
   .chart-leadership-connector {
-    height: 0.8rem;
+    width: 0.8rem;
+    height: 1px;
   }
 }
 
