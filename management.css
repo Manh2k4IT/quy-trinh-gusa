@@ -2773,6 +2773,7 @@ body[data-theme="dark"] .profile-form textarea {
   width: 800px;
   height: 220px;
   margin: 0 auto;
+  pointer-events: none;
 }
 
 .presentation-leader,
@@ -2791,6 +2792,7 @@ body[data-theme="dark"] .profile-form textarea {
 }
 
 .presentation-clickable {
+  pointer-events: auto;
   cursor: pointer;
   transition: filter 140ms ease, transform 140ms ease;
 }
