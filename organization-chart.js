@@ -922,7 +922,21 @@ function renderPresentationChart() {
   });
   chartTree.append(departments);
   chartStatus.textContent = "";
+  requestAnimationFrame(fitPresentationBoard);
 }
+
+function fitPresentationBoard() {
+  if (!chartTree.classList.contains("chart-presentation-board")) return;
+  const viewportWidth = chartTreeViewport.clientWidth;
+  const boardWidth = chartTree.offsetWidth;
+  const scale = Math.min(1, viewportWidth / boardWidth);
+  chartTree.style.transform = `scale(${scale})`;
+  chartTree.style.transformOrigin = "top left";
+  chartTree.style.marginBottom = `${-(1 - scale) * chartTree.offsetHeight}px`;
+  chartTreeViewport.scrollLeft = 0;
+}
+
+window.addEventListener("resize", fitPresentationBoard);
 
 async function saveChart() {
   chartStatus.textContent = "Đang lưu sơ đồ...";
