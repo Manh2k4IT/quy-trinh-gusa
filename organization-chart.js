@@ -748,7 +748,7 @@ function renderCanvasChart() {
 }
 
 function createInlineCanvasNode(event) {
-  if (!isAdmin || event.target.closest(".chart-canvas-card, button, input")) return;
+  if (!isAdmin || !chartTree.classList.contains("chart-free-canvas") || event.target.closest(".chart-canvas-card, button, input")) return;
   const zoom = chartZoom || 1;
   const bounds = chartTree.getBoundingClientRect();
   const x = Math.max(12, (event.clientX - bounds.left) / zoom - 75);
@@ -779,11 +779,80 @@ function createInlineCanvasNode(event) {
 
 chartTree.addEventListener("dblclick", createInlineCanvasNode);
 chartTree.addEventListener("pointerdown", (event) => {
-  if (connectMode && !event.target.closest(".chart-canvas-card, button, input")) startFreeLineDrag(event);
+  if (chartTree.classList.contains("chart-free-canvas") && connectMode && !event.target.closest(".chart-canvas-card, button, input")) startFreeLineDrag(event);
 });
 
 function renderChart() {
-  renderCanvasChart();
+  renderPresentationChart();
+}
+
+function renderPresentationChart() {
+  chartTree.className = "chart-presentation-board";
+  chartTree.replaceChildren();
+  document.querySelector(".chart-view-tools")?.setAttribute("hidden", "true");
+  addRootButton.hidden = true;
+  editorPanel.hidden = true;
+  const departmentData = [
+    { name: "HỆ THỐNG\nCHI NHÁNH", tone: "terracotta", icon: "♟", groups: [{ name: "CHI NHÁNH 1", items: ["Sale", "Vận hành"] }, { name: "CHI NHÁNH 2", items: ["Sale", "Vận hành"] }] },
+    { name: "MARKETING", tone: "sage", icon: "⌁", groups: [{ name: "THƯƠNG HIỆU\n& CONTENT", items: ["Branding", "Content Marketing", "Digital Marketing"] }, { name: "DIGITAL\nMARKETING", items: ["Growth", "Website & SEO", "Social Media"] }, { name: "MEDIA\nCONTENT", items: ["Video", "Hình ảnh"] }] },
+    { name: "TC - KT", tone: "sand", icon: "▣", groups: [{ name: "KẾ TOÁN\nTHUẾ", items: ["Kế toán", "Tài chính"] }, { name: "KẾ TOÁN\nNỘI BỘ", items: ["Vải", "Thời trang"] }] },
+    { name: "HC - NS", tone: "blue", icon: "♧", groups: [{ name: "HÀNH CHÍNH", items: [] }, { name: "ĐÀO TẠO\nTUYỂN DỤNG", items: [] }, { name: "C&B", items: [] }, { name: "TRUYỀN THÔNG\nNỘI BỘ", items: [] }] },
+    { name: "SẢN XUẤT", tone: "rose", icon: "▤", groups: [{ name: "QUẢN LÝ\nGIA CÔNG", items: [] }, { name: "KẾ HOẠCH", items: [] }, { name: "PHÒNG MẪU", items: ["THIẾT KẾ", "CẮT", "MAY MẪU"] }, { name: "QA/QC", items: [] }] },
+    { name: "THU MUA\nKHO VẬN", tone: "mint", icon: "⌁", groups: [{ name: "THU MUA", items: [] }, { name: "KHO", items: [] }, { name: "ĐIỀU VẬN", items: [] }] },
+    { name: "R&D", tone: "gold", icon: "♢", groups: [{ name: "SẢN PHẨM", items: [] }, { name: "DỊCH VỤ", items: [] }] },
+    { name: "CSKH", tone: "lilac", icon: "⚙", groups: [{ name: "CSKH", items: [] }, { name: "HỖ TRỢ", items: [] }, { name: "SALE ADMIN", items: [] }, { name: "KHIẾU NẠI &\nKỸ THUẬT", items: ["Hỗ trợ kỹ thuật", "Quản lý dữ liệu"] }] },
+    { name: "Pháp chế", tone: "sky", icon: "♧", groups: [{ name: "Pháp lý", items: [] }, { name: "Hợp đồng", items: [] }] },
+  ];
+  const top = document.createElement("div");
+  top.className = "presentation-top-level";
+  top.innerHTML = '<div class="presentation-brand-mark"><strong>GUSA</strong><span>Chạm Yêu Thương</span></div><div class="presentation-tagline">CÙNG NHAU PHÁT TRIỂN<br />VÌ GIÁ TRỊ BỀN VỮNG</div>';
+  const director = document.createElement("div");
+  director.className = "presentation-leader presentation-leader-primary";
+  director.innerHTML = '<span class="presentation-leader-icon">●</span><strong>GIÁM ĐỐC</strong>';
+  const deputy = document.createElement("div");
+  deputy.className = "presentation-leader presentation-leader-deputy";
+  deputy.innerHTML = '<span class="presentation-leader-icon">●</span><strong>P. GIÁM ĐỐC</strong>';
+  const internal = document.createElement("div");
+  internal.className = "presentation-internal-control";
+  internal.innerHTML = '<span class="presentation-internal-icon">♢</span><strong>KIỂM SOÁT<br />NỘI BỘ</strong>';
+  const internalGroups = document.createElement("div");
+  internalGroups.className = "presentation-internal-groups";
+  ["KIỂM SOÁT\nTUÂN THỦ", "KIỂM SOÁT\nTÀI CHÍNH"].forEach((name) => {
+    const group = document.createElement("div");
+    group.textContent = name;
+    internalGroups.append(group);
+  });
+  const leaders = document.createElement("div");
+  leaders.className = "presentation-leaders";
+  leaders.append(director, deputy, internal, internalGroups);
+  top.append(leaders);
+  chartTree.append(top);
+  const departments = document.createElement("div");
+  departments.className = "presentation-departments";
+  departmentData.forEach((department) => {
+    const column = document.createElement("section");
+    column.className = `presentation-department presentation-tone-${department.tone}`;
+    const heading = document.createElement("header");
+    heading.innerHTML = `<span class="presentation-department-icon">${department.icon}</span><strong>${department.name.replace(/\n/g, "<br />")}</strong>`;
+    column.append(heading);
+    const groups = document.createElement("div");
+    groups.className = "presentation-groups";
+    department.groups.forEach((groupData) => {
+      const group = document.createElement("div");
+      group.className = "presentation-group";
+      group.innerHTML = `<strong>${groupData.name.replace(/\n/g, "<br />")}</strong>`;
+      groupData.items.forEach((item) => {
+        const itemElement = document.createElement("span");
+        itemElement.textContent = item;
+        group.append(itemElement);
+      });
+      groups.append(group);
+    });
+    column.append(groups);
+    departments.append(column);
+  });
+  chartTree.append(departments);
+  chartStatus.textContent = "";
 }
 
 async function saveChart() {
