@@ -841,7 +841,6 @@ function renderPresentationChart() {
     { name: "MARKETING", tone: "sage", icon: "⌁", groups: [{ name: "THƯƠNG HIỆU\n& CONTENT", items: ["Branding", "Content Marketing", "Digital Marketing"] }, { name: "DIGITAL\nMARKETING", items: ["Growth", "Website & SEO", "Social Media"] }, { name: "MEDIA\nCONTENT", items: ["Video", "Hình ảnh"] }] },
     { name: "TC - KT", tone: "sand", icon: "▣", groups: [{ name: "KẾ TOÁN\nTHUẾ", items: ["Kế toán", "Tài chính"] }, { name: "KẾ TOÁN\nNỘI BỘ", items: ["Vải", "Thời trang"] }] },
     { name: "HC - NS", tone: "blue", icon: "♧", groups: [{ name: "HÀNH CHÍNH", items: [] }, { name: "ĐÀO TẠO\nTUYỂN DỤNG", items: [] }, { name: "C&B", items: [] }, { name: "TRUYỀN THÔNG\nNỘI BỘ", items: [] }] },
-    { name: "SẢN XUẤT", tone: "rose", icon: "▤", groups: [{ name: "QUẢN LÝ\nGIA CÔNG", items: [] }, { name: "KẾ HOẠCH", items: [] }, { name: "PHÒNG MẪU", items: ["THIẾT KẾ", "CẮT", "MAY MẪU"] }, { name: "QA/QC", items: [] }] },
     { name: "THU MUA\nKHO VẬN", tone: "mint", icon: "⌁", groups: [{ name: "THU MUA", items: [] }, { name: "KHO", items: [] }, { name: "ĐIỀU VẬN", items: [] }] },
     { name: "R&D", tone: "gold", icon: "♢", groups: [{ name: "SẢN PHẨM", items: [] }, { name: "DỊCH VỤ", items: [] }] },
     { name: "CSKH", tone: "lilac", icon: "⚙", groups: [{ name: "CSKH", items: [] }, { name: "HỖ TRỢ", items: [] }, { name: "SALE ADMIN", items: [] }, { name: "KHIẾU NẠI &\nKỸ THUẬT", items: ["Hỗ trợ kỹ thuật", "Quản lý dữ liệu"] }] },

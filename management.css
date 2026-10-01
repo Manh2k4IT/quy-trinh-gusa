@@ -2925,7 +2925,7 @@ body[data-theme="dark"] .profile-form textarea {
 
 .presentation-departments {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   align-items: start;
   gap: 0.75rem;
   position: relative;
