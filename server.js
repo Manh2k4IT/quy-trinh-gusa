@@ -1185,7 +1185,12 @@ async function updateOrganizationProfile(req, res, nodeId) {
 function serveOrganizationChart(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
-  sendJson(res, 200, { nodes: getOrganizationChart() });
+  let chart = {};
+  try { chart = JSON.parse(fs.readFileSync(organizationChartPath, "utf8")); } catch {}
+  sendJson(res, 200, {
+    nodes: Array.isArray(chart.nodes) ? chart.nodes : [],
+    freeLines: Array.isArray(chart.freeLines) ? chart.freeLines : [],
+  });
 }
 
 async function updateOrganizationChart(req, res) {
@@ -1193,8 +1198,11 @@ async function updateOrganizationChart(req, res) {
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
   let body = "";
   for await (const chunk of req) body += chunk;
-  const nodes = JSON.parse(body || "{}").nodes;
+  const payload = JSON.parse(body || "{}");
+  const nodes = payload.nodes;
+  const freeLines = Array.isArray(payload.freeLines) ? payload.freeLines : [];
   if (!Array.isArray(nodes) || nodes.length > 100) return send(res, 400, "Dữ liệu sơ đồ không hợp lệ");
+  if (freeLines.length > 2000) return send(res, 400, "Số lượng đoạn nối quá lớn");
   const cleanNodes = nodes.map((node) => ({
     id: String(node.id || ""),
     parentId: node.parentId ? String(node.parentId) : null,
@@ -1207,6 +1215,12 @@ async function updateOrganizationChart(req, res) {
     height: Math.max(58, Math.min(260, Number(node.height) || 100)),
     ...(["above", "left", "right"].includes(node.placement) ? { placement: node.placement === "above" ? "right" : node.placement } : {}),
     ...(Array.isArray(node.connections) ? { connections: node.connections.map((id) => String(id)).slice(0, 100) } : {}),
+  }));
+  const cleanFreeLines = freeLines.map((line) => ({
+    x1: Math.max(0, Math.min(10000, Number(line.x1) || 0)),
+    y1: Math.max(0, Math.min(10000, Number(line.y1) || 0)),
+    x2: Math.max(0, Math.min(10000, Number(line.x2) || 0)),
+    y2: Math.max(0, Math.min(10000, Number(line.y2) || 0)),
   }));
   if (cleanNodes.some((node) => !node.id || !node.name)) return send(res, 400, "Mỗi vị trí cần có tên");
   const ids = new Set(cleanNodes.map((node) => node.id));
@@ -1221,8 +1235,8 @@ async function updateOrganizationChart(req, res) {
       parentId = parents.get(parentId) || null;
     }
   }
-  fs.writeFileSync(organizationChartPath, JSON.stringify({ nodes: cleanNodes }, null, 2));
-  sendJson(res, 200, { nodes: cleanNodes });
+  fs.writeFileSync(organizationChartPath, JSON.stringify({ nodes: cleanNodes, freeLines: cleanFreeLines }, null, 2));
+  sendJson(res, 200, { nodes: cleanNodes, freeLines: cleanFreeLines });
 }
 
 const server = http.createServer(async (req, res) => {

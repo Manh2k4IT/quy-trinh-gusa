@@ -189,6 +189,7 @@ placementField.innerHTML += '<select name="placement"><option value="below">Dọ
 nodeForm.elements.parentId.closest("label").after(placementField);
 const placementSelect = nodeForm.elements.placement;
 let nodes = [];
+let freeLines = [];
 let editingId = null;
 let isAdmin = false;
 let canvasPositions = new Map();
@@ -475,6 +476,11 @@ function updateCanvasConnections() {
   if (!svg) return;
   svg.replaceChildren();
   const links = [];
+  freeLines.forEach((line) => {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`);
+    svg.append(path);
+  });
   nodes.forEach((node) => (node.connections || []).forEach((targetId) => links.push([node.id, targetId])));
   links.forEach(([fromId, toId]) => {
     const from = canvasPositions.get(fromId);
@@ -564,6 +570,37 @@ function startConnectionDrag(event, sourceCard, sourceNode) {
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp, { once: true });
   return true;
+}
+
+function startFreeLineDrag(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const bounds = chartTree.getBoundingClientRect();
+  const toCanvasPoint = (moveEvent) => ({
+    x: Math.max(0, (moveEvent.clientX - bounds.left) / (chartZoom || 1)),
+    y: Math.max(0, (moveEvent.clientY - bounds.top) / (chartZoom || 1)),
+  });
+  const start = toCanvasPoint(event);
+  const svg = chartTree.querySelector(".chart-connector-layer");
+  const preview = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  preview.classList.add("is-preview");
+  svg.append(preview);
+  const onMove = (moveEvent) => {
+    const end = toCanvasPoint(moveEvent);
+    preview.setAttribute("d", `M ${start.x} ${start.y} L ${end.x} ${end.y}`);
+  };
+  const onUp = (upEvent) => {
+    const end = toCanvasPoint(upEvent);
+    if (Math.hypot(end.x - start.x, end.y - start.y) > 8) {
+      freeLines.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y });
+      renderChart();
+      saveChart();
+    } else preview.remove();
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp, { once: true });
 }
 
 function attachCanvasInteraction(card, node) {
@@ -740,6 +777,9 @@ function createInlineCanvasNode(event) {
 }
 
 chartTree.addEventListener("dblclick", createInlineCanvasNode);
+chartTree.addEventListener("pointerdown", (event) => {
+  if (connectMode && !event.target.closest(".chart-canvas-card, button, input")) startFreeLineDrag(event);
+});
 
 function renderChart() {
   renderCanvasChart();
@@ -751,7 +791,7 @@ async function saveChart() {
     const response = await fetch("/api/organization-chart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nodes }),
+      body: JSON.stringify({ nodes, freeLines }),
     });
     if (!response.ok) throw new Error();
     chartStatus.textContent = "Đã lưu sơ đồ tổ chức.";
@@ -803,6 +843,7 @@ Promise.all([fetch("/api/organization-chart", { cache: "no-store" }), fetch("/ap
     addRootButton.hidden = !isAdmin;
     editorPanel.hidden = !isAdmin;
     nodes = Array.isArray(data.nodes) ? data.nodes : [];
+    freeLines = Array.isArray(data.freeLines) ? data.freeLines : [];
     renderChart();
   })
   .catch(async () => {
@@ -810,6 +851,7 @@ Promise.all([fetch("/api/organization-chart", { cache: "no-store" }), fetch("/ap
       const fallbackResponse = await fetch("organization-chart.json", { cache: "no-store" });
       const fallbackData = await fallbackResponse.json();
       nodes = Array.isArray(fallbackData.nodes) ? fallbackData.nodes : [];
+      freeLines = Array.isArray(fallbackData.freeLines) ? fallbackData.freeLines : [];
       isAdmin = false;
       addRootButton.hidden = true;
       editorPanel.hidden = true;
@@ -822,6 +864,7 @@ Promise.all([fetch("/api/organization-chart", { cache: "no-store" }), fetch("/ap
         { id: "branch-2", parentId: "root", name: "MARKETING", role: "Chưa có mô tả", staff: 1 },
         { id: "branch-3", parentId: "branch-1", name: "CHI NHÁNH 1", role: "Mạng lưới", staff: 1 },
       ];
+      freeLines = [];
       isAdmin = false;
       addRootButton.hidden = true;
       editorPanel.hidden = true;
