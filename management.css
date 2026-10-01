@@ -2921,7 +2921,7 @@ body[data-theme="dark"] .profile-form textarea {
 .presentation-departments::after {
   position: absolute;
   top: -4.35rem;
-  left: 50%;
+  left: 402px;
   width: 1px;
   height: 4.35rem;
   content: "";
