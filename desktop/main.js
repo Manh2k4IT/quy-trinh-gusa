@@ -154,6 +154,7 @@ ipcMain.handle("server:save-url", async (event, value) => {
 app.whenReady().then(() => {
   app.on("second-instance", () => {
     showMainWindow();
+    mainWindow?.webContents.send("app:opened");
   });
   configureNotificationPermissions();
   Menu.setApplicationMenu(Menu.buildFromTemplate([

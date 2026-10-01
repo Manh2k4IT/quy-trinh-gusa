@@ -9,7 +9,8 @@ const adminMenu = document.querySelector("[data-admin-menu]");
 const adminMenuLabel = document.querySelector("[data-admin-menu-label]");
 const loginImageWelcome = document.querySelector("[data-login-image-welcome]");
 
-if (loginImageWelcome && new URLSearchParams(location.search).get("showWelcome") === "1") {
+function openWelcomeImage() {
+  if (!loginImageWelcome) return;
   const closeButton = loginImageWelcome.querySelector("[data-login-image-close]");
   const closeWelcomeImage = () => {
     loginImageWelcome.hidden = true;
@@ -29,6 +30,11 @@ if (loginImageWelcome && new URLSearchParams(location.search).get("showWelcome")
   });
   document.addEventListener("keydown", onWelcomeKeydown);
 }
+
+const isDesktopApp = Boolean(window.desktopSettings?.isDesktop);
+const isWelcomeLogin = new URLSearchParams(location.search).get("showWelcome") === "1";
+if (isDesktopApp || isWelcomeLogin) openWelcomeImage();
+window.desktopSettings?.onAppOpened?.(openWelcomeImage);
 
 function setAdminMenuVisibility(visible) {
   if (adminMenu) adminMenu.hidden = !visible;
