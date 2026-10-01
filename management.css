@@ -2732,6 +2732,7 @@ body[data-theme="dark"] .profile-form textarea {
 }
 
 .presentation-brand-mark {
+  display: none;
   position: absolute;
   top: 0.2rem;
   left: 0.5rem;
@@ -2754,6 +2755,7 @@ body[data-theme="dark"] .profile-form textarea {
 }
 
 .presentation-tagline {
+  display: none;
   position: absolute;
   top: 0.55rem;
   left: 13rem;
