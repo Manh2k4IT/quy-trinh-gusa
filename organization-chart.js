@@ -191,6 +191,9 @@ const placementSelect = nodeForm.elements.placement;
 let nodes = [];
 let editingId = null;
 let isAdmin = false;
+let canvasPositions = new Map();
+let canvasCards = new Map();
+let connectingNodeId = null;
 addRootButton.hidden = true;
 editorPanel.hidden = true;
 
@@ -281,6 +284,10 @@ function createNodeCard(node) {
     window.location.href = `organization-profile.html?node=${encodeURIComponent(node.id)}`;
   };
   card.addEventListener("click", (event) => {
+    if (card.dataset.dragged === "true") {
+      delete card.dataset.dragged;
+      return;
+    }
     if (!event.target.closest("button")) openProfile();
   });
   card.addEventListener("keydown", (event) => {
@@ -410,16 +417,184 @@ function renderBranch(parentId, target, depth = 0) {
   siblings.forEach((node) => renderNode(node, target, depth));
 }
 
-function renderChart() {
+function createCanvasPositions() {
+  const stored = nodes.some((node) => Object.prototype.hasOwnProperty.call(node, "x") && Object.prototype.hasOwnProperty.call(node, "y"));
+  if (stored) return new Map(nodes.map((node) => [node.id, { x: Number(node.x) || 0, y: Number(node.y) || 0 }]));
+  const positions = new Map();
+  const childrenByParent = new Map();
+  nodes.forEach((node) => {
+    const key = node.parentId || null;
+    if (!childrenByParent.has(key)) childrenByParent.set(key, []);
+    childrenByParent.get(key).push(node);
+  });
+  let row = 0;
+  const visit = (parentId, depth) => {
+    (childrenByParent.get(parentId) || []).forEach((node) => {
+      const sideOffset = node.placement === "left" ? -120 : node.placement === "right" || node.placement === "above" ? 120 : 0;
+      positions.set(node.id, { x: Math.max(24, 90 + depth * 250 + sideOffset), y: 42 + row * 128 });
+      row += 1;
+      visit(node.id, depth + 1);
+    });
+  };
+  visit(null, 0);
+  nodes.forEach((node, index) => {
+    if (!positions.has(node.id)) positions.set(node.id, { x: 90, y: 42 + (row + index) * 128 });
+  });
+  return positions;
+}
+
+function updateCanvasConnections() {
+  const svg = chartTree.querySelector(".chart-connector-layer");
+  if (!svg) return;
+  svg.replaceChildren();
+  const links = [];
+  nodes.forEach((node) => {
+    if (node.parentId) links.push([node.parentId, node.id]);
+    (node.connections || []).forEach((targetId) => links.push([node.id, targetId]));
+  });
+  links.forEach(([fromId, toId]) => {
+    const from = canvasPositions.get(fromId);
+    const to = canvasPositions.get(toId);
+    const fromCard = canvasCards.get(fromId);
+    const toCard = canvasCards.get(toId);
+    if (!from || !to || !fromCard || !toCard) return;
+    const startX = from.x + fromCard.offsetWidth;
+    const startY = from.y + fromCard.offsetHeight / 2;
+    const endX = to.x;
+    const endY = to.y + toCard.offsetHeight / 2;
+    const bendX = startX + Math.max(24, (endX - startX) / 2);
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M ${startX} ${startY} H ${bendX} V ${endY} H ${endX}`);
+    svg.append(path);
+  });
+  const maxX = Math.max(900, ...[...canvasPositions.values()].map((position) => position.x + 380));
+  const maxY = Math.max(620, ...[...canvasPositions.values()].map((position) => position.y + 300));
+  chartTree.style.width = `${maxX}px`;
+  chartTree.style.height = `${maxY}px`;
+  svg.setAttribute("width", String(maxX));
+  svg.setAttribute("height", String(maxY));
+}
+
+function attachCanvasInteraction(card, node) {
+  if (!isAdmin) return;
+  const position = canvasPositions.get(node.id);
+  const output = document.createElement("button");
+  output.type = "button";
+  output.className = "chart-connector-handle chart-connector-output";
+  output.textContent = "+";
+  output.title = "Bắt đầu nối nhánh";
+  output.addEventListener("click", (event) => {
+    event.stopPropagation();
+    connectingNodeId = node.id;
+    canvasCards.forEach((item) => item.classList.toggle("is-connection-source", item === card));
+    chartStatus.textContent = "Đã chọn điểm nối. Bấm dấu + ở ô đích để nối nhánh.";
+  });
+  const input = document.createElement("button");
+  input.type = "button";
+  input.className = "chart-connector-handle chart-connector-input";
+  input.textContent = "+";
+  input.title = "Nối vào vị trí này";
+  input.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!connectingNodeId || connectingNodeId === node.id) return;
+    let ancestorId = connectingNodeId;
+    while (ancestorId) {
+      if (ancestorId === node.id) {
+        chartStatus.textContent = "Không thể nối vào cấp con của chính nhánh này.";
+        return;
+      }
+      ancestorId = nodes.find((item) => item.id === ancestorId)?.parentId || null;
+    }
+    node.parentId = connectingNodeId;
+    node.placement = "below";
+    connectingNodeId = null;
+    renderChart();
+    saveChart();
+  });
+  const resize = document.createElement("span");
+  resize.className = "chart-resize-handle";
+  resize.title = "Kéo để đổi kích thước";
+  resize.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startWidth = card.offsetWidth;
+    const startHeight = card.offsetHeight;
+    resize.setPointerCapture(event.pointerId);
+    const onMove = (moveEvent) => {
+      node.width = Math.max(140, Math.min(360, startWidth + moveEvent.clientX - startX));
+      node.height = Math.max(58, Math.min(260, startHeight + moveEvent.clientY - startY));
+      card.style.width = `${node.width}px`;
+      card.style.height = `${node.height}px`;
+      updateCanvasConnections();
+    };
+    const onUp = () => {
+      resize.removeEventListener("pointermove", onMove);
+      resize.removeEventListener("pointerup", onUp);
+      saveChart();
+    };
+    resize.addEventListener("pointermove", onMove);
+    resize.addEventListener("pointerup", onUp);
+  });
+  card.append(input, output, resize);
+  card.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button, .chart-resize-handle")) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const originalX = position.x;
+    const originalY = position.y;
+    let moved = false;
+    card.setPointerCapture(event.pointerId);
+    const onMove = (moveEvent) => {
+      position.x = Math.max(0, originalX + moveEvent.clientX - startX);
+      position.y = Math.max(0, originalY + moveEvent.clientY - startY);
+      moved = moved || Math.abs(moveEvent.clientX - startX) > 4 || Math.abs(moveEvent.clientY - startY) > 4;
+      card.style.left = `${position.x}px`;
+      card.style.top = `${position.y}px`;
+      updateCanvasConnections();
+    };
+    const onUp = () => {
+      card.removeEventListener("pointermove", onMove);
+      card.removeEventListener("pointerup", onUp);
+      node.x = position.x;
+      node.y = position.y;
+      if (moved) card.dataset.dragged = "true";
+      saveChart();
+    };
+    card.addEventListener("pointermove", onMove);
+    card.addEventListener("pointerup", onUp);
+  });
+}
+
+function renderCanvasChart() {
+  chartTree.classList.add("chart-free-canvas");
   chartTree.replaceChildren();
-  renderBranch(null, chartTree);
+  canvasPositions = createCanvasPositions();
+  canvasCards = new Map();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("chart-connector-layer");
+  chartTree.append(svg);
+  nodes.forEach((node) => {
+    const card = createNodeCard(node);
+    const position = canvasPositions.get(node.id);
+    card.dataset.nodeId = node.id;
+    card.style.left = `${position.x}px`;
+    card.style.top = `${position.y}px`;
+    card.style.width = `${node.width || 165}px`;
+    card.style.minHeight = `${node.height || 100}px`;
+    card.classList.add("chart-canvas-card");
+    canvasCards.set(node.id, card);
+    attachCanvasInteraction(card, node);
+    chartTree.append(card);
+  });
+  updateCanvasConnections();
   refreshParentOptions();
   applyChartSearch();
-  if (window.matchMedia("(max-width: 600px)").matches) {
-    requestAnimationFrame(() => {
-      chartTreeViewport.scrollLeft = Math.max(0, (chartTreeViewport.scrollWidth - chartTreeViewport.clientWidth) / 2);
-    });
-  }
+}
+
+function renderChart() {
+  renderCanvasChart();
 }
 
 async function saveChart() {

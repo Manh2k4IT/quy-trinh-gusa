@@ -1201,7 +1201,12 @@ async function updateOrganizationChart(req, res) {
     name: String(node.name || "").trim().slice(0, 120),
     role: String(node.role || "").trim().slice(0, 120),
     staff: Math.max(0, Math.min(99999, Number(node.staff) || 0)),
+    x: Math.max(0, Math.min(10000, Number(node.x) || 0)),
+    y: Math.max(0, Math.min(10000, Number(node.y) || 0)),
+    width: Math.max(140, Math.min(360, Number(node.width) || 165)),
+    height: Math.max(58, Math.min(260, Number(node.height) || 100)),
     ...(["above", "left", "right"].includes(node.placement) ? { placement: node.placement === "above" ? "right" : node.placement } : {}),
+    ...(Array.isArray(node.connections) ? { connections: node.connections.map((id) => String(id)).slice(0, 100) } : {}),
   }));
   if (cleanNodes.some((node) => !node.id || !node.name)) return send(res, 400, "Mỗi vị trí cần có tên");
   const ids = new Set(cleanNodes.map((node) => node.id));

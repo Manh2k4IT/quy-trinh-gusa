@@ -2705,6 +2705,101 @@ body[data-theme="dark"] .profile-form textarea {
   transition: transform 180ms ease;
 }
 
+.chart-tree.chart-free-canvas {
+  display: block;
+  position: relative;
+  min-width: 900px;
+  min-height: 620px;
+  padding: 0;
+  transform-origin: top left;
+}
+
+.chart-connector-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.chart-connector-layer path {
+  fill: none;
+  stroke: #9baabd;
+  stroke-width: 1.5;
+}
+
+.chart-canvas-card {
+  position: absolute;
+  z-index: 1;
+  margin: 0;
+  touch-action: none;
+  cursor: grab;
+}
+
+.chart-canvas-card:active {
+  cursor: grabbing;
+}
+
+.chart-connector-handle {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--navy);
+  box-shadow: 0 1px 4px rgba(20, 40, 65, 0.24);
+  cursor: crosshair;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.chart-connector-output {
+  right: -9px;
+}
+
+.chart-connector-input {
+  left: -9px;
+}
+
+.chart-canvas-card:hover .chart-connector-handle,
+.chart-canvas-card:focus-within .chart-connector-handle,
+.chart-canvas-card.is-connection-source .chart-connector-handle {
+  opacity: 1;
+}
+
+.chart-canvas-card.is-connection-source {
+  outline: 3px solid color-mix(in srgb, var(--navy) 28%, transparent);
+}
+
+.chart-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 4;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--navy);
+  border-bottom: 2px solid var(--navy);
+  cursor: nwse-resize;
+  opacity: 0;
+}
+
+.chart-canvas-card:hover .chart-resize-handle,
+.chart-canvas-card:focus-within .chart-resize-handle {
+  opacity: 0.75;
+}
+
 .chart-tree-viewport {
   min-width: 0;
   width: 100%;
