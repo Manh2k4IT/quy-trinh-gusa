@@ -2,7 +2,7 @@ const sidebarScroll = document.querySelector('.sidebar-scroll');
 
 function initializeBrowserNavigation() {
   const topbar = document.querySelector('.topbar');
-  if (!topbar || document.querySelector('[data-browser-navigation]')) return;
+  if (!topbar || !window.desktopSettings?.isDesktop || document.querySelector('[data-browser-navigation]')) return;
   const navigation = document.createElement('nav');
   navigation.className = 'browser-navigation';
   navigation.dataset.browserNavigation = '';
