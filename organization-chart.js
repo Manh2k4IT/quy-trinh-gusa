@@ -876,7 +876,7 @@ function renderPresentationChart() {
     element.setAttribute("role", "link");
     const open = () => {
       if (!matchingNode) {
-        chartStatus.textContent = `Chưa có dữ liệu chi tiết cho ${name}.`;
+        window.location.href = `organization-profile.html?department=${encodeURIComponent(name)}`;
         return;
       }
       window.location.href = `organization-profile.html?node=${encodeURIComponent(matchingNode.id)}`;
