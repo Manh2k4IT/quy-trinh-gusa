@@ -419,7 +419,9 @@ function renderBranch(parentId, target, depth = 0) {
 
 function createCanvasPositions() {
   const stored = nodes.some((node) => Object.prototype.hasOwnProperty.call(node, "x") && Object.prototype.hasOwnProperty.call(node, "y"));
-  if (stored) return new Map(nodes.map((node) => [node.id, { x: Number(node.x) || 0, y: Number(node.y) || 0 }]));
+  const storedPositions = new Map(nodes.map((node) => [node.id, { x: Number(node.x) || 0, y: Number(node.y) || 0 }]));
+  const hasDistinctPositions = new Set([...storedPositions.values()].map((position) => `${position.x}:${position.y}`)).size > 1;
+  if (stored && hasDistinctPositions) return storedPositions;
   const positions = new Map();
   const childrenByParent = new Map();
   nodes.forEach((node) => {
@@ -428,8 +430,11 @@ function createCanvasPositions() {
     childrenByParent.get(key).push(node);
   });
   let row = 0;
+  const visited = new Set();
   const visit = (parentId, depth) => {
     (childrenByParent.get(parentId) || []).forEach((node) => {
+      if (visited.has(node.id)) return;
+      visited.add(node.id);
       const sideOffset = node.placement === "left" ? -120 : node.placement === "right" || node.placement === "above" ? 120 : 0;
       positions.set(node.id, { x: Math.max(24, 90 + depth * 250 + sideOffset), y: 42 + row * 128 });
       row += 1;
