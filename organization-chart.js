@@ -856,7 +856,6 @@ function renderPresentationChart() {
   ];
   const top = document.createElement("div");
   top.className = "presentation-top-level";
-  top.innerHTML = '<div class="presentation-brand-mark"><strong>GUSA</strong><span>Chạm Yêu Thương</span></div><div class="presentation-tagline">CÙNG NHAU PHÁT TRIỂN<br />VÌ GIÁ TRỊ BỀN VỮNG</div>';
   const director = document.createElement("div");
   director.className = "presentation-leader presentation-leader-primary";
   director.innerHTML = '<span class="presentation-leader-icon">●</span><strong>GIÁM ĐỐC</strong>';
