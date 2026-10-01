@@ -4419,6 +4419,11 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
     padding: 0.25rem 0.25rem 1.25rem;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .chart-tree-viewport::-webkit-scrollbar {
+    display: none;
   }
 
   .chart-tree {
@@ -4672,91 +4677,6 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
     flex: 0 0 auto;
     margin-right: 0;
   }
-}
-
-@media (max-width: 650px) {
-  .chart-tree-viewport {
-    overflow-x: hidden;
-    overflow-y: visible;
-    padding: 0;
-  }
-
-  .chart-presentation-board {
-    width: 100%;
-    min-width: 0;
-    min-height: 0;
-    padding: 0.75rem 0.55rem 1.25rem;
-    transform: none !important;
-    margin-bottom: 0 !important;
-  }
-
-  .presentation-top-level {
-    min-height: 0;
-  }
-
-  .presentation-leaders {
-    width: 100%;
-    height: 430px;
-  }
-
-  .presentation-leader {
-    left: 50%;
-    width: min(82%, 250px);
-    transform: translateX(-50%);
-  }
-
-  .presentation-leader-primary { top: 0.5rem; }
-  .presentation-leader-deputy { top: 5rem; }
-  .presentation-leader-deputy::before { left: 50%; top: -2.8rem; height: 2.8rem; }
-
-  .presentation-internal-control {
-    top: 9.5rem;
-    left: 50%;
-    width: min(70%, 220px);
-    transform: translateX(-50%);
-  }
-
-  .presentation-internal-control::before { display: none; }
-
-  .presentation-internal-groups {
-    top: 15.8rem;
-    left: 50%;
-    width: 100%;
-    height: 92px;
-    transform: translateX(-50%);
-  }
-
-  .presentation-internal-groups::before,
-  .presentation-internal-groups::after { display: none; }
-
-  .presentation-internal-groups > div {
-    top: 0 !important;
-    left: 5% !important;
-    width: 42%;
-    min-height: 46px;
-    font-size: 0.62rem;
-  }
-
-  .presentation-internal-groups > div:last-child { left: 53% !important; }
-
-  .presentation-departments {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-    padding-top: 0.9rem;
-  }
-
-  .presentation-departments::before,
-  .presentation-departments::after,
-  .presentation-department::before { display: none; }
-
-  .presentation-department header {
-    min-height: 58px;
-    font-size: 0.64rem;
-  }
-
-  .presentation-groups { padding: 0.5rem 0.4rem; gap: 0.4rem; }
-  .presentation-group { padding: 0.5rem 0.45rem; font-size: 0.58rem; }
-  .presentation-group strong { font-size: 0.6rem; }
 }
 
 /* Keep profile surfaces dark after all responsive overrides. */
