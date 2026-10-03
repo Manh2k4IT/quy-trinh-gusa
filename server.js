@@ -1102,15 +1102,22 @@ function getOrganizationMembers() {
   }
 }
 
+function isValidOrganizationNodeId(nodeId) {
+  const id = String(nodeId || "").trim();
+  return id !== "" && id !== "null" && id !== "undefined";
+}
+
 function serveOrganizationMembers(req, res, nodeId) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!isValidOrganizationNodeId(nodeId)) return sendJson(res, 200, { members: [] });
   sendJson(res, 200, { members: getOrganizationMembers()[nodeId] || [] });
 }
 
 async function updateOrganizationMember(req, res, nodeId) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  if (!isValidOrganizationNodeId(nodeId)) return send(res, 400, "Vị trí này chưa được tạo trong sơ đồ tổ chức. Vui lòng tạo vị trí trước khi thêm thành viên.");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");

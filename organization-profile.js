@@ -294,6 +294,7 @@ function openMemberForm(member = null) {
 
 async function loadPage() {
   let effectiveNodeId = nodeId;
+  console.log("[DEBUG] loadPage - nodeId:", nodeId, "department:", departmentName);
   if (!effectiveNodeId && departmentName) {
     const meResponse = await fetch("/api/me", { cache: "no-store" });
     if (!meResponse.ok) throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
