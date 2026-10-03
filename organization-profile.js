@@ -293,7 +293,8 @@ function openMemberForm(member = null) {
 }
 
 async function loadPage() {
-  if (!nodeId && departmentName) {
+  let effectiveNodeId = nodeId;
+  if (!effectiveNodeId && departmentName) {
     const meResponse = await fetch("/api/me", { cache: "no-store" });
     if (!meResponse.ok) throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
     const me = await meResponse.json();
@@ -306,10 +307,10 @@ async function loadPage() {
     renderMembers();
     return;
   }
-  if (!nodeId) throw new Error("Thiếu vị trí cần xem");
+  if (!effectiveNodeId) throw new Error("Thiếu vị trí cần xem");
   const [chartResponse, membersResponse, meResponse] = await Promise.all([
     fetch("/api/organization-chart", { cache: "no-store" }),
-    fetch(`/api/organization-members/${encodeURIComponent(nodeId)}`, { cache: "no-store" }),
+    fetch(`/api/organization-members/${encodeURIComponent(effectiveNodeId)}`, { cache: "no-store" }),
     fetch("/api/me", { cache: "no-store" }),
   ]);
   if ([chartResponse, membersResponse, meResponse].some((response) => response.status === 403)) {
@@ -319,8 +320,12 @@ async function loadPage() {
   const chart = await chartResponse.json();
   const membersData = await membersResponse.json();
   const me = await meResponse.json();
-  const node = (chart.nodes || []).find((item) => item.id === nodeId);
-  if (!node) throw new Error("Không tìm thấy vị trí");
+  const node = (chart.nodes || []).find((item) => item.id === effectiveNodeId);
+  if (!node) {
+    members = [];
+    renderMembers();
+    throw new Error("Vị trí này không còn tồn tại trong sơ đồ. Vui lòng chọn lại từ sơ đồ tổ chức.");
+  }
   isAdmin = me.user?.role === "admin" || me.user?.role === "ceo";
   members = membersData.members || [];
   nodeName.textContent = node.name;
@@ -358,9 +363,26 @@ memberForm.addEventListener("submit", async (event) => {
   } else {
     member.avatar = memberForm.dataset.currentAvatar || "";
   }
+  let targetNodeId = nodeId;
+  if (!targetNodeId && departmentName) {
+    try {
+      const chartResponse = await fetch("/api/organization-chart", { cache: "no-store" });
+      if (!chartResponse.ok) throw new Error("Không thể tải sơ đồ tổ chức");
+      const chart = await chartResponse.json();
+      const matchingNode = (chart.nodes || []).find((node) => node.name.trim().toLowerCase() === departmentName.trim().toLowerCase());
+      if (matchingNode) targetNodeId = matchingNode.id;
+    } catch {
+      memberStatus.textContent = "Không thể xác định vị trí cần lưu. Vui lòng vào từ sơ đồ tổ chức.";
+      return;
+    }
+  }
+  if (!targetNodeId) {
+    memberStatus.textContent = "Vị trí này chưa được tạo trong sơ đồ tổ chức. Vui lòng tạo vị trí trước.";
+    return;
+  }
   let response;
   try {
-    response = await fetch(`/api/organization-members/${encodeURIComponent(nodeId)}`, {
+    response = await fetch(`/api/organization-members/${encodeURIComponent(targetNodeId)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ member }),
