@@ -1118,7 +1118,7 @@ async function updateOrganizationMember(req, res, nodeId) {
   if (!String(member.name || "").trim()) return send(res, 400, "Thành viên cần có họ tên");
   const avatar = String(member.avatar || "").trim();
   const startDate = String(member.startDate || "").trim();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: applicationTimeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   if (startDate && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate > today)) return send(res, 400, "Ngày bắt đầu không hợp lệ.");
   if (avatar && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar) && !/^https?:\/\//.test(avatar)) return send(res, 400, "Ảnh đại diện không hợp lệ");
   if (Buffer.byteLength(avatar, "utf8") > 7 * 1024 * 1024) return send(res, 413, "Ảnh đại diện không được vượt quá 5 MB");

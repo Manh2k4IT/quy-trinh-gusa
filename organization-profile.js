@@ -358,17 +358,24 @@ memberForm.addEventListener("submit", async (event) => {
   } else {
     member.avatar = memberForm.dataset.currentAvatar || "";
   }
-  const response = await fetch(`/api/organization-members/${encodeURIComponent(nodeId)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ member }),
-  });
+  let response;
+  try {
+    response = await fetch(`/api/organization-members/${encodeURIComponent(nodeId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ member }),
+    });
+  } catch {
+    memberStatus.textContent = "Không thể kết nối máy chủ. Vui lòng thử lại.";
+    return;
+  }
   if (response.status === 403) {
     memberStatus.textContent = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
     return;
   }
   if (!response.ok) {
-    memberStatus.textContent = "Không thể lưu thành viên.";
+    const serverMessage = (await response.text()).trim();
+    memberStatus.textContent = serverMessage || "Không thể lưu thành viên.";
     return;
   }
   members = (await response.json()).members;
