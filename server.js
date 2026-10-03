@@ -1117,12 +1117,30 @@ function serveOrganizationMembers(req, res, nodeId) {
 async function updateOrganizationMember(req, res, nodeId) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
-  if (!isValidOrganizationNodeId(nodeId)) return send(res, 400, "Vị trí này chưa được tạo trong sơ đồ tổ chức. Vui lòng tạo vị trí trước khi thêm thành viên.");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
   const member = payload.member || {};
   if (!String(member.name || "").trim()) return send(res, 400, "Thành viên cần có họ tên");
+  const nodeName = String(payload.nodeName || "").trim().slice(0, 120);
+  if (!isValidOrganizationNodeId(nodeId)) {
+    if (!nodeName) return send(res, 400, "Thiếu tên vị trí cần lưu thành viên.");
+    const chart = { nodes: getOrganizationChart(), freeLines: [] };
+    try {
+      const saved = JSON.parse(fs.readFileSync(organizationChartPath, "utf8"));
+      if (Array.isArray(saved.freeLines)) chart.freeLines = saved.freeLines;
+    } catch (error) {
+      if (error.code !== "ENOENT") console.error(error);
+    }
+    const existingNode = chart.nodes.find((node) => node.name.trim().toLowerCase() === nodeName.toLowerCase());
+    if (existingNode) {
+      nodeId = existingNode.id;
+    } else {
+      nodeId = crypto.randomUUID();
+      chart.nodes.push({ id: nodeId, parentId: null, name: nodeName, role: "", staff: 0, x: 120 + chart.nodes.length * 190, y: 120, width: 165, height: 100 });
+      fs.writeFileSync(organizationChartPath, JSON.stringify(chart, null, 2));
+    }
+  }
   const avatar = String(member.avatar || "").trim();
   const startDate = String(member.startDate || "").trim();
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: applicationTimeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -1149,7 +1167,7 @@ async function updateOrganizationMember(req, res, nodeId) {
   else members[index] = cleanMember;
   membersByNode[nodeId] = members;
   fs.writeFileSync(organizationMembersPath, JSON.stringify(membersByNode, null, 2));
-  sendJson(res, 200, { member: cleanMember, members });
+  sendJson(res, 200, { member: cleanMember, members, nodeId });
 }
 
 function deleteOrganizationMember(req, res, nodeId, memberId) {

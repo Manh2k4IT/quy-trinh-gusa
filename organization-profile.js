@@ -368,25 +368,21 @@ memberForm.addEventListener("submit", async (event) => {
   if (!targetNodeId && departmentName) {
     try {
       const chartResponse = await fetch("/api/organization-chart", { cache: "no-store" });
-      if (!chartResponse.ok) throw new Error("Không thể tải sơ đồ tổ chức");
-      const chart = await chartResponse.json();
-      const matchingNode = (chart.nodes || []).find((node) => node.name.trim().toLowerCase() === departmentName.trim().toLowerCase());
-      if (matchingNode) targetNodeId = matchingNode.id;
+      if (chartResponse.ok) {
+        const chart = await chartResponse.json();
+        const matchingNode = (chart.nodes || []).find((node) => node.name.trim().toLowerCase() === departmentName.trim().toLowerCase());
+        if (matchingNode) targetNodeId = matchingNode.id;
+      }
     } catch {
-      memberStatus.textContent = "Không thể xác định vị trí cần lưu. Vui lòng vào từ sơ đồ tổ chức.";
-      return;
+      // bỏ qua — server sẽ tự tạo node theo tên vị trí khi lưu
     }
-  }
-  if (!targetNodeId) {
-    memberStatus.textContent = "Vị trí này chưa được tạo trong sơ đồ tổ chức. Vui lòng tạo vị trí trước.";
-    return;
   }
   let response;
   try {
-    response = await fetch(`/api/organization-members/${encodeURIComponent(targetNodeId)}`, {
+    response = await fetch(`/api/organization-members/${encodeURIComponent(targetNodeId || "")}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ member }),
+      body: JSON.stringify({ member, nodeName: departmentName || nodeName.textContent || "" }),
     });
   } catch {
     memberStatus.textContent = "Không thể kết nối máy chủ. Vui lòng thử lại.";
@@ -401,7 +397,16 @@ memberForm.addEventListener("submit", async (event) => {
     memberStatus.textContent = serverMessage || "Không thể lưu thành viên.";
     return;
   }
-  members = (await response.json()).members;
+  const savedData = await response.json();
+  members = savedData.members;
+  if (!nodeId && savedData.nodeId) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("department");
+    url.searchParams.set("node", savedData.nodeId);
+    window.history.replaceState(history.state, "", url);
+    window.location.reload();
+    return;
+  }
   memberForm.hidden = true;
   memberList.hidden = false;
   memberAdd.hidden = !isAdmin;
