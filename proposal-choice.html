@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đề xuất - Quy Trình</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="management.css?v=20260929-2" />
+    <link rel="stylesheet" href="attendance-choice.css?v=20261007-2" />
+  </head>
+  <body class="attendance-choice-screen">
+    <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand"><div class="mini-logo"><img src="logo1.jpg" alt="" /></div><span>Quy Trình</span><button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5M19 7l-5 5 5 5" /></svg></button></div>
+        <div class="sidebar-scroll"></div>
+        <div class="sidebar-account"><div class="avatar" data-user-avatar>B</div><div><strong data-user-name>Đang tải...</strong><small data-user-role></small></div><a class="sidebar-logout" href="/auth/logout">Đăng xuất</a></div>
+      </aside>
+      <main class="workspace">
+        <header class="topbar"><button class="mobile-menu-toggle" type="button" data-mobile-menu-toggle aria-label="Mở menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button><div class="breadcrumbs"><span>Quy Trình</span><span class="crumb-separator">/</span><strong>Đề xuất</strong></div><div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div></header>
+        <section class="attendance-choice-content">
+          <div class="attendance-choice-heading">
+            <span class="attendance-choice-eyebrow">BIỂU MẪU</span>
+            <h1>Đề xuất</h1>
+            <p>Chọn loại đề xuất bạn muốn tạo và theo dõi.</p>
+            <p data-proposal-choice-status role="status">Đang tải thông tin tài khoản...</p>
+          </div>
+          <div class="attendance-choice-grid" aria-label="Chọn loại đề xuất">
+            <a class="attendance-choice-card" href="proposals.html" data-proposal-personnel-choice hidden>
+              <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="15" r="7" /><path d="M10 40v-5a14 14 0 0 1 28 0v5" /></svg></span>
+              <span class="attendance-choice-title">Đề xuất nhân sự</span>
+              <span class="attendance-choice-description">Tạo và theo dõi các đề xuất liên quan đến nhân sự.</span>
+              <span class="attendance-choice-action">Tiếp tục <span aria-hidden="true">→</span></span>
+            </a>
+            <a class="attendance-choice-card attendance-choice-online" href="payment-proposal.html?flow=ceo">
+              <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M10 6h28v36H10zM17 15h14M17 24h14M17 33h9" /></svg></span>
+              <span class="attendance-choice-title">Đề xuất thanh toán (CEO)</span>
+              <span class="attendance-choice-description">Tạo và theo dõi đề xuất thanh toán theo luồng CEO.</span>
+              <span class="attendance-choice-action">Tiếp tục <span aria-hidden="true">→</span></span>
+            </a>
+            <a class="attendance-choice-card attendance-choice-online" href="payment-proposal.html?flow=accountant">
+              <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M10 6h28v36H10zM17 15h14M17 24h14M17 33h9" /></svg></span>
+              <span class="attendance-choice-title">Đề xuất thanh toán (Kế toán)</span>
+              <span class="attendance-choice-description">Tạo và theo dõi đề xuất thanh toán theo luồng kế toán.</span>
+              <span class="attendance-choice-action">Tiếp tục <span aria-hidden="true">→</span></span>
+            </a>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="admin-menu.js?v=20261007-4"></script>
+  </body>
+</html>

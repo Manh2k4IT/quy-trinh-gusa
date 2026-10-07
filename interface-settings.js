@@ -4,8 +4,6 @@ const mobileMenuBackdrop = document.querySelector("[data-mobile-menu-backdrop]")
 const adminMenu = document.querySelector("[data-admin-menu]");
 const adminMenuLabel = document.querySelector("[data-admin-menu-label]");
 const themeToggle = document.querySelector("[data-interface-theme-toggle]");
-const interfaceSettingsSection = document.querySelector("[data-interface-settings-section]");
-const audioSettingsSection = document.querySelector("[data-audio-settings-section]");
 const audioPermissionButton = document.querySelector("[data-audio-permission-button]");
 const audioPermissionStatus = document.querySelector("[data-audio-permission-status]");
 
@@ -74,6 +72,7 @@ function syncThemeToggle() {
   const isDark = document.body.dataset.theme === "dark";
   themeToggle.setAttribute("aria-checked", String(isDark));
   themeToggle.classList.toggle("is-on", isDark);
+  document.querySelector("[data-interface-theme-status]").textContent = isDark ? "Đang bật" : "Đang tắt";
 }
 
 function setTheme(theme) {
@@ -92,11 +91,18 @@ document.querySelectorAll("[data-theme-primary]").forEach((button) => {
     document.documentElement.style.setProperty("--navy", palette.primary);
     document.documentElement.style.setProperty("--blue-100", palette.surface);
     localStorage.setItem("gusa-palette", JSON.stringify(palette));
+    syncPaletteSelection(palette.primary);
   });
 });
 const savedPalette = JSON.parse(localStorage.getItem("gusa-palette") || "null");
 document.documentElement.style.setProperty("--navy", savedPalette?.primary || "#174b8e");
 document.documentElement.style.setProperty("--blue-100", savedPalette?.surface || "#eaf2fa");
+function syncPaletteSelection(primary) {
+  document.querySelectorAll("[data-theme-primary]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.themePrimary === primary));
+  });
+}
+syncPaletteSelection(savedPalette?.primary || "#174b8e");
 
 function setAdminMenuVisibility(roleLabel) {
   const isAdmin = roleLabel === "Quản trị" || roleLabel === "CEO";
@@ -167,8 +173,13 @@ function updateAudioPermissionStatus() {
 audioPermissionButton?.addEventListener("click", async () => {
   const notification = "Notification" in window ? Notification.permission : "unsupported";
   if (notification === "default" && "Notification" in window) {
-    const result = await Notification.requestPermission();
-    if (result !== "granted" && result !== "denied") return;
+    try {
+      await Notification.requestPermission();
+    } catch (error) {
+      audioPermissionStatus.textContent = "Không yêu cầu được quyền thông báo. Vui lòng kiểm tra cài đặt trình duyệt.";
+      console.error("Không yêu cầu được quyền thông báo.", error);
+      return;
+    }
   }
 
   const enabled = localStorage.getItem("gusa-proposal-audio-enabled") !== "false";
@@ -176,18 +187,10 @@ audioPermissionButton?.addEventListener("click", async () => {
   updateAudioPermissionStatus();
 });
 function syncSettingsPanels() {
-  const showAudioSettings = location.hash === "#audio-permission";
-  const title = document.getElementById("interface-settings-title");
-  const breadcrumb = document.getElementById("interface-settings-breadcrumb");
-  const subtitle = document.querySelector(".interface-page-heading p");
-  if (title) title.textContent = showAudioSettings ? "Cài đặt quyền âm thanh" : "Cài đặt giao diện";
-  if (breadcrumb) breadcrumb.textContent = showAudioSettings ? "Cài đặt quyền âm thanh" : "Cài đặt giao diện";
-  if (subtitle) subtitle.textContent = showAudioSettings ? "Quản lý quyền âm thanh và giọng thông báo của hệ thống." : "Điều chỉnh giao diện theo cách bạn muốn làm việc.";
-  if (interfaceSettingsSection) interfaceSettingsSection.hidden = showAudioSettings;
-  if (audioSettingsSection) audioSettingsSection.hidden = !showAudioSettings;
-  if (showAudioSettings) {
+  const settingId = location.hash.slice(1);
+  if (["audio-permission", "dark-mode", "interface-colors"].includes(settingId)) {
     window.setTimeout(() => {
-      document.querySelector("#audio-permission")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById(settingId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   }
 }

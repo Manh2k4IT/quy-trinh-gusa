@@ -74,6 +74,7 @@ function showProposalPermissionPrompt(user, force = false) {
 window.showProposalPermissionPrompt = showProposalPermissionPrompt;
 
 function playProposalVoice(proposalVoiceAudio) {
+  proposalAudioEnabled = localStorage.getItem('gusa-proposal-audio-enabled') !== 'false';
   if (!proposalVoiceAudio || !proposalAudioEnabled) return;
   let completedPlays = 0;
   proposalVoiceAudio.pause();
@@ -301,20 +302,16 @@ if (sidebarScroll) {
     <nav class="menu" aria-label="Menu chấm công">
       <a class="menu-item" href="attendance-choice.html"><span class="menu-icon">◷</span><span>Chấm công</span></a>
       <a class="menu-item" href="attendance.html?view=days"><span class="menu-icon">▦</span><span>Tổng quan ngày công</span></a>
-      <a class="menu-item" href="attendance-overview.html?report=online"><span class="menu-icon">♙</span><span>Báo cáo nhân sự làm online</span></a>
-      <a class="menu-item" href="attendance-overview.html?report=late"><span class="menu-icon">◷</span><span>Báo cáo đi trễ</span></a>
-      <a class="menu-item" href="attendance-overview.html"><span class="menu-icon">♙</span><span>Tổng quan nhân sự</span></a>
     </nav>
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">
-      <a class="menu-item" href="proposals.html"><span class="menu-icon">☷</span><span>Đề xuất nhân sự</span></a>
-      <a class="menu-item" href="payment-proposal.html?flow=ceo"><span class="menu-icon">₫</span><span>Đề xuất thanh toán (CEO)</span></a>
-      <a class="menu-item" href="payment-proposal.html?flow=accountant"><span class="menu-icon">₫</span><span>Đề xuất thanh toán (Kế toán)</span></a>
-      <a class="menu-item" href="proposal-report.html" data-admin-proposal-report><span class="menu-icon">▥</span><span>Báo cáo nhân sự</span></a>
-      <a class="menu-item" href="proposal-report.html?type=payment" data-payment-proposal-report><span class="menu-icon">₫</span><span>Báo cáo đề xuất thanh toán</span></a>
+      <a class="menu-item" href="proposal-choice.html"><span class="menu-icon">☷</span><span>Đề xuất</span></a>
+    </nav>
+    <nav class="menu" aria-label="Menu báo cáo">
+      <a class="menu-item" href="report-choice.html" data-report-menu hidden><span class="menu-icon">▥</span><span>Báo cáo</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
-    <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt giao diện</span></a><a class="menu-item" href="interface-settings.html#audio-permission"><span class="menu-icon">♬</span><span>Cài đặt quyền âm thanh</span></a></nav>
+    <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt</span></a></nav>
     <p class="menu-label" data-admin-menu-label>QUẢN TRỊ</p>
     <nav class="menu" aria-label="Menu quản trị" data-admin-menu>
       <a class="menu-item" href="user-management.html"><span class="menu-icon">⚙</span><span>Quản lý user</span></a>
@@ -330,10 +327,12 @@ if (sidebarScroll) {
     if (!href || href === '#') return;
     const url = new URL(href, window.location.href);
     const attendanceSectionMatch = href === 'attendance-choice.html' && currentPath === 'attendance.html' && currentQuery !== '?view=days';
-    const samePath = url.pathname.split('/').pop() === currentPath || attendanceSectionMatch;
-    const sameQuery = url.search === currentQuery || attendanceSectionMatch;
+    const reportSectionMatch = href === 'report-choice.html' && ['attendance-overview.html', 'proposal-report.html'].includes(currentPath);
+    const proposalSectionMatch = href === 'proposal-choice.html' && ['proposals.html', 'payment-proposal.html'].includes(currentPath);
+    const samePath = url.pathname.split('/').pop() === currentPath || attendanceSectionMatch || reportSectionMatch || proposalSectionMatch;
+    const sameQuery = url.search === currentQuery || attendanceSectionMatch || reportSectionMatch || proposalSectionMatch;
     const targetHash = url.hash || '';
-    const matchesCurrentSection = targetHash ? targetHash === currentHash : !currentHash;
+    const matchesCurrentSection = href === 'interface-settings.html' || (targetHash ? targetHash === currentHash : !currentHash);
     if (samePath && sameQuery && matchesCurrentSection) {
       link.classList.add('is-active');
       link.setAttribute('aria-current', 'page');
@@ -341,7 +340,10 @@ if (sidebarScroll) {
   });
 
   fetch('/api/me', { cache: 'no-store' })
-    .then((response) => response.json())
+    .then((response) => {
+      if (!response.ok) throw new Error('Không tải được thông tin tài khoản.');
+      return response.json();
+    })
     .then(({ user }) => {
       if (user) {
         document.querySelectorAll('[data-user-name]').forEach((element) => {
@@ -392,15 +394,22 @@ if (sidebarScroll) {
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');
       if (employeeAttendanceOverview) employeeAttendanceOverview.hidden = isAdmin;
-      const proposalReport = sidebarScroll.querySelector('[data-admin-proposal-report]');
-      if (proposalReport) proposalReport.hidden = !isAdmin;
-      const paymentProposalReport = sidebarScroll.querySelector('[data-payment-proposal-report]');
-      if (paymentProposalReport) paymentProposalReport.hidden = !(isAdmin || isAccountant);
-      sidebarScroll.querySelectorAll('a[href^="attendance-overview.html"]').forEach((link) => {
-        link.hidden = !isAdmin;
+      sidebarScroll.querySelector('[data-report-menu]').hidden = !(isAdmin || isAccountant);
+      document.querySelectorAll('[data-report-access]').forEach((card) => {
+        card.hidden = card.dataset.reportAccess === 'payment' ? !(isAdmin || isAccountant) : !isAdmin;
       });
+      const reportStatus = document.querySelector('[data-report-choice-status]');
+      if (reportStatus) {
+        reportStatus.textContent = isAdmin || isAccountant ? '' : 'Bạn không có quyền xem các báo cáo này.';
+        reportStatus.hidden = isAdmin || isAccountant;
+      }
+      document.querySelectorAll('[data-proposal-personnel-choice]').forEach((card) => {
+        card.hidden = isCeo;
+      });
+      const proposalStatus = document.querySelector('[data-proposal-choice-status]');
+      if (proposalStatus) proposalStatus.hidden = true;
       if (isCeo) {
-        sidebarScroll.querySelectorAll('a[href="attendance-choice.html"], a[href="proposals.html"]').forEach((link) => {
+        sidebarScroll.querySelectorAll('a[href="attendance-choice.html"]').forEach((link) => {
           link.hidden = true;
         });
         sidebarScroll.querySelectorAll('[data-admin-menu] .menu-item[href="#"]').forEach((link) => {
@@ -408,9 +417,23 @@ if (sidebarScroll) {
         });
       }
     })
-    .catch(() => {
+    .catch((error) => {
       sidebarScroll.querySelector('[data-admin-menu]').hidden = true;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = true;
+      sidebarScroll.querySelector('[data-report-menu]').hidden = true;
+      document.querySelectorAll('[data-report-access]').forEach((card) => { card.hidden = true; });
+      const reportStatus = document.querySelector('[data-report-choice-status]');
+      if (reportStatus) {
+        reportStatus.textContent = 'Không tải được danh sách báo cáo. Vui lòng tải lại trang.';
+        reportStatus.hidden = false;
+      }
+      document.querySelectorAll('[data-proposal-personnel-choice]').forEach((card) => { card.hidden = true; });
+      const proposalStatus = document.querySelector('[data-proposal-choice-status]');
+      if (proposalStatus) {
+        proposalStatus.textContent = 'Không tải được thông tin tài khoản. Vui lòng tải lại trang.';
+        proposalStatus.hidden = false;
+      }
+      console.error('Không tải được thông tin menu.', error);
     });
 
   const appShell = document.querySelector('.app-shell');

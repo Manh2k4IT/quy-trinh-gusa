@@ -1337,7 +1337,7 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
-    if (req.url === "/attendance-choice.html") {
+    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html"].includes(req.url.split("?")[0])) {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
