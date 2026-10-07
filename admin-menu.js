@@ -1,5 +1,55 @@
 const sidebarScroll = document.querySelector('.sidebar-scroll');
 
+function applySharedAppearance() {
+  try {
+    const theme = localStorage.getItem('gusa-theme') === 'dark' ? 'dark' : 'light';
+    const storedPalette = JSON.parse(localStorage.getItem('gusa-palette') || 'null');
+    if (storedPalette && (!/^#[0-9a-f]{6}$/i.test(storedPalette.primary) || !/^#[0-9a-f]{6}$/i.test(storedPalette.surface))) {
+      throw new Error('Bảng màu đã lưu không hợp lệ.');
+    }
+    const primary = storedPalette?.primary || '#174b8e';
+    const surface = storedPalette?.surface || '#eaf2fa';
+    document.body.dataset.theme = theme;
+    document.documentElement.style.setProperty('--navy', primary);
+    document.documentElement.style.setProperty('--blue-100', surface);
+    document.documentElement.style.setProperty('--active', surface);
+    document.querySelectorAll('[data-interface-theme-toggle]').forEach((button) => {
+      button.setAttribute('aria-checked', String(theme === 'dark'));
+      button.classList.toggle('is-on', theme === 'dark');
+    });
+    const themeStatus = document.querySelector('[data-interface-theme-status]');
+    if (themeStatus) themeStatus.textContent = theme === 'dark' ? 'Đang bật' : 'Đang tắt';
+    document.querySelectorAll('[data-theme-primary]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.themePrimary === primary));
+    });
+    const audioEnabled = localStorage.getItem('gusa-proposal-audio-enabled') !== 'false';
+    document.querySelectorAll('[data-audio-permission-button]').forEach((button) => {
+      button.setAttribute('aria-checked', String(audioEnabled));
+      button.classList.toggle('is-on', audioEnabled);
+    });
+  } catch (error) {
+    console.error('Không áp dụng được cài đặt giao diện.', error);
+    let notice = document.querySelector('[data-appearance-error]');
+    if (!notice) {
+      notice = document.createElement('p');
+      notice.dataset.appearanceError = '';
+      notice.setAttribute('role', 'alert');
+      document.querySelector('.workspace')?.prepend(notice);
+    }
+    notice.textContent = 'Không đọc được cài đặt giao diện. Vui lòng chọn lại cài đặt trên thiết bị này.';
+  }
+}
+
+const sharedAppearanceStyles = document.createElement('link');
+sharedAppearanceStyles.rel = 'stylesheet';
+sharedAppearanceStyles.href = '/shared-appearance.css?v=20261007-1';
+document.head.append(sharedAppearanceStyles);
+applySharedAppearance();
+window.addEventListener('storage', (event) => {
+  if (event.key === null || ['gusa-theme', 'gusa-palette', 'gusa-proposal-audio-enabled'].includes(event.key)) applySharedAppearance();
+});
+window.addEventListener('pageshow', applySharedAppearance);
+
 function initializeBrowserNavigation() {
   const topbar = document.querySelector('.topbar');
   if (!topbar || !window.desktopSettings?.isDesktop || document.querySelector('[data-browser-navigation]')) return;

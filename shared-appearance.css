@@ -1,0 +1,86 @@
+body {
+  --appearance-accent-text: var(--navy);
+  --appearance-accent-surface: var(--blue-100);
+  --navy-dark: color-mix(in srgb, var(--navy) 80%, #000);
+}
+body[data-theme="dark"] {
+  color-scheme: dark;
+  --appearance-accent-text: color-mix(in srgb, var(--navy) 35%, #fff);
+  --appearance-accent-surface: color-mix(in srgb, var(--navy) 30%, #252a31);
+}
+.menu-item.is-active, .menu-item:hover { background: var(--blue-100); }
+body[data-theme="dark"] .menu-item.is-active,
+body[data-theme="dark"] .menu-item:hover { background: var(--appearance-accent-surface); }
+.attendance-choice-icon, .attendance-choice-online .attendance-choice-icon { color: var(--appearance-accent-text); background: var(--appearance-accent-surface); }
+.attendance-choice-action, .attendance-choice-online .attendance-choice-action { background: var(--navy); }
+.attendance-choice-card:hover, .attendance-choice-card:focus-visible { border-color: var(--navy); }
+.attendance-choice-card:focus-visible { outline-color: var(--navy); }
+.attendance-primary { background: var(--navy); }
+.proposal-content .proposal-hero, .payment-layout { background: linear-gradient(110deg, var(--appearance-accent-surface), var(--navy)); }
+.proposal-new-button, .payment-submit { color: #fff; background: var(--navy); }
+.report-refresh, .report-actions .report-detail-button, .payment-flow-tabs button.is-active,
+.payment-action[data-preview-template], .payment-modal form > button,
+.proposal-view-button:last-child, .proposal-modal-card .proposal-form button { border-color: var(--navy); background: var(--navy); }
+.report-location, .report-relative-time, .report-file,
+.report-item.is-payment .report-type, .payment-new-proposal { color: var(--appearance-accent-text); }
+.payment-new-proposal { border-color: var(--navy); }
+.payment-new-proposal:hover, .payment-action[data-preview-template]:hover { color: #fff; background: var(--navy-dark); }
+.proposal-location-button { color: var(--appearance-accent-text) !important; background: var(--appearance-accent-surface) !important; }
+
+body[data-theme="dark"] :is(.attendance-choice-content, .proposal-content, .payment-page, .report-content) { background: var(--surface); }
+body[data-theme="dark"] :is(
+  .attendance-choice-card, .proposal-panel, .proposal-list-panel, .proposal-list-item,
+  .proposal-note, .proposal-modal-card, .location-permission-card,
+  .proposal-content .proposal-hero, .payment-layout, .payment-template, .payment-note, .payment-modal-card,
+  .payment-history, .payment-history-item, .payment-preview-dialog,
+  .report-summary article, .report-toolbar, .report-item, .report-empty,
+  .report-detail-dialog, .accountant-reject-dialog,
+  .attendance-late-report, .attendance-report-entry, .attendance-weekly-header,
+  .attendance-week-block, .attendance-weekly-board
+) { color: var(--ink); border-color: var(--line); background: var(--panel); }
+body[data-theme="dark"] :is(
+  .attendance-choice-heading h1, .attendance-choice-title,
+  .proposal-list-heading h2, .proposal-list-item strong,
+  .proposal-modal-card h2, .location-permission-card h3,
+  .payment-ribbon, .payment-modal-card h2, .payment-history-heading,
+  .report-item h2, .report-summary strong, .report-empty strong,
+  .report-detail-person h2, .report-detail-field dd, .accountant-reject-dialog h2,
+  .attendance-late-report-list .attendance-report-details b
+) { color: var(--ink); }
+body[data-theme="dark"] :is(
+  .attendance-choice-heading p, .attendance-choice-description,
+  .attendance-choice-eyebrow, .interface-page-heading p, .interface-page-setting p,
+  .proposal-list-type, .proposal-list-item small, .proposal-list-count, .proposal-list-empty,
+  .proposal-note, .location-permission-card p, .proposal-modal-card .proposal-form label,
+  .payment-note, .payment-history-empty, .payment-file-field small,
+  .admin-template-tools label, .admin-template-tools small, .payment-modal label,
+  .report-item p, .report-summary span, .payment-meta b, .report-file span,
+  .report-detail-person p, .report-detail-field dt, .accountant-reject-label,
+  .attendance-heading p, .attendance-live-copy > span:last-child, .attendance-type-choice,
+  .attendance-type-choice label small, .attendance-section-heading .eyebrow,
+  .attendance-report-details small, .attendance-admin-note
+) { color: var(--muted); }
+body[data-theme="dark"] :is(
+  .proposal-form input, .proposal-form select, .proposal-form textarea,
+  .proposal-modal-card .proposal-form input, .proposal-modal-card .proposal-form select,
+  .proposal-modal-card .proposal-form textarea,
+  .payment-modal input, .payment-modal textarea, .payment-modal select,
+  .admin-template-tools input, .report-toolbar select, .accountant-reject-dialog textarea
+) { color: var(--ink); border-color: var(--line); background: var(--surface); }
+body[data-theme="dark"] :is(
+  .proposal-detail, .proposal-detail-item, .proposal-late-proof, .proposal-half-day-period,
+  .payment-file-field, .payment-review, .payment-meta span, .report-detail-field,
+  .report-file, .attendance-day-header
+) { color: var(--ink); border-color: var(--line); background: var(--surface); }
+body[data-theme="dark"] :is(
+  .proposal-view-button:not(.is-active), .proposal-modal-close, .location-permission-card button,
+  .payment-list-button, .payment-close, .payment-new-proposal, .report-detail-close,
+  .payment-flow-tabs button:not(.is-active)
+) { color: var(--ink); border-color: var(--line); background: var(--surface); }
+body[data-theme="dark"] .proposal-half-day-period legend { color: var(--ink); }
+body[data-theme="dark"] .attendance-future { background: var(--panel); }
+body[data-theme="dark"] .attendance-late-report-list a { color: var(--appearance-accent-text); border-color: var(--line); background: var(--surface); }
+body[data-theme="dark"] .interface-setting-icon { color: var(--appearance-accent-text); background: var(--appearance-accent-surface); }
+body[data-theme="dark"] .attendance-choice-card.has-unread-report { border-color: #92515a; }
+body[data-theme="dark"] .report-unread-badge { color: #ffb6c0; border-color: #92515a; background: #502c34; }
+body[data-theme="dark"] .report-unread-badge::after { border-color: #502c34; }

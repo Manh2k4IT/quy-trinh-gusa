@@ -197,4 +197,7 @@ function syncSettingsPanels() {
 window.addEventListener("hashchange", syncSettingsPanels);
 syncSettingsPanels();
 updateAudioPermissionStatus();
+window.addEventListener("storage", (event) => {
+  if (event.key === null || event.key === "gusa-proposal-audio-enabled") updateAudioPermissionStatus();
+});
 if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voiceschanged", updateAudioPermissionStatus);

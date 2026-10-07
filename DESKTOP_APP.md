@@ -19,6 +19,10 @@ Trong trang **Báo cáo**, chuông đỏ trên từng ô hiển thị số mục
 
 Trạng thái đã xem được lưu riêng theo tài khoản trong trình duyệt/ứng dụng trên thiết bị hiện tại, không đồng bộ giữa các thiết bị. Chấm công được đếm theo nhân sự/ngày, đề xuất được đếm theo từng đề xuất; một mục cập nhật nhiều lần vẫn chỉ tính một mục chưa xem. Chỉ các báo cáo mà vai trò có quyền xem mới được trả về.
 
+## Giao diện dùng chung
+
+Mục **Cài đặt** lưu chế độ sáng/tối và màu chủ đạo trên thiết bị hiện tại. Các trang có menu dùng chung đều áp dụng lựa chọn này, kể cả trang chọn chấm công, đề xuất, báo cáo và các màn hình chi tiết. Các tab cùng trình duyệt cập nhật khi cài đặt thay đổi. Màu trạng thái (đã duyệt, từ chối, chờ xử lý), chuông thông báo và bản xem trước tài liệu vẫn giữ màu riêng để bảo toàn ý nghĩa và nội dung tài liệu.
+
 ## Tạo bộ cài Windows
 
 ```powershell
