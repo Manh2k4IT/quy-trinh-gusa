@@ -124,7 +124,7 @@
 .menu-parent:has(.attendance-menu-toggle) { position: relative; }
 .attendance-menu-toggle:hover { color: var(--navy); background: var(--blue-100); }
 .attendance-menu-toggle.is-collapsed span { transform: rotate(-90deg); }
-.sidebar .menu-item[href="attendance.html"] { padding-right: 3rem; }
+.sidebar .menu-item[href="attendance-choice.html"] { padding-right: 3rem; }
 .sidebar .menu-subitems[data-admin-attendance-submenu] { display: grid; gap: .2rem; margin-top: .15rem; margin-bottom: .35rem; margin-left: 2.2rem; border-left: 2px solid var(--blue-100); padding-left: .45rem; }
 .sidebar .menu-subitems[data-admin-attendance-submenu] .menu-subitem { min-height: 42px; padding: 0 .75rem; border-radius: 8px; color: var(--navy); background: var(--blue-100); font-size: .78rem; font-weight: 700; }
 .sidebar .menu-subitems[data-admin-attendance-submenu] .menu-subitem:hover { background: color-mix(in srgb, var(--blue-100) 70%, var(--navy)); }

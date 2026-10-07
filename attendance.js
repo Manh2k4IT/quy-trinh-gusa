@@ -30,10 +30,6 @@ attendanceOverviewMenuItem.className = 'menu-item';
 attendanceOverviewMenuItem.href = 'attendance-overview.html';
 attendanceOverviewMenuItem.innerHTML = '<span class="menu-icon">♙</span><span>Tổng quan nhân sự</span>';
 attendanceOverviewMenuItem.hidden = true;
-const onlineAttendanceMenuItem = document.createElement('a');
-onlineAttendanceMenuItem.className = 'menu-item';
-onlineAttendanceMenuItem.href = 'attendance.html?view=online';
-onlineAttendanceMenuItem.innerHTML = '<span class="menu-icon">⌁</span><span>Chấm công làm online</span>';
 const workdayOverviewMenuItem = document.createElement('a');
 workdayOverviewMenuItem.className = 'menu-item';
 workdayOverviewMenuItem.href = 'attendance.html?view=days';
@@ -50,8 +46,9 @@ lateReportMenuItem.hidden = true;
 lateReportMenuItem.innerHTML = '<span class="menu-icon">◷</span><span>Báo cáo đi trễ</span>';
 if (attendanceMenuItem) {
   attendanceMenuItem.remove();
-  attendanceMenuItem.querySelector('span:last-child').textContent = 'Chấm công tại công ty';
-  attendanceGroup.append(attendanceMenuItem, onlineAttendanceMenuItem, workdayOverviewMenuItem, onlineStaffMenuItem, lateReportMenuItem, attendanceOverviewMenuItem);
+  attendanceMenuItem.href = 'attendance-choice.html';
+  attendanceMenuItem.querySelector('span:last-child').textContent = 'Chấm công';
+  attendanceGroup.append(attendanceMenuItem, workdayOverviewMenuItem, onlineStaffMenuItem, lateReportMenuItem, attendanceOverviewMenuItem);
   if (isWorkdayOverview) {
     attendanceMenuItem.classList.remove('is-active');
     attendanceMenuItem.removeAttribute('aria-current');
@@ -59,10 +56,8 @@ if (attendanceMenuItem) {
     workdayOverviewMenuItem.setAttribute('aria-current', 'page');
   }
   if (isOnlineAttendance) {
-    attendanceMenuItem.classList.remove('is-active');
-    attendanceMenuItem.removeAttribute('aria-current');
-    onlineAttendanceMenuItem.classList.add('is-active');
-    onlineAttendanceMenuItem.setAttribute('aria-current', 'page');
+    attendanceMenuItem.classList.add('is-active');
+    attendanceMenuItem.setAttribute('aria-current', 'page');
   }
   const settingsLabel = [...document.querySelectorAll('.menu-label')].find((label) => label.textContent.trim() === 'CÀI ĐẶT');
   settingsLabel?.before(attendanceGroupLabel, attendanceGroup);

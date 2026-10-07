@@ -30,10 +30,6 @@ function normalizeAttendanceMenu() {
 	menu.className = 'menu';
 	menu.setAttribute('aria-label', 'Menu chấm công');
 	const group = attendanceLink.closest('.menu-parent');
-	const onlineLink = document.createElement('a');
-	onlineLink.className = 'menu-item';
-	onlineLink.href = 'attendance.html?view=online';
-	onlineLink.innerHTML = '<span class="menu-icon">⌁</span><span>Chấm công làm online</span>';
 	const workdayOverviewLink = document.createElement('a');
 	workdayOverviewLink.className = 'menu-item';
 	workdayOverviewLink.href = 'attendance.html?view=days';
@@ -47,8 +43,9 @@ function normalizeAttendanceMenu() {
 	lateReportLink.href = 'attendance-overview.html?report=late';
 	lateReportLink.innerHTML = '<span class="menu-icon">◷</span><span>Báo cáo đi trễ</span>';
 	group?.remove();
+	attendanceLink.href = 'attendance-choice.html';
 	attendanceLink.classList.remove('is-active');
-	attendanceLink.querySelector('span:last-child').textContent = 'Chấm công tại công ty';
+	attendanceLink.querySelector('span:last-child').textContent = 'Chấm công';
 	overviewLink.classList.add('is-active');
 	overviewLink.setAttribute('aria-current', 'page');
 	if (new URLSearchParams(window.location.search).get('report') === 'online') {
@@ -57,7 +54,7 @@ function normalizeAttendanceMenu() {
 		onlineStaffLink.classList.add('is-active');
 		onlineStaffLink.setAttribute('aria-current', 'page');
 	}
-	menu.append(attendanceLink, onlineLink, workdayOverviewLink, onlineStaffLink, lateReportLink, overviewLink);
+	menu.append(attendanceLink, workdayOverviewLink, onlineStaffLink, lateReportLink, overviewLink);
 	settingsLabel.before(label, menu);
 }
 

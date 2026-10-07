@@ -1337,6 +1337,10 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
+    if (req.url === "/attendance-choice.html") {
+      const currentUser = getCurrentUser(req);
+      if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
+    }
     serveStatic(req, res);
   } catch (error) {
     console.error(error);

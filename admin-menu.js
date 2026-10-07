@@ -299,8 +299,7 @@ if (sidebarScroll) {
     </nav>
     <p class="menu-label">CHẤM CÔNG</p>
     <nav class="menu" aria-label="Menu chấm công">
-      <a class="menu-item" href="attendance.html"><span class="menu-icon">◷</span><span>Chấm công tại công ty</span></a>
-      <a class="menu-item" href="attendance.html?view=online"><span class="menu-icon">⌁</span><span>Chấm công làm online</span></a>
+      <a class="menu-item" href="attendance-choice.html"><span class="menu-icon">◷</span><span>Chấm công</span></a>
       <a class="menu-item" href="attendance.html?view=days"><span class="menu-icon">▦</span><span>Tổng quan ngày công</span></a>
       <a class="menu-item" href="attendance-overview.html?report=online"><span class="menu-icon">♙</span><span>Báo cáo nhân sự làm online</span></a>
       <a class="menu-item" href="attendance-overview.html?report=late"><span class="menu-icon">◷</span><span>Báo cáo đi trễ</span></a>
@@ -330,8 +329,9 @@ if (sidebarScroll) {
     const href = link.getAttribute('href');
     if (!href || href === '#') return;
     const url = new URL(href, window.location.href);
-    const samePath = url.pathname.split('/').pop() === currentPath;
-    const sameQuery = url.search === currentQuery;
+    const attendanceSectionMatch = href === 'attendance-choice.html' && currentPath === 'attendance.html' && currentQuery !== '?view=days';
+    const samePath = url.pathname.split('/').pop() === currentPath || attendanceSectionMatch;
+    const sameQuery = url.search === currentQuery || attendanceSectionMatch;
     const targetHash = url.hash || '';
     const matchesCurrentSection = targetHash ? targetHash === currentHash : !currentHash;
     if (samePath && sameQuery && matchesCurrentSection) {
@@ -400,7 +400,7 @@ if (sidebarScroll) {
         link.hidden = !isAdmin;
       });
       if (isCeo) {
-        sidebarScroll.querySelectorAll('a[href="attendance.html"], a[href="attendance.html?view=online"], a[href="proposals.html"]').forEach((link) => {
+        sidebarScroll.querySelectorAll('a[href="attendance-choice.html"], a[href="proposals.html"]').forEach((link) => {
           link.hidden = true;
         });
         sidebarScroll.querySelectorAll('[data-admin-menu] .menu-item[href="#"]').forEach((link) => {
