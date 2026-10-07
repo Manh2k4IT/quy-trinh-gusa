@@ -59,7 +59,7 @@ async function removeDeviceToken() {
 async function createAndroidChannels() {
   if (Capacitor.getPlatform() !== 'android') return;
   await Promise.all([
-    FirebaseMessaging.createChannel({ id: 'proposal-created-general-v2', name: 'Đề xuất nhân sự mới', description: 'Thông báo đề xuất nhân sự mới cần xem xét', importance: 4, visibility: 1, sound: 'proposal_new_general', vibration: true }),
+    FirebaseMessaging.createChannel({ id: 'proposal-created-general-v2', name: 'Đề xuất nghỉ phép & giờ làm mới', description: 'Thông báo đề xuất nghỉ phép và giờ làm mới cần xem xét', importance: 4, visibility: 1, sound: 'proposal_new_general', vibration: true }),
     FirebaseMessaging.createChannel({ id: 'proposal-created-late-v1', name: 'Đề xuất đi trễ mới', description: 'Thông báo đề xuất đi trễ cần admin/CEO xem xét', importance: 4, visibility: 1, sound: 'proposal_late_submitted', vibration: true }),
     FirebaseMessaging.createChannel({ id: 'proposal-created-early-leave-v1', name: 'Đề xuất về sớm mới', description: 'Thông báo đề xuất về sớm cần admin/CEO xem xét', importance: 4, visibility: 1, sound: 'proposal_early_leave_submitted', vibration: true }),
     FirebaseMessaging.createChannel({ id: 'proposal-created-half-day-v1', name: 'Đề xuất làm nửa ngày mới', description: 'Thông báo đề xuất làm nửa ngày cần admin/CEO xem xét', importance: 4, visibility: 1, sound: 'proposal_half_day_submitted', vibration: true }),

@@ -78,11 +78,14 @@ function renderPaymentHistory() {
       return `<article class="payment-history-item"><div class="payment-history-heading"><strong class="${stateClass}">${state}</strong><time>${escapeHtml(proposal.date || '')}</time></div><span><b>Hạng mục:</b> ${escapeHtml(proposal.category || '')}</span><span><b>Số tiền:</b> ${Number(proposal.amount || 0).toLocaleString('vi-VN')} VNĐ</span>${proposal.rejectionReason ? `<p class="payment-history-rejection"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</p>` : ''}${attachment}</article>`;
     }).join('')
     : '<p class="payment-history-empty">Chưa có đề xuất thanh toán nào trong mục này.</p>';
+  paymentHistory.querySelectorAll('.payment-history-item').forEach((item, index) => {
+    window.GusaSavedProposalDocument?.addActions(item, paymentProposals[index]);
+  });
 }
 
 async function loadPaymentProposals() {
   const response = await fetch('/api/proposals', { cache: 'no-store' });
-  if (!response.ok) return;
+  if (!response.ok) throw new Error('Không thể tải danh sách đề xuất thanh toán.');
   const data = await response.json();
   paymentProposals = (data.proposals || [])
     .filter((proposal) => proposal.type === 'payment' && (proposal.paymentFlow || 'ceo') === paymentFlow)
@@ -281,6 +284,7 @@ function closePaymentModal() {
   paymentHistory.hidden = true;
   document.querySelector('.payment-modal-card h2').textContent = `Đề xuất thanh toán (${paymentFlowLabel})`;
   status.textContent = '';
+  window.syncProposalDocument?.();
 }
 
 paymentButton.addEventListener('click', () => {
@@ -289,12 +293,14 @@ paymentButton.addEventListener('click', () => {
   paymentHistory.hidden = true;
   form.hidden = false;
   form.querySelector('[name="date"]').value = new Date().toISOString().slice(0, 10);
-  form.querySelector('[name="category"]').focus();
+  window.syncProposalDocument?.();
+  form.querySelector('[name="paymentDepartment"]').focus();
 });
 
 proposalListButton.addEventListener('click', async () => {
   modal.hidden = false;
   form.hidden = true;
+  window.syncProposalDocument?.();
   paymentHistory.hidden = false;
   status.textContent = '';
   document.querySelector('.payment-modal-card h2').textContent = 'Danh sách đề xuất thanh toán';
@@ -357,36 +363,38 @@ adminTemplateFile.addEventListener('change', async () => {
 });
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!window.validatePaymentTemplate()) return;
+  if (!window.validateProposalSignature?.()) {
+    status.textContent = 'Vui lòng ký tên trong bảng chữ ký trước khi gửi.';
+    return;
+  }
   status.textContent = 'Đang gửi...';
-  const payload = Object.fromEntries(new FormData(form));
+  const payload = window.getPaymentProposalFields();
   payload.type = 'payment';
   payload.paymentFlow = paymentFlow;
   const file = paymentFileInput.files?.[0];
-  if (!file) {
-    status.textContent = 'Vui lòng tải file biểu mẫu đề xuất.';
-    return;
-  }
-  if (file.size > 7 * 1024 * 1024) {
+  if (file && file.size > 7 * 1024 * 1024) {
     status.textContent = 'File không được vượt quá 7 MB.';
     return;
   }
-  payload.paymentFileName = file.name;
-  payload.paymentFileType = file.type || 'application/octet-stream';
-  payload.paymentFileData = await readFile(file);
   delete payload.paymentFile;
-  payload.reason = 'Đính kèm file biểu mẫu đề xuất thanh toán.';
   try {
+    if (file) {
+      payload.paymentFileName = file.name;
+      payload.paymentFileType = file.type || 'application/octet-stream';
+      payload.paymentFileData = await readFile(file);
+    }
     const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.message || 'Không thể gửi đề xuất.');
+    if (!response.ok) throw new Error(await response.text() || 'Không thể gửi đề xuất.');
+    await response.json();
     form.reset();
     closePaymentModal();
     window.showProposalSuccessToast?.();
-    loadPaymentProposals().catch(() => {});
+    loadPaymentProposals().catch((error) => { status.textContent = error.message; });
   } catch (error) {
     status.textContent = error.message;
   }
 });
 
 loadTemplate().catch((error) => { templateActionStatus.textContent = error.message || 'Không thể tải file mẫu thanh toán.'; });
-loadPaymentProposals().catch(() => {});
+loadPaymentProposals().catch((error) => { paymentHistory.innerHTML = `<p>${escapeHtml(error.message)}</p>`; });

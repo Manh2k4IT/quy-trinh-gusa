@@ -41,6 +41,17 @@ const refreshButton = document.querySelector('[data-proposal-refresh]');
 const summaryTotal = document.querySelector('[data-report-total]');
 const summaryPending = document.querySelector('[data-report-pending]');
 const summaryApproved = document.querySelector('[data-report-approved]');
+for (const [counter, kind, drawing] of [
+  [summaryTotal, 'total', '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h6M9 18h3"/>'],
+  [summaryPending, 'pending', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+  [summaryApproved, 'approved', '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'],
+]) {
+  const icon = document.createElement('div');
+  icon.className = `report-summary-icon is-${kind}`;
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${drawing}</svg>`;
+  counter.closest('article').prepend(icon);
+}
 const accountantRejectModal = document.querySelector('[data-accountant-reject-modal]');
 const accountantRejectForm = document.querySelector('[data-accountant-reject-form]');
 const accountantRejectReason = document.querySelector('[data-accountant-reject-reason]');
@@ -83,7 +94,7 @@ const notificationCount = notificationButton.querySelector('[data-proposal-notif
 const notificationList = notificationPanel.querySelector('[data-proposal-notification-list]');
 
 function proposalNotificationText(proposal) {
-  const type = proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất nhân sự';
+  const type = proposal.type === 'payment' ? 'đề xuất thanh toán' : 'đề xuất nghỉ phép và giờ làm';
   return `${proposal.userName || 'Nhân viên'} vừa gửi ${type}.`;
 }
 
@@ -193,6 +204,12 @@ function openProposalDetail(proposalId) {
   }
 
   detailFields.replaceChildren();
+  const documentActions = detailModal.querySelector('[data-saved-document-actions]');
+  if (documentActions) documentActions.remove();
+  const savedDocumentActions = document.createElement('div');
+  savedDocumentActions.dataset.savedDocumentActions = '';
+  detailFields.after(savedDocumentActions);
+  window.GusaSavedProposalDocument?.addActions(savedDocumentActions, proposal);
   appendDetailField('Trạng thái', statusLabels[proposal.status] || proposal.status);
   appendDetailField(proposal.type === 'payment' ? 'Ngày đề xuất' : 'Ngày áp dụng', dateText(proposal));
   appendDetailField('Giờ đề xuất', proposal.time);
@@ -200,6 +217,25 @@ function openProposalDetail(proposalId) {
   if (proposal.category) appendDetailField('Hạng mục', proposal.category);
   if (proposal.amount) appendDetailField('Số tiền', `${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ`);
   appendDetailField(proposal.category ? 'Ghi chú' : 'Lý do', proposal.reason || 'Không có nội dung.');
+  if (proposal.signatureData) {
+    const row = document.createElement('div');
+    row.className = 'report-detail-field';
+    const label = document.createElement('dt');
+    label.textContent = 'Chữ ký người đề xuất';
+    const value = document.createElement('dd');
+    const signature = document.createElement('img');
+    signature.src = proposal.signatureData;
+    signature.alt = 'Chữ ký người đề xuất';
+    signature.style.cssText = 'width:100%;max-width:300px;background:white;border-radius:8px';
+    value.append(signature);
+    if (proposal.signatureName) {
+      const name = document.createElement('div');
+      name.textContent = proposal.signatureName;
+      value.append(name);
+    }
+    row.append(label, value);
+    detailFields.append(row);
+  }
 
   const hasAttachment = Boolean(proposal.paymentFileData || proposal.latePhotoData || proposal.latitude);
   detailAttachments.hidden = !hasAttachment;

@@ -1,0 +1,54 @@
+.payment-routing { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.payment-routing a { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: .8rem; row-gap: .4rem; padding: 1.2rem; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--panel); text-decoration: none; }
+.payment-routing a::before { content: ''; grid-column: 1; grid-row: 1 / 3; align-self: start; box-sizing: border-box; width: 22px; height: 22px; border: 2px solid var(--muted); border-radius: 50%; background: var(--panel); }
+.payment-routing a > strong, .payment-routing a > span { grid-column: 2; }
+.payment-routing a[aria-current]::before { border-color: var(--navy); background: radial-gradient(circle, var(--navy) 0 5px, transparent 5.5px); }
+.payment-routing a:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
+.payment-routing a[aria-current] { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+.payment-routing span { color: var(--muted); font-size: .85rem; line-height: 1.6; }
+body .payment-page .payment-layout { grid-template-columns: minmax(0, 1fr) minmax(180px, .45fr); min-height: 0; gap: 1.5rem; padding: 1.5rem; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+body .payment-page .payment-note { padding: 0; max-width: none; background: transparent; color: var(--ink); line-height: 1.8; font-size: .9rem; }
+body .payment-page .payment-note h1 { color: #b42318; font-size: 1.1rem; }
+body[data-theme="dark"] .payment-page .payment-note h1 { color: #ffaaa3; }
+.payment-reference-templates { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.payment-reference-templates summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+.payment-reference-templates .payment-template { max-width: 320px; margin-top: 1rem; }
+body .payment-page .payment-submit, body .payment-page .payment-list-button { width: 100%; min-height: 46px; border-radius: 10px; font-size: .9rem; }
+.payment-modal-card.is-payment-composing { display: flex; flex-direction: column; width: min(1200px, 100%); padding: 1.2rem 0 0; max-height: 94dvh; overflow: hidden; }
+.payment-modal-card.is-payment-composing > h2 { padding: 0 3rem 0 1.2rem; font-size: 1.15rem; flex-shrink: 0; }
+.payment-composer { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(0, 1.15fr); min-height: 0; overflow-y: auto; }
+.payment-composer[hidden], .payment-composer-tabs, .payment-edit-document { display: none; }
+.payment-modal .payment-composer form { padding: 1.2rem; align-content: start; min-width: 0; }
+.payment-modal .payment-signature-panel { min-width: 0; }
+.payment-modal .proposal-signature-panel label { margin-top: .8rem; }
+.payment-modal .proposal-signature-panel p { color: var(--muted); }
+.payment-modal .proposal-signature-panel button { min-height: 36px; padding: .4rem .7rem; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); font: inherit; font-size: .75rem; cursor: pointer; }
+.payment-modal .proposal-signature-panel legend { color: var(--ink); }
+.payment-modal .payment-composer [data-payment-status] { white-space: normal; color: var(--ink); }
+.payment-modal .payment-composer [data-payment-status]:empty { display: none; }
+.payment-items-section, .payment-bank-section { min-width: 0; margin: 0; padding: .85rem; border: 1px solid var(--line); border-radius: 12px; }
+.payment-items-section legend, .payment-bank-section legend { font-size: .85rem; color: var(--ink); font-weight: 700; }
+.payment-bank-section { display: grid; gap: .75rem; }
+.payment-item-input { display: grid; gap: .6rem; padding: .8rem 0; border-bottom: 1px solid var(--line); }
+.payment-item-heading { display: flex; align-items: center; justify-content: space-between; gap: .6rem; font-size: .8rem; color: var(--ink); }
+.payment-item-input textarea { min-height: 70px; }
+.payment-items-section button { border: 1px solid var(--line); border-radius: 8px; padding: .5rem .7rem; color: var(--ink); background: var(--surface); cursor: pointer; font: inherit; font-size: .75rem; }
+.payment-items-section button:disabled { opacity: .5; cursor: default; }
+.payment-items-section [data-remove-payment-item] { color: #fff; border-color: #b42318; background: #b42318; }
+.payment-items-section [data-remove-payment-item]:hover:not(:disabled) { border-color: #912018; background: #912018; }
+.payment-items-section [data-add-payment-item] { margin: .7rem 0; color: #fff; border-color: #175cd3; background: #175cd3; font-weight: 600; }
+.payment-items-section [data-add-payment-item]:hover:not(:disabled) { border-color: #1849a9; background: #1849a9; }
+.payment-items-section [data-add-payment-item]:focus-visible { outline: 2px solid #175cd3; outline-offset: 3px; }
+body .payment-modal .payment-items-section p { color: var(--ink); margin: .4rem 0; line-height: 1.6; }
+@media (max-width: 760px) {
+  .payment-routing { grid-template-columns: 1fr; }
+  body .payment-page .payment-layout { grid-template-columns: 1fr; }
+  .payment-modal:has(.is-payment-composing) { padding: 0; }
+  .payment-modal-card.is-payment-composing { height: 100dvh; max-height: 100dvh; width: 100%; border-radius: 0; padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: env(safe-area-inset-bottom); }
+  .payment-composer { display: block; flex: 1; min-height: 0; overflow: auto; }
+  .payment-composer-tabs:not([hidden]) { display: flex; gap: .6rem; padding: 0 1rem .8rem; flex-shrink: 0; }
+  .payment-composer-tabs button { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--surface); font: inherit; font-size: .85rem; cursor: pointer; }
+  .payment-composer-tabs button[aria-pressed="true"] { color: #fff; background: var(--navy); }
+  .payment-composer[data-view="form"] .proposal-document-preview, .payment-composer[data-view="preview"] form { display: none; }
+  .payment-edit-document { display: block; width: 100%; margin-top: .8rem; }
+}

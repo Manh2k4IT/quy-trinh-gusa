@@ -86,6 +86,7 @@ function updateDurationFields() {
     latePhotoInput.value = '';
     locationStatus.textContent = 'Chưa chia sẻ vị trí';
   }
+  window.syncProposalDocument?.();
 }
 const typeLabels = {
   late: 'Đề xuất đi trễ',
@@ -100,10 +101,10 @@ const attendancePeriodLabels = { 'half-day-morning': 'Nửa buổi sáng', 'half
 function renderProposals(proposals) {
   if (!proposals.length) return;
   proposals.forEach((proposal) => {
-    const button = document.querySelector(`[data-open-proposal="${proposal.type}"]`);
+    const button = document.querySelector(`[data-open-proposal="${proposal.type}"][data-proposal-list-trigger]`);
     if (button) {
       const newProposalButton = button.closest('.proposal-card-actions')?.querySelector('.proposal-new-button');
-      button.textContent = 'DANH SÁCH ĐỀ XUẤT';
+      button.textContent = 'Xem danh sách';
       button.disabled = false;
       button.classList.remove('is-approved', 'is-rejected');
       button.dataset.proposalId = proposal.id;
@@ -125,6 +126,10 @@ async function loadProposals() {
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!window.validateProposalSignature?.()) {
+    status.textContent = 'Vui lòng ký tên trong bảng chữ ký trước khi gửi.';
+    return;
+  }
   status.textContent = 'Đang gửi...';
   const payload = Object.fromEntries(new FormData(form));
   delete payload.latePhoto;
@@ -168,9 +173,18 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.hidden = true;
       detail.hidden = false;
       detail.innerHTML = typedProposals.length
-        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}</article>`).join('')
+        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}${proposal.signatureData ? `<img class="proposal-saved-signature" src="${escapeHtml(proposal.signatureData)}" alt="Chữ ký người đề xuất" />` : ''}</article>`).join('')
         : '<p>Chưa có đề xuất nào.</p>';
       modal.hidden = false;
+      detail.querySelectorAll('.proposal-detail-item').forEach((item, index) => {
+        if (typedProposals[index].signatureName) {
+          const name = document.createElement('strong');
+          name.textContent = typedProposals[index].signatureName;
+          item.append(name);
+        }
+        window.GusaSavedProposalDocument?.addActions(item, typedProposals[index]);
+      });
+      window.syncProposalDocument?.();
       return;
     }
     const proposal = proposals.find((item) => item.id === button.dataset.proposalId && !isProposalExpired(item) && item.status !== 'approved');
@@ -188,6 +202,20 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       const statusText = proposal.status === 'approved' ? 'Đề xuất của bạn đã được duyệt' : proposal.status === 'rejected' ? 'Đề xuất của bạn đã bị từ chối' : 'Đề xuất đã được gửi đi';
       const statusClass = proposal.status === 'approved' ? 'is-approved' : proposal.status === 'rejected' ? 'is-rejected' : '';
       detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong><span>Ngày áp dụng: ${dateText}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}`;
+      if (proposal.signatureData) {
+        const signature = document.createElement('img');
+        signature.className = 'proposal-saved-signature';
+        signature.src = proposal.signatureData;
+        signature.alt = 'Chữ ký người đề xuất';
+        detail.append(signature);
+        if (proposal.signatureName) {
+          const name = document.createElement('strong');
+          name.textContent = proposal.signatureName;
+          detail.append(name);
+        }
+      }
+      window.GusaSavedProposalDocument?.addActions(detail, proposal);
+      window.syncProposalDocument?.();
     } else {
       form.hidden = false;
       detail.hidden = true;

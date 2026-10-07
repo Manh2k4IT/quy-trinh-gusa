@@ -55,8 +55,10 @@
     "@capacitor-firebase/authentication": "^8.5.2",
     "@capacitor-firebase/messaging": "^8.5.2",
     "@capacitor/core": "^8.5.2",
+    "dejavu-fonts-ttf": "^2.37.3",
     "firebase": "^12.19.0",
-    "firebase-admin": "^14.5.0"
+    "firebase-admin": "^14.5.0",
+    "pdfkit": "^0.20.2"
   },
   "overrides": {
     "gaxios": {

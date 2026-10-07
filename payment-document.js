@@ -1,0 +1,22 @@
+(function (root) {
+  const shared = typeof module !== 'undefined' && module.exports ? require('./payment-document-data') : root.GusaPaymentDocumentData;
+  const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const money = (value) => value !== '' && value != null && Number.isFinite(Number(value)) ? `${Number(value).toLocaleString('vi-VN')} VND` : '';
+  function render(fields, employee) {
+    const data = shared.getData(fields, employee);
+    const rows = data.items;
+    const [year, month, day] = data.date.split('-');
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? `Ngày ${Number(day)} tháng ${Number(month)} năm ${year}` : 'Ngày … tháng … năm …';
+    const signature = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(data.signatureData) ? `<img src="${escape(data.signatureData)}" alt="Chữ ký người đề nghị">` : '';
+    return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${data.title}</title><style>
+*{box-sizing:border-box}body{margin:0;background:#eef1f5;color:#222;font:15px/1.5 "Times New Roman",serif}article{max-width:794px;min-height:1000px;margin:auto;padding:28px 48px;background:#fff}.heading{display:flex;gap:24px;justify-content:space-between}.unit{width:44%}.template{width:48%;text-align:center;font-size:13px}.heading p{margin:0}h1{text-align:center;font-size:22px;margin:32px 0 6px}.date{text-align:center;font-style:italic;margin:0 0 24px}p{margin:12px 0;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;table-layout:fixed;margin:14px 0}th,td{border:1px solid #222;padding:9px 7px;vertical-align:top;overflow-wrap:anywhere}th{text-align:center;font-weight:bold}td:first-child{text-align:center}.money{text-align:right}.signatures{display:flex;text-align:center;gap:12px;margin-top:28px;break-inside:avoid}.signatures>div{width:33.33%}.signatures p{margin:0}.signature-space{height:85px;display:flex;align-items:center;justify-content:center}.signature-space img{max-width:100%;height:75px;object-fit:contain}.signature-name{font-weight:bold}.draft{margin-top:30px;border-top:1px dashed #aaa;color:#667085;font:12px Arial,sans-serif;padding-top:12px}
+@page{size:A4;margin:10mm 18mm}@media print{body{background:#fff}article{padding:0;min-height:0;max-width:none}.draft{display:none}thead{display:table-header-group}tr{break-inside:avoid}}
+</style></head><body><article><div class="heading"><div class="unit"><p><strong>Đơn vị: CTY GUSA VIỆT NAM</strong></p><p><strong>Bộ phận:</strong> ${escape(data.department)}</p></div><div class="template"><p><strong>Mẫu số: 05-TT</strong></p><p>(Ban hành theo Thông tư 200/2014/TT-BTC ngày 24/12/2014 của Bộ trưởng BTC)</p></div></div>
+<h1>${data.title}</h1><p class="date">${date}</p><p>Kính gửi: Ban Giám đốc Công ty TNHH Gusa Việt Nam</p><p>Họ và tên người đề nghị thanh toán: ${escape(data.name)}</p><p>Bộ phận: ${escape(data.department)}</p><p>Nội dung thanh toán các khoản sau đây:</p>
+<table><colgroup><col style="width:8%"><col style="width:43%"><col style="width:24%"><col style="width:25%"></colgroup><thead><tr><th>STT</th><th>Nội dung thanh toán</th><th>Số tiền</th><th>Chứng từ kèm</th></tr></thead><tbody>${rows.map((item, index) => `<tr><td>${index + 1}</td><td>${escape(item.description)}</td><td class="money">${escape(money(item.amount))}</td><td>${escape(item.document)}</td></tr>`).join('')}<tr><td colspan="2"><strong>Tổng cộng</strong></td><td class="money"><strong>${escape(money(data.total))}</strong></td><td></td></tr></tbody></table>
+<p>Số tiền viết bằng chữ: <strong>${escape(data.amountWords)}</strong></p><p>Thông tin chuyển khoản (nếu có):</p><p>Tên chủ tài khoản: ${escape(data.accountName)}</p><p>Tài khoản thụ hưởng: ${escape(data.accountNumber)}</p><p>Ngân hàng thụ hưởng: ${escape(data.bankName)}</p>
+<div class="signatures"><div><p><strong>Người đề nghị</strong></p><p>(Ký, họ tên)</p><div class="signature-space">${signature}</div><p class="signature-name">${escape(data.signatureName)}</p></div><div><p><strong>Kế toán trưởng</strong></p><p>(Ký, họ tên)</p></div><div><p><strong>Giám Đốc</strong></p><p>(Ký, họ tên)</p></div></div></article></body></html>`;
+  }
+  if (typeof module !== 'undefined' && module.exports) module.exports = { render };
+  else root.GusaPaymentDocument = { render };
+})(typeof window !== 'undefined' ? window : globalThis);

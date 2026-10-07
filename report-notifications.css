@@ -1,4 +1,15 @@
 .attendance-choice-card[data-report-key] { position: relative; }
+.attendance-choice-card[data-report-key="online"] { --report-icon-color: #175cd3; --report-icon-background: #eaf2ff; }
+.attendance-choice-card[data-report-key="late"] { --report-icon-color: #b54708; --report-icon-background: #fff3df; }
+.attendance-choice-card[data-report-key="overview"] { --report-icon-color: #6941c6; --report-icon-background: #f1ebff; }
+.attendance-choice-card[data-report-key="personnel"] { --report-icon-color: #0e7490; --report-icon-background: #e5f5fa; }
+.attendance-choice-card[data-report-key="payment"] { --report-icon-color: #067647; --report-icon-background: #e7f7ee; }
+body[data-theme="dark"] .attendance-choice-card[data-report-key="online"] { --report-icon-color: #8bb8ff; --report-icon-background: #273c58; }
+body[data-theme="dark"] .attendance-choice-card[data-report-key="late"] { --report-icon-color: #fbbf68; --report-icon-background: #493725; }
+body[data-theme="dark"] .attendance-choice-card[data-report-key="overview"] { --report-icon-color: #c4a4ff; --report-icon-background: #3c3056; }
+body[data-theme="dark"] .attendance-choice-card[data-report-key="personnel"] { --report-icon-color: #7dd3e8; --report-icon-background: #23434e; }
+body[data-theme="dark"] .attendance-choice-card[data-report-key="payment"] { --report-icon-color: #79dbb5; --report-icon-background: #24483d; }
+body .attendance-choice-card[data-report-key] .attendance-choice-icon { color: var(--report-icon-color); background: var(--report-icon-background); }
 .report-unread-badge { position: absolute; top: 1.2rem; right: 1.2rem; display: inline-flex; min-height: 38px; align-items: center; gap: .4rem; padding: .45rem .7rem; border: 1px solid #f6cccc; border-radius: 999px; color: #b42332; background: #fff0f1; box-shadow: 0 4px 12px rgba(180, 35, 50, .1); font-size: .8rem; font-weight: 800; }
 .report-unread-badge[hidden] { display: none; }
 .report-unread-badge svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

@@ -11,6 +11,14 @@
 .attendance-choice-card:focus-visible { outline: 3px solid #278d70; outline-offset: 3px; }
 .attendance-choice-icon { display: grid; width: 72px; height: 72px; place-items: center; border-radius: 22px; color: #278d70; background: #e8f4ec; }
 .attendance-choice-online .attendance-choice-icon { color: #28788b; background: #e8f3f6; }
+body .attendance-choice-company .attendance-choice-icon { color: #0e7490; background: #e5f5fa; }
+body .attendance-choice-card[href="attendance.html?view=online"] .attendance-choice-icon { color: #175cd3; background: #eaf2ff; }
+body .attendance-choice-card[data-proposal-personnel-choice] .attendance-choice-icon { color: #6941c6; background: #f1ebff; }
+body .attendance-choice-card[href="payment-proposal.html"] .attendance-choice-icon { color: #067647; background: #e7f7ee; }
+body[data-theme="dark"] .attendance-choice-company .attendance-choice-icon { color: #7dd3e8; background: #23434e; }
+body[data-theme="dark"] .attendance-choice-card[href="attendance.html?view=online"] .attendance-choice-icon { color: #8bb8ff; background: #273c58; }
+body[data-theme="dark"] .attendance-choice-card[data-proposal-personnel-choice] .attendance-choice-icon { color: #c4a4ff; background: #3c3056; }
+body[data-theme="dark"] .attendance-choice-card[href="payment-proposal.html"] .attendance-choice-icon { color: #79dbb5; background: #24483d; }
 .attendance-choice-icon svg { width: 42px; height: 42px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
 .attendance-choice-title { color: #30231e; font-size: clamp(1.2rem, 2.4vw, 1.55rem); font-weight: 800; line-height: 1.35; }
 .attendance-choice-description { min-height: 3.2em; color: #73777a; font-size: .95rem; line-height: 1.65; }

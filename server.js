@@ -6,6 +6,9 @@ const { cert, getApps, initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getMessaging } = require("firebase-admin/messaging");
 const { proposalReportItems, attendanceReportItems } = require("./report-notification-data");
+const proposalDocument = require("./proposal-document");
+const { createProposalPdf } = require("./proposal-document-pdf");
+const paymentDocumentData = require("./payment-document-data");
 
 loadEnvFile();
 
@@ -610,7 +613,9 @@ function needsAccountingReview(proposal) {
 }
 
 function canViewPaymentProposal(user, proposal) {
-  return proposal.type === "payment" && (isManagementUser(user) || getPaymentStage(proposal) === "accounting" || getPaymentStage(proposal) === "completed" || getPaymentFlow(proposal) === "accountant");
+  if (proposal.type !== "payment") return false;
+  if (isManagementUser(user)) return getPaymentFlow(proposal) === "ceo";
+  return user.role === "accountant" && (getPaymentStage(proposal) === "accounting" || getPaymentStage(proposal) === "completed" || getPaymentFlow(proposal) === "accountant");
 }
 
 function getReportNotificationReports(currentUser, proposals = getProposals(), attendance = getAttendance()) {
@@ -629,6 +634,28 @@ function serveReportNotifications(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active" || (!isManagementUser(currentUser) && currentUser.role !== "accountant")) return send(res, 403, "Forbidden");
   sendJson(res, 200, { accountId: getAttendanceUserKey(currentUser), reports: getReportNotificationReports(currentUser) });
+}
+
+async function serveProposalDocument(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const id = decodeURIComponent(url.pathname.slice("/api/proposals/".length, -"/document".length));
+  const proposal = getProposals().find((item) => item.id === id);
+  if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
+  if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && canViewPaymentProposal(currentUser, proposal))) return send(res, 403, "Forbidden");
+  if (!["late", "early-leave", "half-day", "leave", "unauthorized-leave", "payment"].includes(proposal.type)) return send(res, 400, "Loại đề xuất này chưa hỗ trợ tải đơn.");
+  const saved = { ...proposal, userName: proposal.userName || users.get(proposal.userId)?.name || "Nhân viên" };
+  const format = url.searchParams.get("format");
+  if (format === "html") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+    return res.end(proposalDocument.render(proposalDocument.fromProposal(saved), { name: saved.userName }));
+  }
+  if (format !== "pdf") return send(res, 400, "Định dạng đơn không hợp lệ.");
+  const pdf = await createProposalPdf(saved);
+  const filename = `don-${proposal.type}-${proposal.date || "de-xuat"}-${String(proposal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}.pdf`;
+  res.writeHead(200, { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "no-store", "Content-Length": pdf.length });
+  res.end(pdf);
 }
 
 function serveProposals(req, res) {
@@ -956,27 +983,49 @@ async function createProposal(req, res) {
   const payload = JSON.parse(body || "{}");
   const allowedTypes = ["late", "early-leave", "half-day", "leave", "unauthorized-leave", "payment"];
   const type = String(payload.type || "");
+  const signatureData = typeof payload.signatureData === "string" ? payload.signatureData : "";
+  const signatureName = typeof payload.signatureName === "string" ? payload.signatureName.trim() : "";
+  if (allowedTypes.includes(type)) {
+    if (!signatureName || signatureName.length > 150) return send(res, 400, "Vui lòng nhập họ và tên đầy đủ của người ký (tối đa 150 ký tự).");
+    const signatureBytes = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signatureData) && signatureData.length <= 256 * 1024
+      ? Buffer.from(signatureData.slice("data:image/png;base64,".length), "base64") : null;
+    if (!signatureBytes || signatureBytes.length < 57 || signatureBytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" || signatureBytes.toString("ascii", 12, 16) !== "IHDR" || signatureBytes.readUInt32BE(16) !== 600 || signatureBytes.readUInt32BE(20) !== 200 || !signatureBytes.includes(Buffer.from("IDAT")) || signatureBytes.subarray(-12).toString("hex") !== "0000000049454e44ae426082") {
+      return send(res, 400, "Vui lòng ký tên hợp lệ trong bảng chữ ký trước khi gửi đề xuất.");
+    }
+  }
   const date = String(payload.date || "");
   const dateFrom = String(payload.dateFrom || "");
   const dateTo = String(payload.dateTo || "");
   const time = String(payload.time || "");
   const halfDayPeriod = String(payload.halfDayPeriod || "");
-  const category = String(payload.category || "").trim().slice(0, 200);
-  const amount = String(payload.amount || "").trim();
-  const reason = String(payload.reason || "").trim().slice(0, 1000);
+  let paymentTemplateFields = {};
+  if (type === "payment" && (Object.hasOwn(payload, "paymentItems") || Object.hasOwn(payload, "paymentTemplateVersion"))) {
+    try {
+      paymentTemplateFields = paymentDocumentData.validate(payload);
+    } catch (error) {
+      return send(res, 400, error.message);
+    }
+  }
+  const category = paymentTemplateFields.category ?? String(payload.category || "").trim().slice(0, 200);
+  const amount = paymentTemplateFields.amount ?? String(payload.amount || "").trim();
+  const reason = String(payload.reason || paymentTemplateFields.category || "").trim().slice(0, 1000);
   const paymentFileName = String(payload.paymentFileName || "").trim().slice(0, 180);
   const paymentFileType = String(payload.paymentFileType || "").trim().slice(0, 120);
   const paymentFileData = typeof payload.paymentFileData === "string" ? payload.paymentFileData : "";
   const multipleLeave = ["leave", "unauthorized-leave"].includes(type) && dateFrom && dateTo;
   const hasLateProof = type === "late" && typeof payload.latePhotoData === "string" && payload.latePhotoData.startsWith("data:image/") && payload.latePhotoData.length <= 7 * 1024 * 1024 && Number.isFinite(Number(payload.latitude)) && Number.isFinite(Number(payload.longitude));
   const validPayment = type === "payment" && category && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0;
-  const validPaymentFile = type === "payment" && paymentFileName && paymentFileData.startsWith("data:") && paymentFileData.length <= 9.5 * 1024 * 1024;
+  const validPaymentFile = type === "payment" && ((!paymentFileName && !paymentFileData) || (paymentFileName && paymentFileData.startsWith("data:") && paymentFileData.length <= 9.5 * 1024 * 1024));
   if (type === "half-day" && !["half-day-morning", "half-day-afternoon"].includes(halfDayPeriod)) return send(res, 400, "Vui lòng chọn buổi sáng hoặc buổi chiều.");
   if (type === "late" && !/^\d{2}:\d{2}$/.test(time)) return send(res, 400, "Vui lòng nhập giờ dự kiến đến công ty.");
-  if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || (!reason && type !== "payment") || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Đề xuất đi trễ cần có ảnh và vị trí xác nhận." : "Vui lòng nhập đầy đủ thông tin đề xuất.");
+  if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || !reason || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Đề xuất đi trễ cần có ảnh và vị trí xác nhận." : "Vui lòng nhập đầy đủ thông tin đề xuất.");
   const paymentFlow = payload.paymentFlow === "accountant" ? "accountant" : "ceo";
-  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
+  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData, ...paymentTemplateFields } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
   const proposals = getProposals();
+  if (allowedTypes.includes(type)) {
+    proposal.signatureData = signatureData;
+    proposal.signatureName = signatureName;
+  }
   proposals.unshift(proposal);
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
   publishProposalEvent(proposal);
@@ -1317,6 +1366,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/api/proposals/events") return serveProposalEvents(req, res);
     if (req.method === "GET" && req.url === "/api/proposals") return serveProposals(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/proposals?")) return serveProposals(req, res);
+    if (req.method === "GET" && /^\/api\/proposals\/[^/]+\/document(?:\?|$)/.test(req.url)) return await serveProposalDocument(req, res);
     if (req.method === "POST" && req.url === "/api/proposals") return await createProposal(req, res);
     if (req.method === "POST" && req.url === "/api/proposals/status") return await updateProposalStatus(req, res);
     if (req.method === "POST" && req.url.startsWith("/api/proposals/") && req.url.endsWith("/cancel")) {

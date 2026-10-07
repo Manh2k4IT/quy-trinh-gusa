@@ -247,7 +247,7 @@ function initializeSharedProposalNotifications() {
   let knownIds = new Set(JSON.parse(localStorage.getItem('gusa-proposal-notification-ids') || '[]'));
   let hasLoadedOnce = false;
   let notificationTimer;
-  const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? `đề xuất thanh toán (${proposal.paymentFlow === 'accountant' ? 'Kế toán' : 'CEO'})` : 'đề xuất nhân sự'}.`;
+  const formatProposal = (proposal) => `${proposal.userName || 'Nhân viên'} vừa gửi ${proposal.type === 'payment' ? `đề xuất thanh toán (${proposal.paymentFlow === 'accountant' ? 'Kế toán' : 'CEO'})` : 'đề xuất nghỉ phép và giờ làm'}.`;
   const showNotifications = async (newProposals) => {
     if (!newProposals.length) return;
     if (!(await window.claimProposalNotification(newProposals[0].id))) return;
