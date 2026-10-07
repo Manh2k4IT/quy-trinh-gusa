@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const { cert, getApps, initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getMessaging } = require("firebase-admin/messaging");
+const { proposalReportItems, attendanceReportItems } = require("./report-notification-data");
 
 loadEnvFile();
 
@@ -608,6 +609,28 @@ function needsAccountingReview(proposal) {
   return proposal.type === "payment" && proposal.status === "pending" && getPaymentStage(proposal) === "accounting";
 }
 
+function canViewPaymentProposal(user, proposal) {
+  return proposal.type === "payment" && (isManagementUser(user) || getPaymentStage(proposal) === "accounting" || getPaymentStage(proposal) === "completed" || getPaymentFlow(proposal) === "accountant");
+}
+
+function getReportNotificationReports(currentUser, proposals = getProposals(), attendance = getAttendance()) {
+  const reports = {};
+  if (isManagementUser(currentUser)) {
+    Object.assign(reports, attendanceReportItems([...users.values()].filter((user) => user.status === "active"), attendance, proposals));
+    reports.personnel = proposalReportItems(proposals.filter((proposal) => proposal.type !== "payment"));
+  }
+  if (isManagementUser(currentUser) || currentUser.role === "accountant") {
+    reports.payment = proposalReportItems(proposals.filter((proposal) => canViewPaymentProposal(currentUser, proposal)));
+  }
+  return reports;
+}
+
+function serveReportNotifications(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active" || (!isManagementUser(currentUser) && currentUser.role !== "accountant")) return send(res, 403, "Forbidden");
+  sendJson(res, 200, { accountId: getAttendanceUserKey(currentUser), reports: getReportNotificationReports(currentUser) });
+}
+
 function serveProposals(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -618,7 +641,7 @@ function serveProposals(req, res) {
     ? isManagementUser(currentUser) ? getProposals() : null
     : scope === "payment-report"
       ? canViewPaymentReport
-        ? getProposals().filter((proposal) => proposal.type === "payment" && (isManagementUser(currentUser) || getPaymentStage(proposal) === "accounting" || getPaymentStage(proposal) === "completed" || getPaymentFlow(proposal) === "accountant"))
+        ? getProposals().filter((proposal) => canViewPaymentProposal(currentUser, proposal))
         : null
       : scope === "review-queue"
         ? isManagementUser(currentUser)
@@ -642,6 +665,13 @@ function serveProposals(req, res) {
     proposals: enrichedProposals,
     canReview: isManagementUser(currentUser) || currentUser.role === "accountant",
     viewerRole: currentUser.role,
+    ...(["all", "payment-report"].includes(scope) ? {
+      reportNotificationSnapshot: {
+        accountId: getAttendanceUserKey(currentUser),
+        reportKey: scope === "payment-report" ? "payment" : "personnel",
+        items: proposalReportItems(proposals.filter((proposal) => scope === "payment-report" || proposal.type !== "payment")),
+      },
+    } : {}),
   });
 }
 
@@ -967,10 +997,15 @@ function serveAttendanceOverview(req, res) {
     picture: user.picture || "",
     records: Object.fromEntries(Object.entries(attendance[user.id] || {}).filter(([date]) => date.startsWith(month))),
   }));
-  const lateProposalReviews = getProposals()
+  const proposals = getProposals();
+  const lateProposalReviews = proposals
     .filter((proposal) => proposal.type === "late" && ["approved", "rejected"].includes(proposal.status) && proposal.date?.startsWith(month))
     .map(({ userId, date, status }) => ({ userId, date, status }));
-  sendJson(res, 200, { month, users: overview, lateProposalReviews });
+  const reportKey = ["online", "late"].includes(requestUrl.searchParams.get("report")) ? requestUrl.searchParams.get("report") : "overview";
+  sendJson(res, 200, {
+    month, users: overview, lateProposalReviews,
+    reportNotificationSnapshot: { accountId: getAttendanceUserKey(currentUser), reportKey, items: getReportNotificationReports(currentUser, proposals, attendance)[reportKey] },
+  });
 }
 
 async function updateAttendance(req, res) {
@@ -1272,6 +1307,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
     if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
+    if (req.method === "GET" && req.url === "/api/report-notifications") return serveReportNotifications(req, res);
     if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
     if (req.url === "/api/push/devices" && req.method === "DELETE") return await unregisterPushDevice(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/attendance-overview")) return serveAttendanceOverview(req, res);

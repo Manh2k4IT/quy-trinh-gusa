@@ -332,7 +332,29 @@ function bindStatusEditing() {
 function formatTime(value) { return value ? new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'; }
 function todayKey() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; }
 function render(usersToRender = users) { const selectedDate = new Date(`${monthSelect.value}-01T00:00:00`); const year = selectedDate.getFullYear(); const month = selectedDate.getMonth(); const days = new Date(year, month + 1, 0).getDate(); const dateKey = todayKey(); const filtered = usersToRender.filter((user) => { const query = search.value.trim().toLowerCase(); const record = user.records?.[dateKey]; const state = record?.checkOut ? 'completed' : record?.checkIn ? 'working' : 'not-checked'; return (!query || user.name.toLowerCase().includes(query)) && (statusFilter.value === 'all' || statusFilter.value === state); }); const states = users.map((user) => user.records?.[dateKey]?.checkOut ? 'completed' : user.records?.[dateKey]?.checkIn ? 'working' : 'not-checked'); document.querySelector('[data-admin-total]').textContent = users.length; document.querySelector('[data-admin-checked-in]').textContent = states.filter((s) => s !== 'not-checked').length; document.querySelector('[data-admin-completed]').textContent = states.filter((s) => s === 'completed').length; document.querySelector('[data-admin-not-checked]').textContent = states.filter((s) => s === 'not-checked').length; const headers = Array.from({ length: days }, (_, i) => { const date = new Date(year, month, i + 1); return `<th><span>${i + 1}</span><small>${date.toLocaleDateString('vi-VN', { weekday: 'short' }).replace('.', '')}</small></th>`; }).join(''); const rows = filtered.map((user, i) => { const cells = Array.from({ length: days }, (_, day) => { const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day + 1).padStart(2, '0')}`; const date = new Date(year, month, day + 1); const record = user.records?.[key]; const mark = record?.checkIn ? 'X' : date > new Date() ? '' : date.getDay() === 0 || date.getDay() === 6 ? 'CN' : 'K'; const type = record?.checkIn ? 'present' : mark === 'CN' ? 'weekend' : mark ? 'absent' : 'future'; return `<td class="attendance-day attendance-day-${type}">${mark}</td>`; }).join(''); const total = Object.values(user.records || {}).filter((record) => record.checkIn && record.date?.startsWith(monthSelect.value)).length; return `<tr><td class="attendance-index">${i + 1}</td><td class="attendance-person"><strong>${user.name}</strong></td>${cells}<td class="attendance-total">${total}</td></tr>`; }).join(''); list.innerHTML = `<thead><tr><th class="attendance-index">STT</th><th class="attendance-person">Nhân viên</th>${headers}<th class="attendance-total">Tổng ngày</th></tr></thead><tbody>${rows || '<tr><td colspan="100">Không tìm thấy nhân viên phù hợp.</td></tr>'}</tbody>`; }
-async function load() { const requestedMonth = reportMode === 'late' ? monthSelect.value.slice(0, 7) : monthSelect.value; const response = await fetch(`/api/attendance-overview?month=${requestedMonth}`, { cache: 'no-store' }); if (!response.ok) throw new Error('Bạn không có quyền xem tổng quan nhân sự.'); const overviewData = await response.json(); users = overviewData.users || []; lateProposalReviewStatuses = new Map((overviewData.lateProposalReviews || []).map(({ userId, date, status }) => [`${userId}:${date}`, status])); if (reportMode === 'late') { renderLateReport(); return; } updateStatusKpis(); render(); decorateAttendanceDots(); applySpecialAttendanceStatuses(); addStatusCountColumns(); bindStatusEditing(); if (!lateReport.hidden) { if (reportMode === 'online') renderOnlineReport(); else renderLateReport(); } }
+async function load() {
+	const requestedMonth = reportMode === 'late' ? monthSelect.value.slice(0, 7) : monthSelect.value;
+	const response = await fetch(`/api/attendance-overview?month=${requestedMonth}&report=${reportMode || 'overview'}`, { cache: 'no-store' });
+	if (!response.ok) throw new Error('Bạn không có quyền xem tổng quan nhân sự.');
+	const overviewData = await response.json();
+	users = overviewData.users || [];
+	lateProposalReviewStatuses = new Map((overviewData.lateProposalReviews || []).map(({ userId, date, status }) => [`${userId}:${date}`, status]));
+	if (reportMode === 'late') {
+		renderLateReport();
+	} else {
+		updateStatusKpis();
+		render();
+		decorateAttendanceDots();
+		applySpecialAttendanceStatuses();
+		addStatusCountColumns();
+		bindStatusEditing();
+		if (!lateReport.hidden) {
+			if (reportMode === 'online') renderOnlineReport();
+			else renderLateReport();
+		}
+	}
+	window.GusaReportNotifications?.markSeen(overviewData.reportNotificationSnapshot);
+}
 const now = new Date();
 if (reportMode === 'late') {
 	monthSelect.closest('.attendance-month')?.childNodes.forEach((node) => {

@@ -1,0 +1,8 @@
+.attendance-choice-card[data-report-key] { position: relative; }
+.report-unread-badge { position: absolute; top: 1.2rem; right: 1.2rem; display: inline-flex; min-height: 38px; align-items: center; gap: .4rem; padding: .45rem .7rem; border: 1px solid #f6cccc; border-radius: 999px; color: #b42332; background: #fff0f1; box-shadow: 0 4px 12px rgba(180, 35, 50, .1); font-size: .8rem; font-weight: 800; }
+.report-unread-badge[hidden] { display: none; }
+.report-unread-badge svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.report-unread-badge::after { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border: 2px solid #fff; border-radius: 50%; background: #e34858; content: ""; }
+.attendance-choice-card.has-unread-report { border-color: #f0c4c9; }
+.report-notification-status { display: block; margin: .8rem auto 0; padding: .6rem .9rem; border: 1px solid #efccd0; border-radius: 10px; color: #b42332; background: #fff0f1; cursor: pointer; font: inherit; font-size: .8rem; }
+.report-notification-status[hidden] { display: none; }

@@ -13,6 +13,12 @@ Lần đầu mở ứng dụng, nhập URL HTTPS của máy chủ. Nhân viên c
 
 Trên Windows, nút đóng cửa sổ sẽ đưa ứng dụng xuống khay hệ thống và giữ kết nối thông báo. Chọn **Thoát hoàn toàn** trong menu để tắt ứng dụng. Có thể bật **Khởi động cùng Windows** trong menu khay để nhận thông báo sau khi đăng nhập lại máy. Tài khoản quản lý cần đăng nhập và bật quyền thông báo/âm thanh một lần; các quyền đề xuất vẫn do máy chủ kiểm soát.
 
+## Thông báo báo cáo chưa xem
+
+Trong trang **Báo cáo**, chuông đỏ trên từng ô hiển thị số mục mới hoặc cập nhật kể từ lần mở báo cáo gần nhất. Lần đầu sử dụng, các mục hiện có được tính là chưa xem. Mở báo cáo và tải dữ liệu thành công sẽ đánh dấu đã xem cho riêng loại báo cáo đó; mở trang lỗi hoặc để trang chạy nền không xóa thông báo. Trang chọn báo cáo kiểm tra dữ liệu mỗi 15 giây khi đang hiển thị và khi quay lại trang.
+
+Trạng thái đã xem được lưu riêng theo tài khoản trong trình duyệt/ứng dụng trên thiết bị hiện tại, không đồng bộ giữa các thiết bị. Chấm công được đếm theo nhân sự/ngày, đề xuất được đếm theo từng đề xuất; một mục cập nhật nhiều lần vẫn chỉ tính một mục chưa xem. Chỉ các báo cáo mà vai trò có quyền xem mới được trả về.
+
 ## Tạo bộ cài Windows
 
 ```powershell

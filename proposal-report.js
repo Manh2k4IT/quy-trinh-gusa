@@ -296,6 +296,7 @@ async function load(showFeedback = false) {
     notificationInitialized = true;
     renderSummary();
     render();
+    window.GusaReportNotifications?.markSeen(result.reportNotificationSnapshot);
     await showProposalNotification(newProposals);
     if (showFeedback) refreshButton.textContent = 'Đã cập nhật';
   } catch (error) {

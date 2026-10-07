@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20260929-2" />
     <link rel="stylesheet" href="attendance-choice.css?v=20261007-2" />
+    <link rel="stylesheet" href="report-notifications.css?v=20261007-1" />
   </head>
   <body class="attendance-choice-screen">
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -26,33 +27,39 @@
             <h1>Báo cáo</h1>
             <p>Chọn loại báo cáo bạn muốn xem.</p>
             <p data-report-choice-status role="status">Đang tải danh sách báo cáo...</p>
+            <button class="report-notification-status" type="button" data-report-notification-status hidden aria-live="polite"></button>
           </div>
           <div class="attendance-choice-grid" aria-label="Chọn loại báo cáo">
-            <a class="attendance-choice-card attendance-choice-online" href="attendance-overview.html?report=online" data-report-access="admin" hidden>
+            <a class="attendance-choice-card attendance-choice-online" href="attendance-overview.html?report=online" data-report-access="admin" data-report-key="online" hidden>
+              <span class="report-unread-badge" data-report-unread hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><span data-report-unread-count>0</span><span>Mới</span></span>
               <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 13h34v23H7zM17 41h14M24 36v5" /></svg></span>
               <span class="attendance-choice-title">Báo cáo nhân sự làm online</span>
               <span class="attendance-choice-description">Theo dõi nhân sự và thời gian làm việc online.</span>
               <span class="attendance-choice-action">Xem báo cáo <span aria-hidden="true">→</span></span>
             </a>
-            <a class="attendance-choice-card" href="attendance-overview.html?report=late" data-report-access="admin" hidden>
+            <a class="attendance-choice-card" href="attendance-overview.html?report=late" data-report-access="admin" data-report-key="late" hidden>
+              <span class="report-unread-badge" data-report-unread hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><span data-report-unread-count>0</span><span>Mới</span></span>
               <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="17" /><path d="M24 13v11l8 5" /></svg></span>
               <span class="attendance-choice-title">Báo cáo đi trễ</span>
               <span class="attendance-choice-description">Xem tình hình đi trễ và các đề xuất liên quan.</span>
               <span class="attendance-choice-action">Xem báo cáo <span aria-hidden="true">→</span></span>
             </a>
-            <a class="attendance-choice-card" href="attendance-overview.html" data-report-access="admin" hidden>
+            <a class="attendance-choice-card" href="attendance-overview.html" data-report-access="admin" data-report-key="overview" hidden>
+              <span class="report-unread-badge" data-report-unread hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><span data-report-unread-count>0</span><span>Mới</span></span>
               <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="15" r="7" /><path d="M10 40v-5a14 14 0 0 1 28 0v5" /></svg></span>
               <span class="attendance-choice-title">Tổng quan nhân sự</span>
               <span class="attendance-choice-description">Xem bảng công và tình trạng chấm công của nhân sự.</span>
               <span class="attendance-choice-action">Xem báo cáo <span aria-hidden="true">→</span></span>
             </a>
-            <a class="attendance-choice-card" href="proposal-report.html" data-report-access="admin" hidden>
+            <a class="attendance-choice-card" href="proposal-report.html" data-report-access="admin" data-report-key="personnel" hidden>
+              <span class="report-unread-badge" data-report-unread hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><span data-report-unread-count>0</span><span>Mới</span></span>
               <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M10 6h28v36H10zM17 15h14M17 24h14M17 33h9" /></svg></span>
               <span class="attendance-choice-title">Báo cáo nhân sự</span>
               <span class="attendance-choice-description">Tổng hợp các đề xuất nhân sự và trạng thái xử lý.</span>
               <span class="attendance-choice-action">Xem báo cáo <span aria-hidden="true">→</span></span>
             </a>
-            <a class="attendance-choice-card attendance-choice-online" href="proposal-report.html?type=payment" data-report-access="payment" hidden>
+            <a class="attendance-choice-card attendance-choice-online" href="proposal-report.html?type=payment" data-report-access="payment" data-report-key="payment" hidden>
+              <span class="report-unread-badge" data-report-unread hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><span data-report-unread-count>0</span><span>Mới</span></span>
               <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M10 6h28v36H10zM17 15h14M17 24h14M17 33h9" /></svg></span>
               <span class="attendance-choice-title">Báo cáo đề xuất thanh toán</span>
               <span class="attendance-choice-description">Theo dõi đề xuất thanh toán và trạng thái xác nhận.</span>
@@ -63,5 +70,6 @@
       </main>
     </div>
     <script src="admin-menu.js?v=20261007-4"></script>
+    <script src="report-notifications.js?v=20261007-1"></script>
   </body>
 </html>
