@@ -3,6 +3,8 @@ node_modules/
 dist/
 users.json
 attendance.json
+attendance-network.json
+attendance-network.json.tmp
 proposals.json
 organization-members.json
 organization-profiles.json

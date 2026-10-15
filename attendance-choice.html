@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20260929-2" />
-    <link rel="stylesheet" href="attendance-choice.css?v=20261007-3" />
+    <link rel="stylesheet" href="attendance-choice.css?v=20261015-1" />
   </head>
   <body class="attendance-choice-screen">
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -40,9 +40,25 @@
               <span class="attendance-choice-action">Tiếp tục <span aria-hidden="true">→</span></span>
             </a>
           </div>
+          <section class="attendance-network-settings" data-attendance-network hidden aria-labelledby="attendance-network-title">
+            <h2 id="attendance-network-title">Mạng công ty được phép chấm công</h2>
+            <p>Chỉ Admin/CEO quản lý. Nhập IP Internet công cộng của mạng công ty (Wi-Fi hoặc mạng dây), không nhập IP nội bộ như 192.168.1.1.</p>
+            <p>Chỉ giới hạn check-in và check-out tại công ty; chấm công online không bị ảnh hưởng. Để trống danh sách thì chưa giới hạn mạng.</p>
+            <p>IP kết nối hiện tại: <strong data-attendance-current-ip>Đang tải...</strong></p>
+            <form data-attendance-network-form>
+              <label for="attendance-network-ips">Danh sách IP được phép — mỗi dòng một IP (tối đa 100)</label>
+              <textarea id="attendance-network-ips" name="allowedIps" rows="5" spellcheck="false" data-attendance-network-ips disabled></textarea>
+              <div class="attendance-network-actions">
+                <button type="button" data-attendance-add-current-ip disabled>Thêm IP đang kết nối</button>
+                <button type="submit" data-attendance-save-network disabled>Lưu danh sách IP</button>
+              </div>
+            </form>
+            <p data-attendance-network-status role="status"></p>
+          </section>
         </section>
       </main>
     </div>
     <script src="admin-menu.js?v=20261007-4"></script>
+    <script src="attendance-network-settings.js?v=20261015-1"></script>
   </body>
 </html>

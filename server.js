@@ -9,6 +9,7 @@ const { proposalReportItems, attendanceReportItems } = require("./report-notific
 const proposalDocument = require("./proposal-document");
 const { createProposalPdf } = require("./proposal-document-pdf");
 const paymentDocumentData = require("./payment-document-data");
+const { validateAllowedIps, getRequestIp, needsOfficeNetwork } = require("./attendance-network");
 
 loadEnvFile();
 
@@ -44,6 +45,48 @@ const sessions = new Map();
 const proposalEventClients = new Set();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
 const sessionMaxAgeMilliseconds = 30 * 24 * 60 * 60 * 1000;
+const attendanceNetworkPath = path.join(dataDirectory, "attendance-network.json");
+const attendanceTrustedProxyHops = Number(process.env.ATTENDANCE_TRUST_PROXY_HOPS?.trim() || (process.env.RENDER === "true" ? 1 : 0));
+if (!Number.isInteger(attendanceTrustedProxyHops) || attendanceTrustedProxyHops < 0 || attendanceTrustedProxyHops > 10) {
+  throw new Error("ATTENDANCE_TRUST_PROXY_HOPS phải là số nguyên từ 0 đến 10.");
+}
+
+function getAttendanceNetwork() {
+  try {
+    const settings = JSON.parse(fs.readFileSync(attendanceNetworkPath, "utf8"));
+    return { allowedIps: validateAllowedIps(settings.allowedIps) };
+  } catch (error) {
+    if (error.code === "ENOENT") return { allowedIps: [] };
+    throw error;
+  }
+}
+
+function serveAttendanceNetwork(req, res) {
+  const user = getCurrentUser(req);
+  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được xem cấu hình mạng chấm công." });
+  sendJson(res, 200, { ...getAttendanceNetwork(), currentIp: getRequestIp(req, attendanceTrustedProxyHops) });
+}
+
+async function updateAttendanceNetwork(req, res) {
+  const user = getCurrentUser(req);
+  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được sửa cấu hình mạng chấm công." });
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (Buffer.byteLength(body, "utf8") > 16384) return sendJson(res, 413, { message: "Danh sách IP quá lớn." });
+  }
+  let allowedIps;
+  try {
+    const payload = JSON.parse(body);
+    allowedIps = validateAllowedIps(payload.allowedIps);
+  } catch (error) {
+    return sendJson(res, 400, { message: error.message });
+  }
+  const settings = { allowedIps, updatedAt: new Date().toISOString(), updatedBy: user.id };
+  fs.writeFileSync(`${attendanceNetworkPath}.tmp`, JSON.stringify(settings, null, 2));
+  fs.renameSync(`${attendanceNetworkPath}.tmp`, attendanceNetworkPath);
+  sendJson(res, 200, { allowedIps, currentIp: getRequestIp(req, attendanceTrustedProxyHops) });
+}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -413,6 +456,7 @@ function serveStatic(req, res) {
   const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
   const filePath = path.resolve(process.cwd(), relativePath);
   if (!filePath.startsWith(path.resolve(process.cwd()))) return send(res, 403, "Forbidden");
+  if (["attendance-network.json", "attendance-network.json.tmp"].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
 
   fs.readFile(filePath, (error, data) => {
     if (error) return send(res, 404, "Not found");
@@ -1104,6 +1148,7 @@ function serveAttendanceOverview(req, res) {
 async function updateAttendance(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser) return send(res, 401, "Unauthorized");
+  if (currentUser.status !== "active") return send(res, 403, "Tài khoản chưa được phép chấm công.");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
@@ -1116,6 +1161,12 @@ async function updateAttendance(req, res) {
   const attendance = getAttendance();
   const userRecords = attendance[userKey] || {};
   const record = userRecords[dateKey] || { date: dateKey, status: "working" };
+  if (needsOfficeNetwork(action, mode, record)) {
+    const { allowedIps } = getAttendanceNetwork();
+    if (allowedIps.length && !allowedIps.includes(getRequestIp(req, attendanceTrustedProxyHops))) {
+      return sendJson(res, 403, { message: "Bạn cần kết nối mạng công ty đã được Admin/CEO cho phép để check-in hoặc check-out tại công ty." });
+    }
+  }
   const now = new Date().toISOString();
   if (action === "check-in") {
     if (record.checkIn) return sendJson(res, 409, { message: "Bạn đã check-in hôm nay.", record });
@@ -1406,6 +1457,8 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/api/push/devices" && req.method === "DELETE") return await unregisterPushDevice(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/attendance-overview")) return serveAttendanceOverview(req, res);
     if (req.method === "POST" && req.url === "/api/attendance-overview/status") return await updateAttendanceOverviewStatus(req, res);
+    if (req.method === "GET" && req.url === "/api/attendance-network") return serveAttendanceNetwork(req, res);
+    if (req.method === "POST" && req.url === "/api/attendance-network") return await updateAttendanceNetwork(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/attendance")) return serveAttendance(req, res);
     if (req.method === "POST" && req.url === "/api/attendance") return await updateAttendance(req, res);
     if (req.method === "GET" && req.url === "/api/proposals/events") return serveProposalEvents(req, res);

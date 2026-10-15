@@ -19,6 +19,14 @@ Lần đầu mở ứng dụng, nhập URL HTTPS của máy chủ. Nhân viên c
 
 Trên Windows, nút đóng cửa sổ sẽ đưa ứng dụng xuống khay hệ thống và giữ kết nối thông báo. Chọn **Thoát hoàn toàn** trong menu để tắt ứng dụng. Có thể bật **Khởi động cùng Windows** trong menu khay để nhận thông báo sau khi đăng nhập lại máy. Tài khoản quản lý cần đăng nhập và bật quyền thông báo/âm thanh một lần; các quyền đề xuất vẫn do máy chủ kiểm soát.
 
+## Giới hạn mạng chấm công tại công ty
+
+Dưới hai lựa chọn trên trang **Chấm công**, chỉ Admin/CEO đang hoạt động thấy mục **Mạng công ty được phép chấm công**. Nhập IP Internet công cộng IPv4/IPv6 của từng mạng, mỗi dòng một IP (tối đa 100), hoặc dùng **Thêm IP đang kết nối** khi đang ở mạng công ty, rồi lưu. Không nhập IP router nội bộ như `192.168.1.1`. Danh sách trống giữ nguyên chấm công không giới hạn mạng.
+
+Khi có danh sách, máy chủ kiểm tra IP cho cả check-in và check-out tại công ty, kể cả khi gọi API trực tiếp. Check-out dùng hình thức làm việc đã lưu khi check-in, không dùng hình thức do client gửi để bỏ qua kiểm tra. Chấm công online không bị giới hạn này. IP Internet không xác minh tên Wi-Fi; mạng dây cùng đường Internet cũng được phép, VPN/đường truyền chung có thể dùng cùng IP. IP động thay đổi thì Admin/CEO phải cập nhật; có thể cần thêm cả IPv4 và IPv6 của mạng.
+
+Cấu hình lưu trong `attendance-network.json` ở thư mục dữ liệu bền vững, không cung cấp qua static và không đưa lên Git. `ATTENDANCE_TRUST_PROXY_HOPS` quy định số proxy tin cậy từ máy chủ ra ngoài: mặc định 0 khi truy cập trực tiếp, 1 trên Render (`RENDER=true`). Chỉ cấu hình khi toàn bộ truy cập bắt buộc qua các proxy tin cậy; nếu thêm Cloudflare/proxy khác, xác minh số hop và IP hiển thị trước khi lưu. Khi không tin proxy, bỏ qua `X-Forwarded-For`; khi tin proxy nhưng header không hợp lệ hoặc thiếu, không cho chấm công tại công ty với danh sách đã cấu hình.
+
 ## Thông báo báo cáo chưa xem
 
 Trong trang **Báo cáo**, chuông đỏ trên từng ô hiển thị số mục mới hoặc cập nhật kể từ lần mở báo cáo gần nhất. Lần đầu sử dụng, các mục hiện có được tính là chưa xem. Mở báo cáo và tải dữ liệu thành công sẽ đánh dấu đã xem cho riêng loại báo cáo đó; mở trang lỗi hoặc để trang chạy nền không xóa thông báo. Trang chọn báo cáo kiểm tra dữ liệu mỗi 15 giây khi đang hiển thị và khi quay lại trang.
