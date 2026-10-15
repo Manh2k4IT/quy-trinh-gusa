@@ -75,6 +75,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
 const documentFrame = preview.querySelector('iframe');
 const documentStatus = preview.querySelector('[data-document-status]');
 const printButton = preview.querySelector('[data-print-proposal]');
+if (window.desktopSettings?.previewDocument) printButton.textContent = 'Xem bản in / Lưu PDF';
 let documentEmployee = { name: '' };
 let documentReady = false;
 let renderedDocument = '';
@@ -99,7 +100,7 @@ window.syncProposalDocument = function () {
 };
 form.addEventListener('input', window.syncProposalDocument);
 form.addEventListener('change', window.syncProposalDocument);
-printButton.addEventListener('click', () => {
+printButton.addEventListener('click', async () => {
   if (!form.checkValidity()) {
     setComposerView('form');
     form.reportValidity();
@@ -109,12 +110,20 @@ printButton.addEventListener('click', () => {
     documentStatus.textContent = 'Bản xem trước chưa sẵn sàng. Vui lòng thử lại.';
     return;
   }
+  printButton.disabled = true;
   try {
-    documentFrame.contentWindow.focus();
-    documentFrame.contentWindow.print();
+    if (window.desktopSettings?.previewDocument) {
+      const result = await window.desktopSettings.previewDocument(renderedDocument);
+      documentStatus.textContent = result.canceled ? 'Đã hủy lưu PDF.' : 'Đã lưu và mở PDF. Bạn có thể xem bản in và in từ trình đọc PDF.';
+    } else {
+      documentFrame.contentWindow.focus();
+      documentFrame.contentWindow.print();
+    }
   } catch (error) {
     console.error('Không mở được cửa sổ in đề xuất.', error);
     documentStatus.textContent = 'Không mở được cửa sổ in trên thiết bị này. Hãy thử bằng trình duyệt có hỗ trợ in / lưu PDF.';
+  } finally {
+    printButton.disabled = !documentReady || !documentEmployee.name;
   }
 });
 async function loadDocumentEmployee() {

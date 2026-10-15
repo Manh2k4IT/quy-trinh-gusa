@@ -63,6 +63,7 @@
   paymentButton.addEventListener('click', () => setView('form'));
   const frame = preview.querySelector('iframe');
   const print = preview.querySelector('[data-print-payment]');
+  if (window.desktopSettings?.previewDocument) print.textContent = 'Xem bản in / Lưu PDF';
   const message = preview.querySelector('[data-payment-document-status]');
   let employee = null;
   let html = '';
@@ -81,16 +82,24 @@
   };
   form.addEventListener('input', window.syncProposalDocument);
   form.addEventListener('change', window.syncProposalDocument);
-  print.addEventListener('click', () => {
+  print.addEventListener('click', async () => {
     if (!form.checkValidity()) { setView('form'); form.reportValidity(); return; }
     if (!window.validatePaymentTemplate()) { setView('form'); return; }
     if (!window.validateProposalSignature()) { setView('form'); return; }
+    print.disabled = true;
     try {
-      frame.contentWindow.focus();
-      frame.contentWindow.print();
+      if (window.desktopSettings?.previewDocument) {
+        const result = await window.desktopSettings.previewDocument(html);
+        message.textContent = result.canceled ? 'Đã hủy lưu PDF.' : 'Đã lưu và mở PDF. Bạn có thể xem bản in và in từ trình đọc PDF.';
+      } else {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      }
     } catch (error) {
       console.error('Không in được đơn thanh toán.', error);
       message.textContent = 'Không mở được cửa sổ in. Hãy dùng trình duyệt hỗ trợ in hoặc tải PDF từ danh sách sau khi gửi.';
+    } finally {
+      print.disabled = !employee;
     }
   });
   fetch('/api/me', { cache: 'no-store' }).then(async (response) => {

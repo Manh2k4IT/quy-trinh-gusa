@@ -261,14 +261,16 @@ latePhotoInput.addEventListener('change', () => {
 });
 
 locationButton.addEventListener('click', () => {
-  if (!navigator.geolocation) { locationStatus.textContent = 'Thiết bị không hỗ trợ vị trí.'; return; }
+  const geolocation = window.desktopSettings?.getCurrentPosition ? window.desktopSettings : navigator.geolocation;
+  if (!geolocation) { locationStatus.textContent = 'Thiết bị không hỗ trợ vị trí.'; return; }
   locationButton.disabled = true;
   locationStatus.textContent = 'Đang lấy vị trí...';
-  navigator.geolocation.getCurrentPosition((position) => {
+  geolocation.getCurrentPosition((position) => {
     lateLocation = { latitude: position.coords.latitude, longitude: position.coords.longitude };
     locationStatus.textContent = 'Đã chia sẻ vị trí.';
     locationButton.textContent = 'Đã chia sẻ vị trí';
   }, (error) => {
+    console.error('Không lấy được vị trí:', error.code, error.message);
     locationButton.disabled = false;
     if (error.code === error.PERMISSION_DENIED) {
       locationPermissionModal.hidden = false;
@@ -277,7 +279,9 @@ locationButton.addEventListener('click', () => {
     locationStatus.textContent = error.code === error.PERMISSION_DENIED
       ? 'Bạn chưa cấp quyền vị trí cho ứng dụng. Hãy bật quyền vị trí trong Cài đặt rồi thử lại.'
       : error.code === error.POSITION_UNAVAILABLE
-        ? 'Không xác định được vị trí. Hãy bật GPS và thử lại.'
+        ? window.desktopSettings?.isDesktop
+          ? 'Windows chưa xác định được vị trí. Hãy bật Wi-Fi và Dịch vụ vị trí, rồi thử lại.'
+          : 'Không xác định được vị trí. Hãy bật GPS và thử lại.'
         : error.code === error.TIMEOUT
           ? 'Lấy vị trí quá lâu. Hãy thử lại ở nơi có tín hiệu GPS tốt hơn.'
           : 'Không lấy được vị trí. Hãy bật GPS và quyền vị trí rồi thử lại.';

@@ -2,6 +2,8 @@ const { app, BrowserWindow, Menu, Notification, Tray, ipcMain, session, shell } 
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { getWindowsPosition } = require("./location");
+const { previewDocument } = require("./printing");
 
 const defaultServerUrl = "https://quytrinh.gusa.vn";
 const configPath = () => path.join(app.getPath("userData"), "config.json");
@@ -129,6 +131,31 @@ function createWindow() {
 
 ipcMain.handle("server:get-url", (event) => isSetupFrame(event) ? readServerUrl() : "");
 const isTrustedAppFrame = (event) => normalizeServerUrl(event.senderFrame?.url) === readServerUrl();
+ipcMain.handle("app:preview-document", async (event, html) => {
+  if (!isTrustedAppFrame(event)) throw new Error("Yêu cầu xem bản in không hợp lệ.");
+  try {
+    return await previewDocument(BrowserWindow.fromWebContents(event.sender), html);
+  } catch (error) {
+    console.error("Không tạo được bản in PDF:", error);
+    throw error;
+  }
+});
+let locationRequest;
+ipcMain.handle("app:get-location", async (event) => {
+  if (!isTrustedAppFrame(event)) throw new Error("Yêu cầu lấy vị trí không hợp lệ.");
+  if (process.platform !== "win32") throw new Error("Chức năng này chỉ hỗ trợ Windows.");
+  try {
+    if (!locationRequest) locationRequest = getWindowsPosition();
+    const result = await locationRequest;
+    if (!result.ok) console.error("Không lấy được vị trí Windows:", result.error.message);
+    return result;
+  } catch (error) {
+    console.error("Không thể gọi dịch vụ vị trí Windows:", error);
+    return { ok: false, error: { code: 2, message: "Không thể gọi dịch vụ vị trí Windows." } };
+  } finally {
+    locationRequest = null;
+  }
+});
 ipcMain.handle("app:open-location-settings", async (event) => {
   if (!isTrustedAppFrame(event)) throw new Error("Yêu cầu mở cài đặt vị trí không hợp lệ.");
   if (process.platform !== "win32") throw new Error("Chức năng này chỉ hỗ trợ Windows.");

@@ -8,6 +8,8 @@
 
 Ứng dụng cho phép quyền vị trí và thông báo chỉ đối với địa chỉ máy chủ đã cấu hình; các quyền và nguồn khác vẫn bị chặn. Nút **Mở Cài đặt** trong biểu mẫu đề xuất mở cài đặt vị trí Windows. Bật **Dịch vụ vị trí** và cho phép **ứng dụng trên máy tính truy cập vị trí**, rồi quay lại nhấn **Chia sẻ vị trí**. Khả năng xác định vị trí và độ chính xác còn phụ thuộc Windows và dịch vụ định vị của máy. Bộ cài desktop cũ cần được cập nhật để có thay đổi quyền này.
 
+Trên Windows, đề xuất và chấm công lấy tọa độ trực tiếp từ dịch vụ vị trí Windows qua `GeoCoordinateWatcher`, không dùng dịch vụ định vị Google của Electron và không cần Google API key. Gusa có thể hiện trong danh sách ứng dụng desktop đang dùng vị trí nhưng không có công tắc riêng như ứng dụng Store. Nên bật Wi-Fi để Windows xác định vị trí; máy không có nguồn định vị vẫn có thể trả về lỗi dù đã cấp quyền. Mỗi lần lấy vị trí chờ tối đa 30 giây. Trình duyệt và điện thoại giữ cơ chế định vị hiện có. Cần cập nhật cả bộ cài desktop và giao diện trên máy chủ để sử dụng luồng mới.
+
 ```powershell
 npm install
 npm run desktop
@@ -29,7 +31,7 @@ Mục **Cài đặt** lưu chế độ sáng/tối và màu chủ đạo trên t
 
 ## Đơn nghỉ phép và giờ làm
 
-Trong **Đề xuất → Đề xuất nghỉ phép & giờ làm**, chọn tạo đề xuất để nhập thông tin và xem đơn tự cập nhật. Họ tên được lấy từ tài khoản đăng nhập. Nút **In / Lưu PDF** mở cửa sổ in của trình duyệt; chọn **Lưu dưới dạng PDF** để lưu văn bản. Bản này là bản nháp, không thay thế thao tác **Gửi đề xuất** hoặc xác nhận phê duyệt. Tính năng lưu PDF phụ thuộc hỗ trợ in của trình duyệt/thiết bị; không tạo file Word và không thay đổi dữ liệu đề xuất. Đề xuất đi trễ vẫn yêu cầu ảnh và vị trí khi gửi.
+Trong **Đề xuất → Đề xuất nghỉ phép & giờ làm**, chọn tạo đề xuất để nhập thông tin và xem đơn tự cập nhật. Họ tên được lấy từ tài khoản đăng nhập. Trên trình duyệt, nút **In / Lưu PDF** mở cửa sổ in; chọn **Lưu dưới dạng PDF** để lưu văn bản. Bản desktop dùng nút **Xem bản in / Lưu PDF**: chọn nơi lưu, ứng dụng tạo PDF A4 rồi mở bằng trình đọc PDF mặc định của Windows để xem và in, thay vì hộp thoại in Electron không hỗ trợ xem trước. Luồng này cũng áp dụng cho đơn thanh toán và cần cập nhật cả giao diện máy chủ lẫn bộ cài. Bản này là bản nháp, không thay thế thao tác **Gửi đề xuất** hoặc xác nhận phê duyệt; không tạo file Word và không thay đổi dữ liệu đề xuất. Đề xuất đi trễ vẫn yêu cầu ảnh và vị trí khi gửi.
 
 Mỗi danh mục có mô tả ngắn và hai nút **Tạo đề xuất**, **Xem danh sách**. Mở **Hướng dẫn & lưu ý** trên thẻ để xem đầy đủ hướng dẫn trước khi gửi.
 

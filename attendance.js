@@ -104,15 +104,22 @@ if (isOnlineAttendance) {
     reader.readAsDataURL(file);
   });
   locationButton.addEventListener('click', () => {
-    if (!navigator.geolocation) { locationStatus.textContent = 'Thiết bị không hỗ trợ chia sẻ vị trí.'; return; }
+    const geolocation = window.desktopSettings?.getCurrentPosition ? window.desktopSettings : navigator.geolocation;
+    if (!geolocation) { locationStatus.textContent = 'Thiết bị không hỗ trợ chia sẻ vị trí.'; return; }
     locationButton.disabled = true;
     locationStatus.textContent = 'Đang lấy vị trí hiện tại...';
-    navigator.geolocation.getCurrentPosition((position) => {
+    geolocation.getCurrentPosition((position) => {
       onlineProof = { ...(onlineProof || {}), latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy };
       locationStatus.textContent = `Đã chia sẻ vị trí (sai số khoảng ${Math.round(position.coords.accuracy)}m)`;
       locationButton.textContent = 'Đã chia sẻ vị trí';
       refreshOnlineCheckIn();
-    }, () => { locationButton.disabled = false; locationStatus.textContent = 'Không lấy được vị trí. Hãy cho phép truy cập vị trí và thử lại.'; });
+    }, (error) => {
+      console.error('Không lấy được vị trí chấm công:', error.code, error.message);
+      locationButton.disabled = false;
+      locationStatus.textContent = window.desktopSettings?.isDesktop && error.code !== 1
+        ? 'Windows chưa xác định được vị trí. Hãy bật Wi-Fi và Dịch vụ vị trí, rồi thử lại.'
+        : 'Không lấy được vị trí. Hãy cho phép truy cập vị trí và thử lại.';
+    });
   });
   checkIn.hidden = true;
   if (attendanceTypeChoice) attendanceTypeChoice.hidden = true;

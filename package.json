@@ -36,6 +36,9 @@
       "desktop/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "desktop/location.ps1"
+    ],
     "win": {
       "target": [
         {
