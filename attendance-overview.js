@@ -33,7 +33,7 @@ function normalizeAttendanceMenu() {
 	const workdayOverviewLink = document.createElement('a');
 	workdayOverviewLink.className = 'menu-item';
 	workdayOverviewLink.href = 'attendance.html?view=days';
-	workdayOverviewLink.innerHTML = '<span class="menu-icon">▦</span><span>Tổng quan ngày công</span>';
+	workdayOverviewLink.innerHTML = '<span class="menu-icon">▦</span><span>Tổng ngày công</span>';
 	const onlineStaffLink = document.createElement('a');
 	onlineStaffLink.className = 'menu-item';
 	onlineStaffLink.href = 'attendance-overview.html?report=online';

@@ -33,7 +33,7 @@ attendanceOverviewMenuItem.hidden = true;
 const workdayOverviewMenuItem = document.createElement('a');
 workdayOverviewMenuItem.className = 'menu-item';
 workdayOverviewMenuItem.href = 'attendance.html?view=days';
-workdayOverviewMenuItem.innerHTML = '<span class="menu-icon">▦</span><span>Tổng quan ngày công</span>';
+workdayOverviewMenuItem.innerHTML = '<span class="menu-icon">▦</span><span>Tổng ngày công</span>';
 const onlineStaffMenuItem = document.createElement('a');
 onlineStaffMenuItem.className = 'menu-item';
 onlineStaffMenuItem.href = 'attendance-overview.html?report=online';
@@ -65,9 +65,9 @@ if (attendanceMenuItem) {
 
 if (isWorkdayOverview) {
   document.querySelector('.attendance-summary')?.setAttribute('hidden', '');
-  document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Tổng quan ngày công'));
+  document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Tổng ngày công'));
   document.querySelector('.attendance-heading p')?.replaceChildren(document.createTextNode('Theo dõi bảng công theo từng tuần trong tháng.'));
-  document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Tổng quan ngày công'));
+  document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Tổng ngày công'));
 } else {
   document.querySelector('.attendance-history')?.setAttribute('hidden', '');
 }

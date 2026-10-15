@@ -351,7 +351,7 @@ if (sidebarScroll) {
     <p class="menu-label">CHẤM CÔNG</p>
     <nav class="menu" aria-label="Menu chấm công">
       <a class="menu-item" href="attendance-choice.html"><span class="menu-icon">◷</span><span>Chấm công</span></a>
-      <a class="menu-item" href="attendance.html?view=days"><span class="menu-icon">▦</span><span>Tổng quan ngày công</span></a>
+      <a class="menu-item" href="attendance.html?view=days"><span class="menu-icon">▦</span><span>Tổng ngày công</span></a>
     </nav>
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">
