@@ -10,6 +10,7 @@ const proposalDocument = require("./proposal-document");
 const { createProposalPdf } = require("./proposal-document-pdf");
 const paymentDocumentData = require("./payment-document-data");
 const { validateAllowedIps, getRequestIp, needsOfficeNetwork } = require("./attendance-network");
+const { getApprovalConfirmation } = require("./approval-confirmation");
 
 loadEnvFile();
 
@@ -713,7 +714,7 @@ async function serveProposalDocument(req, res) {
   const format = url.searchParams.get("format");
   if (format === "html") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
-    return res.end(proposalDocument.render(proposalDocument.fromProposal(saved), { name: saved.userName }));
+    return res.end(proposalDocument.render(proposalDocument.fromProposal({ ...saved, approvalConfirmationData: getApprovalConfirmation(saved) }), { name: saved.userName }));
   }
   if (format !== "pdf") return send(res, 400, "Định dạng đơn không hợp lệ.");
   const pdf = await createProposalPdf(saved);
@@ -1024,6 +1025,7 @@ async function updateProposalStatus(req, res) {
         proposal.paymentStage = "rejected";
         proposal.reviewedAt = now;
       } else {
+        proposal.managementApprovedAt = now;
         proposal.status = "pending";
         proposal.paymentStage = "accounting";
         movedToAccounting = true;
@@ -1035,6 +1037,7 @@ async function updateProposalStatus(req, res) {
     if (proposal.status !== "pending") return send(res, 409, "Đề xuất này đã được xử lý.");
     proposal.status = payload.status;
     proposal.reviewedAt = now;
+    proposal.reviewedBy = getAttendanceUserKey(currentUser);
     if (payload.status === "approved") applyApprovedLeaveToAttendance(proposal);
   }
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));

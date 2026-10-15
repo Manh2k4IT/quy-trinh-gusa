@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const { fromProposal, getDocumentData } = require('./proposal-document');
 const { writePaymentDocument } = require('./payment-document-pdf');
+const { getApprovalConfirmation } = require('./approval-confirmation');
 const regularFont = require.resolve('dejavu-fonts-ttf/ttf/DejaVuSerif.ttf');
 const boldFont = require.resolve('dejavu-fonts-ttf/ttf/DejaVuSerif-Bold.ttf');
 
@@ -48,6 +49,10 @@ function createProposalPdf(proposal) {
         if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(proposal.signatureData)) throw new Error('Chữ ký đã lưu không hợp lệ.');
         const image = Buffer.from(proposal.signatureData.slice('data:image/png;base64,'.length), 'base64');
         doc.image(image, 51, y + 43, { fit: [columnWidth, 80], align: 'center', valign: 'center' });
+      }
+      const confirmation = getApprovalConfirmation(proposal);
+      if (confirmation) {
+        doc.image(Buffer.from(confirmation.slice('data:image/png;base64,'.length), 'base64'), 51 + width / 2 + 12, y + 43, { fit: [columnWidth, 80], align: 'center', valign: 'center' });
       }
       doc.font('Bold').fontSize(11).text(data.signatureName, 51, y + 125, { width: columnWidth, align: 'center' });
       doc.end();

@@ -52,6 +52,8 @@
     const data = getDocumentData(fields, employee);
     const signature = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(fields.signatureData || '')
       ? `<img class="handwritten-signature" src="${escape(fields.signatureData)}" alt="Chữ ký người đề xuất">` : '';
+    const confirmation = fields.saved && fields.status === 'approved' && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(fields.approvalConfirmationData || '')
+      ? `<img class="handwritten-signature" src="${escape(fields.approvalConfirmationData)}" alt="Xác nhận của người phê duyệt">` : '';
     const timeRow = data.timeLabel ? `<tr><th>${data.timeLabel}</th><td>${escape(data.timeValue)}</td></tr>` : '';
     return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${titles[fields.type] || 'ĐƠN ĐỀ XUẤT'}</title>
 <style>
@@ -70,7 +72,7 @@ th,td{padding:9px 0;border-bottom:1px solid #e5e7eb;text-align:left;vertical-ali
 <tr><th>${fields.type === 'payment' ? 'Ngày đề xuất' : 'Ngày áp dụng'}</th><td>${data.dateText}</td></tr>${timeRow}${data.paymentRows.map(([label, value]) => `<tr><th>${label}</th><td>${escape(value)}</td></tr>`).join('')}</table>
 <p><strong>${escape(data.reasonLabel)}</strong></p><div class="reason">${escape(fields.reason) || 'Nội dung lý do sẽ hiển thị tại đây khi bạn nhập.'}</div>
 <p>${escape(data.commitment)}</p>
-<div class="signatures"><div><p><strong>Người đề xuất</strong></p><p>(Ký, ghi rõ họ tên)</p><div class="signature-space">${signature}</div><p class="signature-name">${escape((fields.signatureName || '').trim())}</p></div><div><p><strong>Người phê duyệt</strong></p><p>(Ký, ghi rõ họ tên)</p></div></div>
+<div class="signatures"><div><p><strong>Người đề xuất</strong></p><p>(Ký, ghi rõ họ tên)</p><div class="signature-space">${signature}</div><p class="signature-name">${escape((fields.signatureName || '').trim())}</p></div><div><p><strong>Người phê duyệt</strong></p><p>(Ký, ghi rõ họ tên)</p><div class="signature-space">${confirmation}</div></div></div>
 ${fields.saved ? '' : '<p class="draft">BẢN NHÁP — Bản in này không xác nhận đề xuất đã được gửi hoặc phê duyệt. Trạng thái chính thức được theo dõi trong ứng dụng.</p>'}
 </article></body></html>`;
   }

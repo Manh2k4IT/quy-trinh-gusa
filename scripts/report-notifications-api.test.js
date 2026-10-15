@@ -76,6 +76,49 @@ async function request(url, role) {
   return fetch(`${baseUrl}${url}`, { headers: role ? { Cookie: `gusa_session=${role}-session` } : {} });
 }
 
+test("management approval adds confirmation to saved HTML/PDF, never to pending or direct-accounting documents", async () => {
+  const file = path.join(directory, "proposals.json");
+  const original = fs.readFileSync(file, "utf8");
+  const records = [
+    { id: "confirmation-leave", userId: "employee", userName: "Employee", type: "leave", status: "pending", date: "2026-10-15" },
+    { id: "confirmation-payment", userId: "employee", userName: "Employee", type: "payment", paymentFlow: "ceo", paymentStage: "management", status: "pending", date: "2026-10-15" },
+    { id: "confirmation-direct", userId: "employee", userName: "Employee", type: "payment", paymentFlow: "accountant", paymentStage: "accounting", status: "pending", date: "2026-10-15" },
+  ];
+  const update = (id, role, payload) => fetch(`${baseUrl}/api/proposals/status`, {
+    method: "POST", headers: { Cookie: `gusa_session=${role}-session`, "Content-Type": "application/json" },
+    body: JSON.stringify({ id, ...payload }),
+  });
+  const document = async (id, format, role = "employee") => {
+    const response = await request(`/api/proposals/${id}/document?format=${format}`, role);
+    assert.equal(response.status, 200);
+    return format === "html" ? response.text() : Buffer.from(await response.arrayBuffer()).toString("latin1");
+  };
+  try {
+    fs.writeFileSync(file, JSON.stringify(records));
+    for (const item of records) assert.ok(!(await document(item.id, "html")).includes('alt="Xác nhận'));
+    assert.equal((await update("confirmation-leave", "employee", { status: "approved" })).status, 403);
+    assert.equal((await update("confirmation-leave", "admin", { status: "approved" })).status, 200);
+    assert.ok((await document("confirmation-leave", "html")).includes('alt="Xác nhận của người phê duyệt"'));
+    assert.ok((await document("confirmation-leave", "pdf")).includes("/Subtype /Image"));
+    const saved = JSON.parse(fs.readFileSync(file, "utf8")).find((item) => item.id === "confirmation-leave");
+    assert.equal(saved.reviewedBy, "admin");
+    assert.equal((await update("confirmation-payment", "ceo", { status: "approved" })).status, 200);
+    const queue = await (await request("/api/proposals?scope=review-queue", "accountant")).json();
+    assert.ok(queue.proposals.some((item) => item.id === "confirmation-payment" && item.paymentStage === "accounting"));
+    assert.ok((await document("confirmation-payment", "html", "accountant")).includes('alt="Xác nhận của Giám Đốc"'));
+    assert.ok((await document("confirmation-payment", "pdf", "accountant")).includes("/Subtype /Image"));
+    assert.ok((await document("confirmation-payment", "html")).includes('alt="Xác nhận của Giám Đốc"'));
+    assert.ok((await document("confirmation-payment", "pdf")).includes("/Subtype /Image"));
+    assert.equal((await update("confirmation-payment", "accountant", { action: "confirm" })).status, 200);
+    assert.ok((await document("confirmation-payment", "html")).includes('alt="Xác nhận của Giám Đốc"'));
+    assert.equal((await update("confirmation-direct", "accountant", { action: "confirm" })).status, 200);
+    assert.ok(!(await document("confirmation-direct", "html")).includes('alt="Xác nhận'));
+    assert.ok(!(await document("confirmation-direct", "pdf")).includes("/Subtype /Image"));
+  } finally {
+    fs.writeFileSync(file, original);
+  }
+});
+
 test("summary API exposes only authorized reports and no report contents", async () => {
   for (const role of ["admin", "ceo"]) {
     const response = await request("/api/report-notifications", role);

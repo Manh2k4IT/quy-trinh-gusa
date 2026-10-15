@@ -1,4 +1,5 @@
 const { getData } = require('./payment-document-data');
+const { getApprovalConfirmation } = require('./approval-confirmation');
 
 function writePaymentDocument(doc, proposal) {
   const data = getData(proposal, { name: proposal.userName });
@@ -63,6 +64,10 @@ function writePaymentDocument(doc, proposal) {
   if (data.signatureData) {
     if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(data.signatureData)) throw new Error('Chữ ký đã lưu không hợp lệ.');
     doc.image(Buffer.from(data.signatureData.slice('data:image/png;base64,'.length), 'base64'), left, y + 42, { fit: [columnWidth, 75], align: 'center', valign: 'center' });
+  }
+  const confirmation = getApprovalConfirmation(proposal);
+  if (confirmation) {
+    doc.image(Buffer.from(confirmation.slice('data:image/png;base64,'.length), 'base64'), left + width / 3 * 2, y + 42, { fit: [columnWidth, 75], align: 'center', valign: 'center' });
   }
   doc.font('Bold').fontSize(11).text(data.signatureName, left, y + 120, { width: columnWidth, align: 'center' });
 }
