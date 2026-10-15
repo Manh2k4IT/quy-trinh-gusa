@@ -3472,7 +3472,7 @@
     if (!response.ok) throw new Error(`Kh\xF4ng \u0111\u0103ng k\xFD \u0111\u01B0\u1EE3c th\xF4ng b\xE1o (${response.status}).`);
     localStorage.setItem(tokenStorageKey, token);
   }
-  async function unregisterToken(messaging, registration) {
+  async function unregisterToken(messaging) {
     const token = localStorage.getItem(tokenStorageKey);
     if (!token) return;
     const response = await fetch("/api/push/devices", {
@@ -3483,70 +3483,58 @@
     });
     if (!response.ok) throw new Error(`Kh\xF4ng h\u1EE7y \u0111\u0103ng k\xFD th\xF4ng b\xE1o \u0111\u01B0\u1EE3c (${response.status}).`);
     await deleteToken(messaging);
-    await registration.unregister();
     localStorage.removeItem(tokenStorageKey);
   }
-  function showMessage(message) {
-    window.alert(message);
+  var setting = document.querySelector("[data-web-push-setting]");
+  var button = document.querySelector("[data-web-push-toggle]");
+  var status = document.querySelector("[data-web-push-status]");
+  function setStatus(message) {
+    if (status) status.textContent = message;
   }
-  function createButton() {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = "B\u1EADt th\xF4ng b\xE1o";
-    button.setAttribute("aria-label", "B\u1EADt th\xF4ng b\xE1o \u0111\u1EC1 xu\u1EA5t");
-    Object.assign(button.style, {
-      position: "fixed",
-      right: "max(16px, env(safe-area-inset-right))",
-      bottom: "max(16px, env(safe-area-inset-bottom))",
-      zIndex: "2147483000",
-      minHeight: "44px",
-      padding: "0 16px",
-      border: "0",
-      borderRadius: "22px",
-      color: "#fff",
-      background: "#174b8e",
-      boxShadow: "0 2px 10px #0003",
-      font: '600 14px "Segoe UI", sans-serif',
-      cursor: "pointer"
-    });
-    document.body.append(button);
-    return button;
+  function updateToggle(enabled) {
+    button?.setAttribute("aria-checked", String(enabled));
+    setStatus(enabled ? "Th\xF4ng b\xE1o tr\xEAn thi\u1EBFt b\u1ECB n\xE0y \u0111\xE3 b\u1EADt." : "Th\xF4ng b\xE1o tr\xEAn thi\u1EBFt b\u1ECB n\xE0y \u0111ang t\u1EAFt.");
   }
   async function initializeWebPush() {
+    if (window.desktopSettings?.isDesktop || window.Capacitor?.isNativePlatform?.()) {
+      if (setting) setting.hidden = true;
+      return;
+    }
     const userResponse = await fetch("/api/me", { credentials: "same-origin" });
     if (!userResponse.ok) throw new Error(`Kh\xF4ng ki\u1EC3m tra \u0111\u01B0\u1EE3c t\xE0i kho\u1EA3n (${userResponse.status}).`);
     const { user } = await userResponse.json();
-    if (!user || user.status !== "active") return;
+    if (!user || user.status !== "active") {
+      setStatus("\u0110\u0103ng nh\u1EADp b\u1EB1ng t\xE0i kho\u1EA3n \u0111ang ho\u1EA1t \u0111\u1ED9ng \u0111\u1EC3 b\u1EADt th\xF4ng b\xE1o.");
+      return;
+    }
     const config = await readFirebaseConfig();
-    if (!config.enabled) return;
-    const button = createButton();
+    if (!config.enabled) {
+      setStatus("Th\xF4ng b\xE1o web ch\u01B0a \u0111\u01B0\u1EE3c c\u1EA5u h\xECnh tr\xEAn m\xE1y ch\u1EE7.");
+      return;
+    }
     if (isIOS && !isStandalone) {
-      button.textContent = "Th\xEAm v\xE0o M\xE0n h\xECnh ch\xEDnh \u0111\u1EC3 b\u1EADt th\xF4ng b\xE1o";
-      button.addEventListener("click", () => showMessage(
-        "Tr\xEAn iPhone, h\xE3y nh\u1EA5n Chia s\u1EBB trong Safari \u2192 Th\xEAm v\xE0o M\xE0n h\xECnh ch\xEDnh. Sau \u0111\xF3 m\u1EDF Gusa t\u1EEB bi\u1EC3u t\u01B0\u1EE3ng m\u1EDBi t\u1EA1o v\xE0 nh\u1EA5n B\u1EADt th\xF4ng b\xE1o."
-      ));
+      setStatus("Trong Safari, nh\u1EA5n Chia s\u1EBB \u2192 Th\xEAm v\xE0o M\xE0n h\xECnh ch\xEDnh. M\u1EDF Gusa t\u1EEB bi\u1EC3u t\u01B0\u1EE3ng m\u1EDBi, v\xE0o C\xE0i \u0111\u1EB7t v\xE0 b\u1EADt th\xF4ng b\xE1o. C\u1EA7n iOS 16.4 tr\u1EDF l\xEAn.");
       return;
     }
     if (!("Notification" in window) || !("serviceWorker" in navigator) || !await isWindowSupported()) {
-      button.remove();
+      setStatus("Tr\xECnh duy\u1EC7t n\xE0y kh\xF4ng h\u1ED7 tr\u1EE3 th\xF4ng b\xE1o web. H\xE3y s\u1EED d\u1EE5ng tr\xECnh duy\u1EC7t h\u1ED7 tr\u1EE3 tr\xEAn HTTPS.");
       return;
     }
     const app = initializeApp(config.firebase, "gusa-web-push");
     const messaging = getMessagingInWindow(app);
     const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { type: "module" });
     await navigator.serviceWorker.ready;
-    if (localStorage.getItem(tokenStorageKey)) {
-      button.textContent = "Th\xF4ng b\xE1o \u0111\xE3 b\u1EADt";
-      button.disabled = true;
-      button.style.background = "#53708f";
-      return;
-    }
-    button.addEventListener("click", async () => {
+    button?.addEventListener("click", async () => {
       button.disabled = true;
       try {
+        if (localStorage.getItem(tokenStorageKey)) {
+          await unregisterToken(messaging);
+          updateToggle(false);
+          return;
+        }
         const permission = await Notification.requestPermission();
         if (permission !== "granted") {
-          showMessage("B\u1EA1n ch\u01B0a cho ph\xE9p th\xF4ng b\xE1o. H\xE3y b\u1EADt quy\u1EC1n th\xF4ng b\xE1o cho Gusa trong C\xE0i \u0111\u1EB7t c\u1EE7a iPhone.");
+          setStatus("B\u1EA1n ch\u01B0a cho ph\xE9p th\xF4ng b\xE1o. H\xE3y b\u1EADt quy\u1EC1n th\xF4ng b\xE1o cho Gusa trong C\xE0i \u0111\u1EB7t thi\u1EBFt b\u1ECB ho\u1EB7c quy\u1EC1n c\u1EE7a trang web trong tr\xECnh duy\u1EC7t.");
           return;
         }
         const token = await getToken2(messaging, {
@@ -3555,32 +3543,45 @@
         });
         if (!token) throw new Error("Firebase kh\xF4ng c\u1EA5p \u0111\u01B0\u1EE3c m\xE3 nh\u1EADn th\xF4ng b\xE1o.");
         await registerToken(token);
-        button.textContent = "Th\xF4ng b\xE1o \u0111\xE3 b\u1EADt";
-        button.style.background = "#53708f";
+        updateToggle(true);
       } catch (error) {
         console.error("Kh\xF4ng th\u1EC3 b\u1EADt th\xF4ng b\xE1o web:", error);
-        showMessage("Ch\u01B0a b\u1EADt \u0111\u01B0\u1EE3c th\xF4ng b\xE1o. Vui l\xF2ng ki\u1EC3m tra k\u1EBFt n\u1ED1i r\u1ED3i th\u1EED l\u1EA1i.");
+        setStatus("Kh\xF4ng thay \u0111\u1ED5i \u0111\u01B0\u1EE3c th\xF4ng b\xE1o. Vui l\xF2ng ki\u1EC3m tra k\u1EBFt n\u1ED1i r\u1ED3i th\u1EED l\u1EA1i.");
       } finally {
-        button.disabled = localStorage.getItem(tokenStorageKey) !== null;
+        button.disabled = false;
       }
     });
     onMessage(messaging, (payload) => {
       if (!payload.notification?.title || Notification.permission !== "granted") return;
-      new Notification(payload.notification.title, {
+      registration.showNotification(payload.notification.title, {
         body: payload.notification.body || "",
         icon: "/logo.png",
         data: payload.data
-      });
+      }).catch((error) => console.error("Kh\xF4ng hi\u1EC3n th\u1ECB \u0111\u01B0\u1EE3c th\xF4ng b\xE1o web:", error));
     });
     document.addEventListener("click", (event) => {
       const logoutLink = event.target.closest('a[href="/auth/logout"]');
       if (!logoutLink || !localStorage.getItem(tokenStorageKey)) return;
       event.preventDefault();
-      unregisterToken(messaging, registration).catch((error) => console.error("Kh\xF4ng th\u1EC3 h\u1EE7y \u0111\u0103ng k\xFD th\xF4ng b\xE1o web:", error)).finally(() => window.location.assign(logoutLink.href));
+      unregisterToken(messaging).catch((error) => console.error("Kh\xF4ng th\u1EC3 h\u1EE7y \u0111\u0103ng k\xFD th\xF4ng b\xE1o web:", error)).finally(() => window.location.assign(logoutLink.href));
     }, true);
+    if (localStorage.getItem(tokenStorageKey) && Notification.permission === "granted") {
+      const token = await getToken2(messaging, {
+        vapidKey: config.vapidKey,
+        serviceWorkerRegistration: registration
+      });
+      if (!token) throw new Error("Firebase kh\xF4ng c\u1EA5p \u0111\u01B0\u1EE3c m\xE3 nh\u1EADn th\xF4ng b\xE1o.");
+      await registerToken(token);
+      updateToggle(true);
+    } else {
+      if (localStorage.getItem(tokenStorageKey)) await unregisterToken(messaging);
+      updateToggle(false);
+    }
+    if (button) button.disabled = false;
   }
   initializeWebPush().catch((error) => {
     console.error("Kh\xF4ng th\u1EC3 kh\u1EDFi t\u1EA1o th\xF4ng b\xE1o web:", error);
+    setStatus("Kh\xF4ng ki\u1EC3m tra \u0111\u01B0\u1EE3c th\xF4ng b\xE1o. Vui l\xF2ng t\u1EA3i l\u1EA1i trang v\xE0 th\u1EED l\u1EA1i.");
   });
 })();
 /*! Bundled license information:

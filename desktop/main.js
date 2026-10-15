@@ -76,14 +76,15 @@ async function createTray() {
   tray.on("double-click", showMainWindow);
 }
 
-function configureNotificationPermissions() {
+function configureAppPermissions() {
   const isTrustedOrigin = (value) => normalizeServerUrl(value) === readServerUrl();
+  const isAllowedPermission = (permission) => ["notifications", "geolocation"].includes(permission);
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const requestingUrl = details?.requestingUrl || webContents.getURL();
-    callback(permission === "notifications" && isTrustedOrigin(requestingUrl));
+    callback(isAllowedPermission(permission) && isTrustedOrigin(requestingUrl));
   });
   session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) =>
-    permission === "notifications" && isTrustedOrigin(requestingOrigin));
+    isAllowedPermission(permission) && isTrustedOrigin(requestingOrigin));
 }
 
 function isSetupFrame(event) {
@@ -128,6 +129,12 @@ function createWindow() {
 
 ipcMain.handle("server:get-url", (event) => isSetupFrame(event) ? readServerUrl() : "");
 const isTrustedAppFrame = (event) => normalizeServerUrl(event.senderFrame?.url) === readServerUrl();
+ipcMain.handle("app:open-location-settings", async (event) => {
+  if (!isTrustedAppFrame(event)) throw new Error("Yêu cầu mở cài đặt vị trí không hợp lệ.");
+  if (process.platform !== "win32") throw new Error("Chức năng này chỉ hỗ trợ Windows.");
+  await shell.openExternal("ms-settings:privacy-location");
+  return true;
+});
 ipcMain.on("app:show-window", (event) => {
   if (isTrustedAppFrame(event)) showMainWindow();
 });
@@ -156,7 +163,7 @@ app.whenReady().then(() => {
     showMainWindow();
     mainWindow?.webContents.send("app:opened");
   });
-  configureNotificationPermissions();
+  configureAppPermissions();
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: "Máy chủ",

@@ -25,6 +25,9 @@ const locationStatus = form.querySelector('[data-proposal-location-status]');
 const locationPermissionModal = document.querySelector('[data-location-permission-modal]');
 const openLocationSettingsButton = document.querySelector('[data-open-location-settings]');
 const closeLocationPermissionButton = document.querySelector('[data-close-location-permission]');
+if (window.desktopSettings?.isDesktop) {
+  locationPermissionModal.querySelector('p').textContent = 'Hãy bật Dịch vụ vị trí và cho phép ứng dụng trên máy tính truy cập vị trí trong Cài đặt Windows, rồi quay lại nhấn Chia sẻ vị trí.';
+}
 const proposalListPanel = document.querySelector('[data-proposal-list-panel]');
 const proposalCards = document.querySelector('[data-proposal-cards]');
 const proposalList = document.querySelector('[data-proposal-list]');
@@ -284,13 +287,20 @@ locationButton.addEventListener('click', () => {
 openLocationSettingsButton.addEventListener('click', async () => {
   locationPermissionModal.hidden = true;
   locationStatus.textContent = 'Đang mở cài đặt quyền vị trí...';
+  const isDesktop = window.desktopSettings?.isDesktop;
+  const manualInstructions = isDesktop
+    ? 'Hãy vào Cài đặt Windows → Quyền riêng tư và bảo mật → Vị trí, bật Dịch vụ vị trí và quyền truy cập cho ứng dụng trên máy tính.'
+    : 'Hãy bật quyền vị trí trong Cài đặt điện thoại hoặc quyền vị trí của trang web trong trình duyệt.';
   try {
-    const opened = await window.openNativeLocationSettings?.();
+    const opened = isDesktop
+      ? await window.desktopSettings.openLocationSettings()
+      : await window.openNativeLocationSettings?.();
     locationStatus.textContent = opened
       ? 'Đã mở Cài đặt. Bật quyền vị trí rồi quay lại ứng dụng.'
-      : 'Không mở được Cài đặt tự động. Hãy bật quyền vị trí cho ứng dụng trong Cài đặt điện thoại.';
-  } catch {
-    locationStatus.textContent = 'Không mở được Cài đặt. Hãy bật quyền vị trí cho ứng dụng trong Cài đặt điện thoại.';
+      : `Không mở được Cài đặt tự động. ${manualInstructions}`;
+  } catch (error) {
+    console.error('Không mở được cài đặt vị trí:', error);
+    locationStatus.textContent = `Không mở được Cài đặt. ${manualInstructions}`;
   }
 });
 

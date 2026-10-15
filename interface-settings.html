@@ -45,7 +45,7 @@
           <div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip is-selected" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div>
         </header>
         <section class="interface-settings-content" aria-labelledby="interface-settings-title">
-          <div class="interface-page-heading"><span class="eyebrow">TÙY CHỈNH</span><h1 id="interface-settings-title">Cài đặt</h1><p>Điều chỉnh chế độ tối, màu giao diện và âm thanh ngay tại đây.</p></div>
+          <div class="interface-page-heading"><span class="eyebrow">TÙY CHỈNH</span><h1 id="interface-settings-title">Cài đặt</h1><p>Điều chỉnh chế độ tối, màu giao diện, âm thanh và thông báo ngay tại đây.</p></div>
           <div class="interface-settings-page" aria-label="Các cài đặt">
             <section class="interface-page-setting" id="dark-mode">
               <div><span class="interface-setting-icon" aria-hidden="true">☾</span><div><h2>Chế độ tối</h2><p>Bật giao diện nền tối để làm việc trong môi trường thiếu sáng.</p></div></div>
@@ -59,6 +59,11 @@
               <div><span class="interface-setting-icon" aria-hidden="true">♬</span><div><h2>Cài đặt âm thanh</h2><p>Bật hoặc tắt âm thanh đề xuất trong ứng dụng. Âm lượng do trình duyệt và thiết bị điều khiển.</p></div></div>
               <div class="interface-setting-control"><span>Âm thanh thông báo</span><button class="interface-switch" type="button" role="switch" aria-checked="false" data-audio-permission-button aria-label="Bật hoặc tắt âm thanh thông báo"><span></span></button></div>
               <p data-audio-permission-status role="status">Đang kiểm tra trạng thái...</p>
+            </section>
+            <section class="interface-page-setting" id="web-notifications" data-web-push-setting>
+              <div><span class="interface-setting-icon" aria-hidden="true">♧</span><div><h2>Thông báo khi chạy nền</h2><p>Nhận thông báo đề xuất khi không mở trang hoặc khi khóa màn hình. Trên iPhone, cần thêm Gusa vào Màn hình chính.</p></div></div>
+              <div class="interface-setting-control"><span>Thông báo trên thiết bị này</span><button class="interface-switch" type="button" role="switch" aria-checked="false" data-web-push-toggle disabled aria-label="Bật hoặc tắt thông báo khi chạy nền"><span></span></button></div>
+              <p data-web-push-status role="status">Đang kiểm tra trạng thái thông báo...</p>
             </section>
           </div>
         </section>

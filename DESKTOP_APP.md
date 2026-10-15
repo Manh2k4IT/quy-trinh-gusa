@@ -4,6 +4,10 @@
 
 ## Chạy thử
 
+### Chia sẻ vị trí trên Windows
+
+Ứng dụng cho phép quyền vị trí và thông báo chỉ đối với địa chỉ máy chủ đã cấu hình; các quyền và nguồn khác vẫn bị chặn. Nút **Mở Cài đặt** trong biểu mẫu đề xuất mở cài đặt vị trí Windows. Bật **Dịch vụ vị trí** và cho phép **ứng dụng trên máy tính truy cập vị trí**, rồi quay lại nhấn **Chia sẻ vị trí**. Khả năng xác định vị trí và độ chính xác còn phụ thuộc Windows và dịch vụ định vị của máy. Bộ cài desktop cũ cần được cập nhật để có thay đổi quyền này.
+
 ```powershell
 npm install
 npm run desktop
