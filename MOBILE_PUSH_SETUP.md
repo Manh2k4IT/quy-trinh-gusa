@@ -39,3 +39,22 @@ Enable the **Push Notifications** capability in Xcode and verify the APNs key is
 The app requests push permission after a user signs in, then registers its FCM token against that authenticated account. When a manager approves or rejects a proposal, the server sends a targeted push to that proposal owner's registered devices. The push contains an OS notification and the corresponding bundled voice sound. The existing in-app voice continues to play while the page is active.
 
 The Capacitor shell loads the production HTTPS site for the existing UI. Google Sign-In is native through Firebase, then Render verifies the Firebase ID token and issues the existing Gusa session cookie; desktop/browser OAuth remains unchanged. This is suitable for an internal pilot; App Store distribution should be reviewed for the remote-content policy and may require bundling the web frontend.
+
+## iPhone web push
+
+The website can send lock-screen notifications without installing an App Store app. iPhone users need iOS 16.4 or newer, must add the site to their Home Screen from Safari, open Gusa from that Home Screen icon, sign in, and allow notifications. An ordinary Safari tab cannot subscribe to web push on iPhone.
+
+1. In the existing Firebase project, register a **Web app** and copy its Firebase web configuration.
+2. In Firebase Console, open **Project settings → Cloud Messaging → Web configuration**, generate/import a Web Push certificate key pair, and copy its public VAPID key.
+3. Add these values to the server environment (for Render, use the service's Environment settings). These are public Firebase client settings, not service-account credentials:
+   - `FIREBASE_WEB_API_KEY`
+   - `FIREBASE_WEB_AUTH_DOMAIN`
+   - `FIREBASE_PROJECT_ID`
+   - `FIREBASE_STORAGE_BUCKET`
+   - `FIREBASE_MESSAGING_SENDER_ID`
+   - `FIREBASE_WEB_APP_ID`
+   - `FIREBASE_WEB_VAPID_KEY`
+4. Keep `FIREBASE_SERVICE_ACCOUNT_JSON` configured on the server and persistent storage enabled for `push-devices.json`.
+5. Run `npm run mobile:build` before deploying so it creates the browser bundle and Firebase service worker. Deploy the application, then verify `/manifest.webmanifest`, `/web-push.bundle.js`, and `/firebase-messaging-sw.js` are served over HTTPS.
+
+After deployment, signed-in web users on supported browsers can use the **Bật thông báo** button. The server stores the browser's FCM token against the authenticated account and sends proposal notifications through the same Firebase project. Logging out removes that browser token. On iPhone, the button first explains how to add Gusa to the Home Screen when opened in a normal Safari tab.

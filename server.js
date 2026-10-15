@@ -55,11 +55,13 @@ loadSessions();
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
   ".js": "text/javascript; charset=utf-8",
   ".mp3": "audio/mpeg",
   ".png": "image/png",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".webp": "image/webp",
 };
@@ -415,6 +417,24 @@ function serveStatic(req, res) {
   fs.readFile(filePath, (error, data) => {
     if (error) return send(res, 404, "Not found");
     const extension = path.extname(filePath).toLowerCase();
+    if (extension === ".html") {
+      const html = data.toString("utf8");
+      const additions = [
+        '<link rel="manifest" href="/manifest.webmanifest">',
+        '<meta name="apple-mobile-web-app-capable" content="yes">',
+        '<meta name="apple-mobile-web-app-title" content="Gusa Quy Trinh">',
+        '<link rel="apple-touch-icon" href="/logo.png">',
+        '<script defer src="/web-push.bundle.js"></script>',
+      ].join("");
+      const withWebPush = html.includes("</head>")
+        ? html.replace("</head>", `${additions}</head>`)
+        : `${additions}${html}`;
+      res.writeHead(200, {
+        "Content-Type": mimeTypes[extension] || "application/octet-stream",
+        "Cache-Control": "no-store, max-age=0",
+      });
+      return res.end(withWebPush);
+    }
     res.writeHead(200, {
       "Content-Type": mimeTypes[extension] || "application/octet-stream",
       "Cache-Control": "no-store, max-age=0",
@@ -746,6 +766,25 @@ function savePushDevices(devices) {
   fs.writeFileSync(pushDevicesPath, JSON.stringify(devices, null, 2));
 }
 
+function getFirebaseWebConfig() {
+  const firebase = {
+    apiKey: process.env.FIREBASE_WEB_API_KEY || "",
+    authDomain: process.env.FIREBASE_WEB_AUTH_DOMAIN || "",
+    projectId: process.env.FIREBASE_PROJECT_ID || "",
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "",
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "",
+    appId: process.env.FIREBASE_WEB_APP_ID || "",
+  };
+  const enabled = Object.values(firebase).every(Boolean)
+    && Boolean(process.env.FIREBASE_WEB_VAPID_KEY)
+    && Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  return { enabled, firebase, vapidKey: enabled ? process.env.FIREBASE_WEB_VAPID_KEY : "" };
+}
+
+function serveFirebaseWebConfig(req, res) {
+  sendJson(res, 200, getFirebaseWebConfig());
+}
+
 async function registerPushDevice(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") {
@@ -757,7 +796,8 @@ async function registerPushDevice(req, res) {
   const payload = JSON.parse(body || "{}");
   const token = String(payload.token || "").trim();
   const platform = String(payload.platform || "");
-  if (!token || token.length > 4096 || !["android", "ios"].includes(platform)) return send(res, 400, "Thông tin thiết bị không hợp lệ.");
+  if (!token || token.length > 4096 || !["android", "ios", "web"].includes(platform)) return send(res, 400, "Thông tin thiết bị không hợp lệ.");
+  if (platform === "web" && !getFirebaseWebConfig().enabled) return send(res, 503, "Thông báo web chưa được cấu hình trên máy chủ.");
   const devices = getPushDevices().filter((device) => device.token !== token);
   devices.push({ token, platform, userId: getAttendanceUserKey(currentUser), updatedAt: new Date().toISOString() });
   savePushDevices(devices);
@@ -823,6 +863,7 @@ async function sendProposalStatusPush(proposal, { managementApproval = false } =
   const title = isAccountingConfirmation ? "Kế toán đã xác nhận đề xuất" : isManagementApproval ? "Đề xuất thanh toán đã được CEO/Admin duyệt" : approved ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối";
   const rejectionReason = proposal.status === "rejected" ? String(proposal.rejectionReason || "").trim() : "";
   const body = isAccountingConfirmation ? "Đề xuất thanh toán đã được kế toán xác nhận." : isManagementApproval ? "Đề xuất của bạn đã được CEO/Admin duyệt và chuyển đến kế toán xác nhận." : approved ? "Đề xuất của bạn đã được duyệt." : `Đề xuất của bạn đã bị từ chối.${rejectionReason ? ` Lý do: ${rejectionReason}` : ""}`;
+  const url = isAccountingConfirmation || isManagementApproval ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html";
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
@@ -835,6 +876,7 @@ async function sendProposalStatusPush(proposal, { managementApproval = false } =
           notification: { channelId, sound: soundName },
         },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: `${soundName}.wav` } } },
+        webpush: { fcmOptions: { link: url } },
       });
     } catch (error) {
       if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(error.code)) expiredTokens.add(device.token);
@@ -875,6 +917,7 @@ async function sendProposalCreatedPush(proposal) {
     : `${proposal.userName || "Nhân viên"} vừa gửi đề xuất ${flowLabel}.`;
   const soundName = isAccountingHandoff ? "proposal_payment_ceo_approved" : isDirectAccountantProposal ? "proposal_payment_direct_accountant" : isLateProposal ? "proposal_late_submitted" : isEarlyLeaveProposal ? "proposal_early_leave_submitted" : isHalfDayProposal ? "proposal_half_day_submitted" : isLeaveProposal ? "proposal_leave_submitted" : isUnauthorizedLeaveProposal ? "proposal_unauthorized_leave_submitted" : proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
   const channelId = isAccountingHandoff ? "proposal-created-payment-accounting-v1" : isDirectAccountantProposal ? "proposal-created-payment-accountant-direct-v1" : isLateProposal ? "proposal-created-late-v1" : isEarlyLeaveProposal ? "proposal-created-early-leave-v1" : isHalfDayProposal ? "proposal-created-half-day-v1" : isLeaveProposal ? "proposal-created-leave-v1" : isUnauthorizedLeaveProposal ? "proposal-created-unauthorized-leave-v1" : proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
+  const url = proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html";
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
@@ -884,6 +927,7 @@ async function sendProposalCreatedPush(proposal) {
         data: { type: "proposal-created", proposalId: proposal.id, url: proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html" },
         android: { priority: "high", notification: { channelId, sound: soundName } },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: isAccountingHandoff || isLateProposal || isEarlyLeaveProposal || isHalfDayProposal || isLeaveProposal || isUnauthorizedLeaveProposal ? `${soundName}.wav` : "default" } } },
+        webpush: { fcmOptions: { link: url } },
       });
     } catch (error) {
       if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(error.code)) expiredTokens.add(device.token);
@@ -1356,6 +1400,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
     if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
+    if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
     if (req.method === "GET" && req.url === "/api/report-notifications") return serveReportNotifications(req, res);
     if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
     if (req.url === "/api/push/devices" && req.method === "DELETE") return await unregisterPushDevice(req, res);
