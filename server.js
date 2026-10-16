@@ -47,7 +47,7 @@ const proposalEventClients = new Set();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
 const sessionMaxAgeMilliseconds = 30 * 24 * 60 * 60 * 1000;
 const attendanceNetworkPath = path.join(dataDirectory, "attendance-network.json");
-const attendanceTrustedProxyHops = Number(process.env.ATTENDANCE_TRUST_PROXY_HOPS?.trim() || (process.env.RENDER === "true" ? 1 : 0));
+const attendanceTrustedProxyHops = Number(process.env.ATTENDANCE_TRUST_PROXY_HOPS?.trim() || (process.env.RENDER === "true" ? 2 : 0));
 if (!Number.isInteger(attendanceTrustedProxyHops) || attendanceTrustedProxyHops < 0 || attendanceTrustedProxyHops > 10) {
   throw new Error("ATTENDANCE_TRUST_PROXY_HOPS phải là số nguyên từ 0 đến 10.");
 }

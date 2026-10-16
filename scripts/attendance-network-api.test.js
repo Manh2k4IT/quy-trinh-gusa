@@ -23,7 +23,7 @@ async function startServer() {
   baseUrl = `http://127.0.0.1:${port}`;
   server = spawn(process.execPath, ['--require', path.join(directory, 'clock.cjs'), 'server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: String(port), DATA_DIR: directory, ALLOW_LOCAL_DEV: 'false', NODE_ENV: 'production', ATTENDANCE_TRUST_PROXY_HOPS: '1' },
+    env: { ...process.env, PORT: String(port), DATA_DIR: directory, ALLOW_LOCAL_DEV: 'false', NODE_ENV: 'production', ATTENDANCE_TRUST_PROXY_HOPS: '2' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((resolve, reject) => {
@@ -76,7 +76,7 @@ test.after(async () => {
 function request(url, role = 'admin', { method = 'GET', payload, ip = '8.8.8.8' } = {}) {
   return fetch(`${baseUrl}${url}`, {
     method,
-    headers: { ...(role ? { Cookie: `gusa_session=${role}-session` } : {}), ...(ip ? { 'X-Forwarded-For': ip } : {}), 'Content-Type': 'application/json' },
+    headers: { ...(role ? { Cookie: `gusa_session=${role}-session` } : {}), ...(ip ? { 'X-Forwarded-For': `${ip}, 172.67.216.127` } : {}), 'Content-Type': 'application/json' },
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
 }
@@ -110,6 +110,7 @@ test('only active Admin/CEO can read or change IP configuration; invalid saves p
 
 test('configured office check-in denies outside networks, missing headers and spoofed prefix; matching IPv4/IPv6 succeeds', async () => {
   await setIps(['8.8.8.8', '2606:4700:4700::1111']);
+  assert.equal((await (await request('/api/attendance-network')).json()).currentIp, '8.8.8.8');
   const payload = { action: 'check-in', mode: 'office' };
   for (const ip of ['1.1.1.1', null, '8.8.8.8, 1.1.1.1']) {
     resetRecords();
