@@ -48,6 +48,7 @@ function setStatus(message) {
 
 function updateToggle(enabled) {
   button?.setAttribute('aria-checked', String(enabled));
+  button?.classList.toggle('is-on', enabled);
   setStatus(enabled ? 'Thông báo trên thiết bị này đã bật.' : 'Thông báo trên thiết bị này đang tắt.');
 }
 

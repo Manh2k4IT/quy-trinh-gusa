@@ -14,6 +14,11 @@ async function loadClient({ settings = true, desktop = false, native = false, io
   const button = {
     disabled: true,
     attributes: {},
+    classList: {
+      values: new Set(),
+      toggle(name, enabled) { if (enabled) this.values.add(name); else this.values.delete(name); },
+      contains(name) { return this.values.has(name); },
+    },
     setAttribute(name, value) { this.attributes[name] = value; },
     addEventListener(name, handler) { listeners[name] = handler; },
   };
@@ -71,13 +76,26 @@ test('settings switch enables and disables Web Push without a floating button', 
   const client = await loadClient();
   assert.equal(client.button.disabled, false);
   assert.equal(client.button.attributes['aria-checked'], 'false');
+  assert.equal(client.button.classList.contains('is-on'), false);
   await client.listeners.click();
   assert.equal(client.button.attributes['aria-checked'], 'true');
+  assert.equal(client.button.classList.contains('is-on'), true);
   assert.equal(client.storage.get('gusa-web-fcm-token'), 'fresh-token');
   await client.listeners.click();
   assert.equal(client.button.attributes['aria-checked'], 'false');
+  assert.equal(client.button.classList.contains('is-on'), false);
   assert.equal(client.storage.size, 0);
   assert.ok(client.calls.includes('deleteToken'));
+});
+
+test('settings restore the enabled switch appearance for a saved subscription', async () => {
+  const client = await loadClient({ token: 'old-token' });
+  assert.equal(client.button.disabled, false);
+  assert.equal(client.button.attributes['aria-checked'], 'true');
+  assert.equal(client.button.classList.contains('is-on'), true);
+  assert.equal(client.storage.get('gusa-web-fcm-token'), 'fresh-token');
+  assert.match(client.status.textContent, /đã bật/);
+  assert.ok(!client.calls.includes('permission'));
 });
 
 test('native shells skip Web Push and hide the web settings card', async () => {

@@ -3493,6 +3493,7 @@
   }
   function updateToggle(enabled) {
     button?.setAttribute("aria-checked", String(enabled));
+    button?.classList.toggle("is-on", enabled);
     setStatus(enabled ? "Th\xF4ng b\xE1o tr\xEAn thi\u1EBFt b\u1ECB n\xE0y \u0111\xE3 b\u1EADt." : "Th\xF4ng b\xE1o tr\xEAn thi\u1EBFt b\u1ECB n\xE0y \u0111ang t\u1EAFt.");
   }
   async function initializeWebPush() {
