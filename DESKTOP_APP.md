@@ -1,5 +1,13 @@
 # Ứng dụng desktop Windows
 
+## Biểu tượng ứng dụng
+
+Biểu tượng Windows, Android và iOS lấy từ `motif 2223 green.png`. Chạy `npm run icons:generate` trên Windows để tạo lại các kích thước, giữ nguyên tỷ lệ ảnh và thêm nền trắng; biểu tượng Android adaptive có khoảng an toàn để tránh bị cắt bởi mặt nạ launcher. Windows dùng biểu tượng này cho cửa sổ, khay hệ thống, ứng dụng và bộ cài. Cần build và cài lại bản desktop/APK (hoặc build iOS trên macOS) để thiết bị nhận biểu tượng mới; deploy website không thay được biểu tượng ứng dụng đã cài. Logo bên trong giao diện web không thay đổi.
+
+Website dùng cùng biểu tượng cho tab trình duyệt, Apple touch icon và manifest ghim màn hình chính (192/512 px). Sau khi deploy, biểu tượng ghim cũ có thể vẫn nằm trong bộ nhớ của hệ điều hành; nếu chưa đổi, xóa lối tắt cũ rồi thêm lại từ trình duyệt.
+
+Trình duyệt giữ phiên đăng nhập bằng cookie HttpOnly trong 30 ngày kể từ lần đăng nhập, không lưu mật khẩu Google. Khi mở lại đường dẫn trang chủ/lối tắt trong cùng trình duyệt còn cookie hợp lệ, hệ thống tự mở sơ đồ tổ chức (hoặc trang chờ duyệt đối với tài khoản pending). Đăng xuất hủy phiên phía máy chủ; phiên hết hạn hoặc đã xóa cookie phải đăng nhập lại. Chế độ ẩn danh, trình duyệt xóa cookie khi đóng hoặc cửa sổ web dùng kho cookie riêng không bảo đảm giữ phiên.
+
 Ứng dụng desktop mở hệ thống web dùng chung trên cửa sổ riêng. Dữ liệu vẫn được lưu và đồng bộ qua máy chủ; bộ cài không chứa dữ liệu nhân sự hay thông tin bí mật OAuth.
 
 ## Chạy thử

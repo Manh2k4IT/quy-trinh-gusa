@@ -456,6 +456,13 @@ async function completeMobileAuth(req, res) {
 
 function serveStatic(req, res) {
   const requestPath = decodeURIComponent(new URL(req.url, `http://${req.headers.host}`).pathname);
+  if (["/", "/index.html"].includes(requestPath) && parseCookies(req).gusa_session) {
+    const currentUser = getCurrentUser(req);
+    if (currentUser && ["active", "pending"].includes(currentUser.status)) {
+      res.setHeader("Cache-Control", "no-store");
+      return redirect(res, currentUser.status === "active" ? "/organization-chart.html" : "/pending.html");
+    }
+  }
   const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
   const filePath = path.resolve(process.cwd(), relativePath);
   if (!filePath.startsWith(path.resolve(process.cwd()))) return send(res, 403, "Forbidden");
@@ -470,7 +477,8 @@ function serveStatic(req, res) {
         '<link rel="manifest" href="/manifest.webmanifest">',
         '<meta name="apple-mobile-web-app-capable" content="yes">',
         '<meta name="apple-mobile-web-app-title" content="Gusa Quy Trinh">',
-        '<link rel="apple-touch-icon" href="/logo.png">',
+        '<link rel="icon" type="image/png" sizes="32x32" href="/app-icons/favicon.png?v=20261016">',
+        '<link rel="apple-touch-icon" sizes="180x180" href="/app-icons/apple-touch-icon.png?v=20261016">',
         '<script defer src="/web-push.bundle.js"></script>',
       ].join("");
       const withWebPush = html.includes("</head>")

@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "desktop": "electron .",
+    "icons:generate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-app-icons.ps1",
     "dist:win": "electron-builder --win nsis",
     "mobile:build": "esbuild mobile/push-client.js --bundle --format=iife --target=es2020 --outfile=mobile/www/push-client.bundle.js && esbuild mobile/native-auth.js --bundle --format=iife --target=es2020 --outfile=mobile/www/native-auth.bundle.js && esbuild mobile/native-settings.js --bundle --format=iife --target=es2020 --outfile=mobile/www/native-settings.bundle.js && esbuild web-push.js --bundle --format=iife --target=es2020 --outfile=web-push.bundle.js && esbuild web-push-service-worker.js --bundle --format=esm --target=es2022 --outfile=firebase-messaging-sw.js",
     "mobile:convert-sounds": "node scripts/convert-notification-sounds.mjs",
@@ -40,6 +41,7 @@
       "desktop/location.ps1"
     ],
     "win": {
+      "icon": "desktop/icons/app.ico",
       "target": [
         {
           "target": "nsis",
@@ -50,6 +52,8 @@
       ]
     },
     "nsis": {
+      "installerIcon": "desktop/icons/app.ico",
+      "uninstallerIcon": "desktop/icons/app.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     }

@@ -58,8 +58,7 @@ function showMainWindow() {
 }
 
 async function createTray() {
-  const icon = await app.getFileIcon(app.getPath("exe"), { size: "small" });
-  tray = new Tray(icon);
+  tray = new Tray(path.join(__dirname, "icons", "app.ico"));
   tray.setToolTip("Gusa Quy Trinh - đang chạy nền");
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Mở Gusa Quy Trinh", click: showMainWindow },
@@ -95,6 +94,7 @@ function isSetupFrame(event) {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    icon: path.join(__dirname, "icons", "app.ico"),
     width: 1360,
     height: 900,
     minWidth: 980,
