@@ -3531,6 +3531,25 @@
 
   // web-push-service-worker.js
   var config = self.GUSA_FIREBASE_WEB_CONFIG;
+  self.addEventListener("notificationclick", (event) => {
+    const data = event.notification.data;
+    const firebasePayload = data?.FCM_MSG;
+    const targetUrl = new URL(data?.url || firebasePayload?.data?.url || firebasePayload?.fcmOptions?.link || firebasePayload?.notification?.click_action || "/", self.location.origin);
+    if (targetUrl.origin !== self.location.origin) return;
+    event.stopImmediatePropagation();
+    event.notification.close();
+    event.waitUntil((async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const matchingWindow = windows.find((client) => client.url === targetUrl.href);
+      if (matchingWindow) return matchingWindow.focus();
+      for (const client of windows) {
+        if (new URL(client.url).origin !== self.location.origin || !("navigate" in client)) continue;
+        const navigated = await client.navigate(targetUrl.href);
+        if (navigated) return navigated.focus();
+      }
+      return self.clients.openWindow(targetUrl.href);
+    })());
+  });
   if (config?.enabled) {
     const app = initializeApp(config.firebase, "gusa-web-push-service-worker");
     const messaging = getMessagingInSw(app);
@@ -3545,21 +3564,6 @@
       return self.registration.showNotification(title, options);
     });
   }
-  self.addEventListener("notificationclick", (event) => {
-    event.notification.close();
-    const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin);
-    if (targetUrl.origin !== self.location.origin) return;
-    event.waitUntil((async () => {
-      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      for (const client of windows) {
-        if ("focus" in client) {
-          if ("navigate" in client && client.url !== targetUrl.href) await client.navigate(targetUrl.href);
-          return client.focus();
-        }
-      }
-      return self.clients.openWindow(targetUrl.href);
-    })());
-  });
 })();
 /*! Bundled license information:
 
