@@ -976,14 +976,14 @@ async function sendProposalCreatedPush(proposal) {
     : `${proposal.userName || "Nhân viên"} vừa gửi đề xuất ${flowLabel}.`;
   const soundName = isAccountingHandoff ? "proposal_payment_ceo_approved" : isDirectAccountantProposal ? "proposal_payment_direct_accountant" : isLateProposal ? "proposal_late_submitted" : isEarlyLeaveProposal ? "proposal_early_leave_submitted" : isHalfDayProposal ? "proposal_half_day_submitted" : isLeaveProposal ? "proposal_leave_submitted" : isUnauthorizedLeaveProposal ? "proposal_unauthorized_leave_submitted" : proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
   const channelId = isAccountingHandoff ? "proposal-created-payment-accounting-v1" : isDirectAccountantProposal ? "proposal-created-payment-accountant-direct-v1" : isLateProposal ? "proposal-created-late-v1" : isEarlyLeaveProposal ? "proposal-created-early-leave-v1" : isHalfDayProposal ? "proposal-created-half-day-v1" : isLeaveProposal ? "proposal-created-leave-v1" : isUnauthorizedLeaveProposal ? "proposal-created-unauthorized-leave-v1" : proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
-  const url = proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html";
+  const url = proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposal-report.html";
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
       await messaging.send({
         token: device.token,
         notification: { title: "Có đề xuất mới", body },
-        data: { type: "proposal-created", proposalId: proposal.id, url: proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html" },
+        data: { type: "proposal-created", proposalId: proposal.id, url },
         android: { priority: "high", notification: { channelId, sound: soundName } },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: isAccountingHandoff || isLateProposal || isEarlyLeaveProposal || isHalfDayProposal || isLeaveProposal || isUnauthorizedLeaveProposal ? `${soundName}.wav` : "default" } } },
         webpush: { notification: { icon: "https://quytrinh.gusa.vn/app-icons/icon-192.png" }, fcmOptions: { link: url } },
