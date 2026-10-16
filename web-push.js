@@ -82,7 +82,7 @@ async function initializeWebPush() {
 
   const app = initializeApp(config.firebase, 'gusa-web-push');
   const messaging = getMessaging(app);
-  const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { type: 'module' });
+  const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { updateViaCache: 'none' });
   await navigator.serviceWorker.ready;
 
   button?.addEventListener('click', async () => {
@@ -107,7 +107,7 @@ async function initializeWebPush() {
       updateToggle(true);
     } catch (error) {
       console.error('Không thể bật thông báo web:', error);
-      setStatus('Không thay đổi được thông báo. Vui lòng kiểm tra kết nối rồi thử lại.');
+      setStatus(`Không thay đổi được thông báo: ${error.message}`);
     } finally {
       button.disabled = false;
     }
@@ -117,7 +117,7 @@ async function initializeWebPush() {
     if (!payload.notification?.title || Notification.permission !== 'granted') return;
     registration.showNotification(payload.notification.title, {
       body: payload.notification.body || '',
-      icon: '/logo.png',
+      icon: '/app-icons/icon-192.png',
       data: payload.data,
     }).catch((error) => console.error('Không hiển thị được thông báo web:', error));
   });
@@ -149,5 +149,5 @@ async function initializeWebPush() {
 
 initializeWebPush().catch((error) => {
   console.error('Không thể khởi tạo thông báo web:', error);
-  setStatus('Không kiểm tra được thông báo. Vui lòng tải lại trang và thử lại.');
+  setStatus(`Không kiểm tra được thông báo: ${error.message}`);
 });

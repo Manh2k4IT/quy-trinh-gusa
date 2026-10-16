@@ -3522,7 +3522,7 @@
     }
     const app = initializeApp(config.firebase, "gusa-web-push");
     const messaging = getMessagingInWindow(app);
-    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { type: "module" });
+    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { updateViaCache: "none" });
     await navigator.serviceWorker.ready;
     button?.addEventListener("click", async () => {
       button.disabled = true;
@@ -3546,7 +3546,7 @@
         updateToggle(true);
       } catch (error) {
         console.error("Kh\xF4ng th\u1EC3 b\u1EADt th\xF4ng b\xE1o web:", error);
-        setStatus("Kh\xF4ng thay \u0111\u1ED5i \u0111\u01B0\u1EE3c th\xF4ng b\xE1o. Vui l\xF2ng ki\u1EC3m tra k\u1EBFt n\u1ED1i r\u1ED3i th\u1EED l\u1EA1i.");
+        setStatus(`Kh\xF4ng thay \u0111\u1ED5i \u0111\u01B0\u1EE3c th\xF4ng b\xE1o: ${error.message}`);
       } finally {
         button.disabled = false;
       }
@@ -3555,7 +3555,7 @@
       if (!payload.notification?.title || Notification.permission !== "granted") return;
       registration.showNotification(payload.notification.title, {
         body: payload.notification.body || "",
-        icon: "/logo.png",
+        icon: "/app-icons/icon-192.png",
         data: payload.data
       }).catch((error) => console.error("Kh\xF4ng hi\u1EC3n th\u1ECB \u0111\u01B0\u1EE3c th\xF4ng b\xE1o web:", error));
     });
@@ -3581,7 +3581,7 @@
   }
   initializeWebPush().catch((error) => {
     console.error("Kh\xF4ng th\u1EC3 kh\u1EDFi t\u1EA1o th\xF4ng b\xE1o web:", error);
-    setStatus("Kh\xF4ng ki\u1EC3m tra \u0111\u01B0\u1EE3c th\xF4ng b\xE1o. Vui l\xF2ng t\u1EA3i l\u1EA1i trang v\xE0 th\u1EED l\u1EA1i.");
+    setStatus(`Kh\xF4ng ki\u1EC3m tra \u0111\u01B0\u1EE3c th\xF4ng b\xE1o: ${error.message}`);
   });
 })();
 /*! Bundled license information:

@@ -1,18 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 
-const configResponse = await fetch('/api/push/web-config');
-const config = await configResponse.json();
+const config = self.GUSA_FIREBASE_WEB_CONFIG;
 
-if (config.enabled) {
+if (config?.enabled) {
   const app = initializeApp(config.firebase, 'gusa-web-push-service-worker');
   const messaging = getMessaging(app);
 
   onBackgroundMessage(messaging, (payload) => {
+    // Firebase already displays notification payloads in the background.
+    if (payload.notification) return;
     const title = payload.notification?.title || 'Gusa Quy Trinh';
     const options = {
       body: payload.notification?.body || '',
-      icon: '/logo.png',
+      icon: '/app-icons/icon-192.png',
       data: { url: payload.data?.url || '/' },
     };
     return self.registration.showNotification(title, options);

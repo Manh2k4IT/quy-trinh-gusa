@@ -117,3 +117,15 @@ test('HTML pages include new tab and home-screen icons and manifest serves actua
     assert.equal(png.readUInt32BE(16), Number(icon.sizes.split('x')[0]));
   }
 });
+
+test('push worker receives public configuration before its classic bundle', async () => {
+  const response = await request('/firebase-messaging-sw.js');
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /javascript/);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const script = await response.text();
+  assert.ok(script.startsWith('self.GUSA_FIREBASE_WEB_CONFIG = '));
+  const config = JSON.parse(script.slice(script.indexOf(' = ') + 3, script.indexOf(';\n')));
+  assert.ok(Object.hasOwn(config, 'firebase'));
+  assert.equal(Object.hasOwn(config, 'private_key'), false);
+});

@@ -14,7 +14,7 @@ The mobile app uses Capacitor with Firebase Cloud Messaging (FCM). Android and i
 
 ## Android
 
-Install Android Studio and a supported JDK, then run:
+Install Android Studio and JDK 21 (required by Capacitor 8), then run:
 
 ```powershell
 npm run mobile:sync
@@ -41,6 +41,8 @@ The app requests push permission after a user signs in, then registers its FCM t
 The Capacitor shell loads the production HTTPS site for the existing UI. Google Sign-In is native through Firebase, then Render verifies the Firebase ID token and issues the existing Gusa session cookie; desktop/browser OAuth remains unchanged. This is suitable for an internal pilot; App Store distribution should be reviewed for the remote-content policy and may require bundling the web frontend.
 
 ## iPhone web push
+
+Web push requires a successfully registered service worker and enabling the Web Push switch in Gusa settings, not just granting notification permission in Chrome/Android. The server injects only the public Firebase web configuration into the classic bundled worker response so Firebase push listeners register synchronously at startup; do not serve the worker bundle from a static host without this configuration. Build it with `npm run mobile:build`. If initialization fails, Gusa settings show the error. Android must also allow Chrome notifications and background activity; installing a website shortcut alone does not subscribe the device.
 
 The website can send lock-screen notifications without installing an App Store app. iPhone users need iOS 16.4 or newer, must add the site to their Home Screen from Safari, open Gusa from that Home Screen icon, sign in, and allow notifications. An ordinary Safari tab cannot subscribe to web push on iPhone.
 
