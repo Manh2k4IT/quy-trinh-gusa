@@ -935,7 +935,7 @@ async function sendProposalStatusPush(proposal, { managementApproval = false } =
           notification: { channelId, sound: soundName },
         },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: `${soundName}.wav` } } },
-        webpush: { fcmOptions: { link: url } },
+        webpush: { notification: { icon: "https://quytrinh.gusa.vn/app-icons/icon-192.png" }, fcmOptions: { link: url } },
       });
     } catch (error) {
       if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(error.code)) expiredTokens.add(device.token);
@@ -986,7 +986,7 @@ async function sendProposalCreatedPush(proposal) {
         data: { type: "proposal-created", proposalId: proposal.id, url: proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html" },
         android: { priority: "high", notification: { channelId, sound: soundName } },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: isAccountingHandoff || isLateProposal || isEarlyLeaveProposal || isHalfDayProposal || isLeaveProposal || isUnauthorizedLeaveProposal ? `${soundName}.wav` : "default" } } },
-        webpush: { fcmOptions: { link: url } },
+        webpush: { notification: { icon: "https://quytrinh.gusa.vn/app-icons/icon-192.png" }, fcmOptions: { link: url } },
       });
     } catch (error) {
       if (["messaging/invalid-registration-token", "messaging/registration-token-not-registered"].includes(error.code)) expiredTokens.add(device.token);
