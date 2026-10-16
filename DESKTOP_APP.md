@@ -21,7 +21,9 @@ Trên Windows, nút đóng cửa sổ sẽ đưa ứng dụng xuống khay hệ 
 
 ## Giới hạn mạng chấm công tại công ty
 
-Dưới hai lựa chọn trên trang **Chấm công**, chỉ Admin/CEO đang hoạt động thấy mục **Mạng công ty được phép chấm công**. Nhập IP Internet công cộng IPv4/IPv6 của từng mạng, mỗi dòng một IP (tối đa 100), hoặc dùng **Thêm IP đang kết nối** khi đang ở mạng công ty, rồi lưu. Không nhập IP router nội bộ như `192.168.1.1`. Danh sách trống giữ nguyên chấm công không giới hạn mạng.
+IPv6 cấp địa chỉ riêng cho từng thiết bị, kể cả khi cùng Wi-Fi. Có thể nhập dải IPv6 công cộng `/64` (ví dụ `2402:800:6370:b5c8::/64`) để cho phép cả mạng đó; các prefix khác không được hỗ trợ nhằm tránh thêm nhầm dải quá rộng. Nút **Thêm mạng đang kết nối** lấy dải `/64` nếu kết nối hiện tại dùng IPv6, hoặc IP đơn nếu dùng IPv4. IP đơn đã lưu không tự chuyển thành dải mạng. Thiết bị đi qua IPv4 cần thêm IP công cộng IPv4 của cùng đường truyền. Dải mạng nhận diện mạng dây/Wi-Fi chung đường truyền, không xác minh SSID; khi nhà mạng đổi prefix IPv6 hoặc IP IPv4 thì phải cập nhật, đây không phải chức năng tự cập nhật IP động.
+
+Dưới hai lựa chọn trên trang **Chấm công**, chỉ Admin/CEO đang hoạt động thấy mục **Mạng công ty được phép chấm công**. Nhập IP Internet công cộng IPv4/IPv6 hoặc dải IPv6 `/64`, mỗi dòng một mục (tối đa 100), hoặc dùng **Thêm mạng đang kết nối** khi đang ở mạng công ty, rồi lưu. Không nhập IP router nội bộ như `192.168.1.1`. Danh sách trống giữ nguyên chấm công không giới hạn mạng.
 
 Khi có danh sách, máy chủ kiểm tra IP cho cả check-in và check-out tại công ty, kể cả khi gọi API trực tiếp. Check-out dùng hình thức làm việc đã lưu khi check-in, không dùng hình thức do client gửi để bỏ qua kiểm tra. Chấm công online không bị giới hạn này. IP Internet không xác minh tên Wi-Fi; mạng dây cùng đường Internet cũng được phép, VPN/đường truyền chung có thể dùng cùng IP. IP động thay đổi thì Admin/CEO phải cập nhật; có thể cần thêm cả IPv4 và IPv6 của mạng.
 

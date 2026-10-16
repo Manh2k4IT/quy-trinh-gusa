@@ -1,4 +1,4 @@
-const { isIP } = require("node:net");
+const { isIP, BlockList } = require("node:net");
 
 function normalizeIp(value) {
   if (typeof value !== "string") return "";
@@ -27,14 +27,45 @@ function isPublicIp(ip) {
     (a === 203 && b === 0 && c === 113));
 }
 
+function getOfficeNetwork(value) {
+  const ip = normalizeIp(value);
+  if (isIP(ip) !== 6 || !isPublicIp(ip)) return ip;
+  const [left, right] = ip.split("::");
+  const start = left ? left.split(":") : [];
+  const end = right ? right.split(":") : [];
+  const groups = right === undefined ? start : [...start, ...Array(8 - start.length - end.length).fill("0"), ...end];
+  return `${normalizeIp(`${groups.slice(0, 4).join(":")}::`)}/64`;
+}
+
 function validateAllowedIps(values) {
   if (!Array.isArray(values) || values.length > 100) throw new Error("Nhập tối đa 100 IP Internet, mỗi dòng một IP.");
   const ips = values.map((value) => {
+    if (typeof value === "string" && value.trim().includes("/")) {
+      const [address, prefix, extra] = value.trim().split("/");
+      const ip = normalizeIp(address);
+      if (extra !== undefined || prefix !== "64" || isIP(ip) !== 6 || !isPublicIp(ip)) {
+        throw new Error("Dải mạng chỉ hỗ trợ IPv6 công cộng /64, ví dụ 2402:800:6370:b5c8::/64.");
+      }
+      return getOfficeNetwork(ip);
+    }
     const ip = normalizeIp(value);
     if (!ip || !isPublicIp(ip)) throw new Error("Chỉ nhập IP Internet công cộng IPv4 hoặc IPv6, không nhập IP nội bộ, tên Wi-Fi hay đường dẫn.");
     return ip;
   });
   return [...new Set(ips)];
+}
+
+function isAllowedOfficeIp(value, allowedIps) {
+  const ip = normalizeIp(value);
+  if (!ip) return false;
+  return allowedIps.some((allowed) => {
+    if (!allowed.includes("/")) return allowed === ip;
+    const [network] = allowed.split("/");
+    if (isIP(ip) !== 6) return false;
+    const subnet = new BlockList();
+    subnet.addSubnet(network, 64, "ipv6");
+    return subnet.check(ip, "ipv6");
+  });
 }
 
 function getRequestIp(req, trustedProxyHops) {
@@ -51,4 +82,4 @@ function needsOfficeNetwork(action, mode, record) {
   return action === "check-in" ? mode === "office" : record.workMode !== "online";
 }
 
-module.exports = { normalizeIp, validateAllowedIps, getRequestIp, needsOfficeNetwork };
+module.exports = { normalizeIp, validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, isAllowedOfficeIp };

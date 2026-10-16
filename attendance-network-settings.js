@@ -8,6 +8,7 @@
   const status = panel.querySelector('[data-attendance-network-status]');
   const current = panel.querySelector('[data-attendance-current-ip]');
   let currentIp = '';
+  let currentNetwork = '';
   const readIps = () => input.value.split(/\r?\n/).map((ip) => ip.trim()).filter(Boolean);
   const setBusy = (busy) => {
     input.disabled = busy;
@@ -17,9 +18,10 @@
   const apply = (settings) => {
     input.value = settings.allowedIps.join('\n');
     currentIp = settings.currentIp;
+    currentNetwork = settings.currentNetwork || currentIp;
     current.textContent = currentIp || 'Không xác định được IP — kiểm tra cấu hình proxy của máy chủ.';
     status.textContent = settings.allowedIps.length
-      ? `Đang giới hạn chấm công tại công ty theo ${settings.allowedIps.length} IP.`
+      ? `Đang giới hạn chấm công tại công ty theo ${settings.allowedIps.length} IP/dải mạng.`
       : 'Chưa giới hạn mạng: danh sách IP đang trống.';
   };
   try {
@@ -39,8 +41,8 @@
     return;
   }
   addCurrent.addEventListener('click', () => {
-    input.value = [...new Set([...readIps(), currentIp])].join('\n');
-    status.textContent = 'Đã thêm IP hiện tại vào ô nhập. Nhấn Lưu danh sách IP để áp dụng; chỉ thêm khi bạn đang kết nối mạng công ty.';
+    input.value = [...new Set([...readIps(), currentNetwork])].join('\n');
+    status.textContent = 'Đã thêm mạng hiện tại vào ô nhập (IPv6 dùng dải /64 cho các thiết bị cùng mạng). Nhấn Lưu danh sách IP để áp dụng; chỉ thêm khi bạn đang kết nối mạng công ty.';
   });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

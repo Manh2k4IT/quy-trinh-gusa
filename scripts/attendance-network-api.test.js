@@ -146,6 +146,28 @@ test('office checkout cannot bypass network checks by claiming online; actual on
   assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '1.1.1.1', payload: { action: 'check-out', mode: 'office' } })).status, 200);
 });
 
+test('office /64 admits desktop and phone, denies other networks for both check-in and checkout', async () => {
+  await setIps(['2402:800:6370:b5c8::/64']);
+  const desktop = '2402:800:6370:b5c8:2c78:af15:42d4:6c18';
+  const phone = '2402:800:6370:b5c8:20d0:e79f:cc2:c727';
+  const settings = await (await request('/api/attendance-network', 'admin', { ip: phone })).json();
+  assert.equal(settings.currentIp, phone);
+  assert.equal(settings.currentNetwork, '2402:800:6370:b5c8::/64');
+  for (const ip of [desktop, phone]) {
+    resetRecords();
+    assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip, payload: { action: 'check-in', mode: 'office' } })).status, 200);
+  }
+  for (const ip of ['2402:800:6370:b5c9::1', '1.1.1.1']) {
+    resetRecords();
+    assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip, payload: { action: 'check-in', mode: 'office' } })).status, 403);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory, 'attendance.json'))), {});
+  }
+  resetRecords({ employee: { [day]: { date: day, workMode: 'office', checkIn: `${day}T01:00:00Z` } } });
+  fs.writeFileSync(path.join(directory, 'clock.txt'), `${day}T12:00:00Z`);
+  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '2402:800:6370:b5c9::1', payload: { action: 'check-out', mode: 'online' } })).status, 403);
+  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: phone, payload: { action: 'check-out', mode: 'office' } })).status, 200);
+});
+
 test('empty list preserves unrestricted office attendance, including half-day shifts', async () => {
   await setIps([]);
   resetRecords();

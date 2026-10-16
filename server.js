@@ -9,7 +9,7 @@ const { proposalReportItems, attendanceReportItems } = require("./report-notific
 const proposalDocument = require("./proposal-document");
 const { createProposalPdf } = require("./proposal-document-pdf");
 const paymentDocumentData = require("./payment-document-data");
-const { validateAllowedIps, getRequestIp, needsOfficeNetwork } = require("./attendance-network");
+const { validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, isAllowedOfficeIp } = require("./attendance-network");
 const { getApprovalConfirmation } = require("./approval-confirmation");
 
 loadEnvFile();
@@ -65,7 +65,8 @@ function getAttendanceNetwork() {
 function serveAttendanceNetwork(req, res) {
   const user = getCurrentUser(req);
   if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được xem cấu hình mạng chấm công." });
-  sendJson(res, 200, { ...getAttendanceNetwork(), currentIp: getRequestIp(req, attendanceTrustedProxyHops) });
+  const currentIp = getRequestIp(req, attendanceTrustedProxyHops);
+  sendJson(res, 200, { ...getAttendanceNetwork(), currentIp, currentNetwork: getOfficeNetwork(currentIp) });
 }
 
 async function updateAttendanceNetwork(req, res) {
@@ -86,7 +87,8 @@ async function updateAttendanceNetwork(req, res) {
   const settings = { allowedIps, updatedAt: new Date().toISOString(), updatedBy: user.id };
   fs.writeFileSync(`${attendanceNetworkPath}.tmp`, JSON.stringify(settings, null, 2));
   fs.renameSync(`${attendanceNetworkPath}.tmp`, attendanceNetworkPath);
-  sendJson(res, 200, { allowedIps, currentIp: getRequestIp(req, attendanceTrustedProxyHops) });
+  const currentIp = getRequestIp(req, attendanceTrustedProxyHops);
+  sendJson(res, 200, { allowedIps, currentIp, currentNetwork: getOfficeNetwork(currentIp) });
 }
 
 function normalizeEmail(email) {
@@ -1166,7 +1168,7 @@ async function updateAttendance(req, res) {
   const record = userRecords[dateKey] || { date: dateKey, status: "working" };
   if (needsOfficeNetwork(action, mode, record)) {
     const { allowedIps } = getAttendanceNetwork();
-    if (allowedIps.length && !allowedIps.includes(getRequestIp(req, attendanceTrustedProxyHops))) {
+    if (allowedIps.length && !isAllowedOfficeIp(getRequestIp(req, attendanceTrustedProxyHops), allowedIps)) {
       return sendJson(res, 403, { message: "Bạn cần kết nối mạng công ty đã được Admin/CEO cho phép để check-in hoặc check-out tại công ty." });
     }
   }

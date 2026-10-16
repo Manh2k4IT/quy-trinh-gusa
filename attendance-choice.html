@@ -43,13 +43,14 @@
           <section class="attendance-network-settings" data-attendance-network hidden aria-labelledby="attendance-network-title">
             <h2 id="attendance-network-title">Mạng công ty được phép chấm công</h2>
             <p>Chỉ Admin/CEO quản lý. Nhập IP Internet công cộng của mạng công ty (Wi-Fi hoặc mạng dây), không nhập IP nội bộ như 192.168.1.1.</p>
+            <p>Với IPv6, thêm dải mạng /64 để cho phép các thiết bị cùng mạng, ví dụ 2402:800:6370:b5c8::/64. Nút bên dưới lấy dải /64 cho IPv6 hoặc IP đơn cho IPv4. IP đơn đã lưu vẫn chỉ cho phép đúng địa chỉ đó.</p>
             <p>Chỉ giới hạn check-in và check-out tại công ty; chấm công online không bị ảnh hưởng. Để trống danh sách thì chưa giới hạn mạng.</p>
             <p>IP kết nối hiện tại: <strong data-attendance-current-ip>Đang tải...</strong></p>
             <form data-attendance-network-form>
-              <label for="attendance-network-ips">Danh sách IP được phép — mỗi dòng một IP (tối đa 100)</label>
+              <label for="attendance-network-ips">Danh sách IP/dải IPv6 /64 được phép — mỗi dòng một mục (tối đa 100)</label>
               <textarea id="attendance-network-ips" name="allowedIps" rows="5" spellcheck="false" data-attendance-network-ips disabled></textarea>
               <div class="attendance-network-actions">
-                <button type="button" data-attendance-add-current-ip disabled>Thêm IP đang kết nối</button>
+                <button type="button" data-attendance-add-current-ip disabled>Thêm mạng đang kết nối</button>
                 <button type="submit" data-attendance-save-network disabled>Lưu danh sách IP</button>
               </div>
             </form>
@@ -59,6 +60,6 @@
       </main>
     </div>
     <script src="admin-menu.js?v=20261007-4"></script>
-    <script src="attendance-network-settings.js?v=20261016-1"></script>
+    <script src="attendance-network-settings.js?v=20261016-2"></script>
   </body>
 </html>

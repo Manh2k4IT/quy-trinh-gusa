@@ -3,7 +3,29 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { normalizeIp, validateAllowedIps, getRequestIp, needsOfficeNetwork } = require('../attendance-network');
+const { normalizeIp, validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, isAllowedOfficeIp } = require('../attendance-network');
+
+test('IPv6 /64 allows different office devices, not adjacent networks or invalid ranges', () => {
+  const network = '2402:800:6370:b5c8::/64';
+  const desktop = '2402:800:6370:b5c8:2c78:af15:42d4:6c18';
+  const phone = '2402:800:6370:b5c8:20d0:e79f:cc2:c727';
+  assert.equal(getOfficeNetwork(desktop), network);
+  assert.equal(getOfficeNetwork('2606:4700::1111'), '2606:4700::/64');
+  assert.equal(getOfficeNetwork('8.8.8.8'), '8.8.8.8');
+  assert.equal(getOfficeNetwork(''), '');
+  assert.deepEqual(validateAllowedIps([`${desktop}/64`, network]), [network]);
+  for (const ip of [desktop, phone, '2402:800:6370:b5c8::', '2402:800:6370:b5c8:ffff:ffff:ffff:ffff']) {
+    assert.equal(isAllowedOfficeIp(ip, [network]), true);
+  }
+  for (const ip of ['', 'invalid', '8.8.8.8', '2402:800:6370:b5c7:ffff:ffff:ffff:ffff', '2402:800:6370:b5c9::']) {
+    assert.equal(isAllowedOfficeIp(ip, [network]), false);
+  }
+  assert.equal(isAllowedOfficeIp(phone, [desktop]), false);
+  assert.equal(isAllowedOfficeIp('::ffff:8.8.8.8', ['8.8.8.8']), true);
+  for (const value of ['2402:800::/0', '2402:800::/48', '2402:800::/65', '2402:800::/64/64', 'fe80::/64', 'fc00::/64', '2001:db8::/64', '8.8.8.8/64']) {
+    assert.throws(() => validateAllowedIps([value]));
+  }
+});
 
 test('IP lists normalize IPv6 and mapped IPv4, reject private/invalid values and deduplicate', () => {
   assert.equal(normalizeIp('::ffff:8.8.8.8'), '8.8.8.8');
@@ -36,7 +58,7 @@ test('office checkout checks stored mode instead of a client-supplied online mod
   assert.equal(needsOfficeNetwork('check-out', 'office', { workMode: 'online' }), false);
 });
 
-async function loadClient(role, failSave = false) {
+async function loadClient(role, failSave = false, currentIp = '8.8.8.8') {
   const calls = [];
   const listeners = {};
   const input = { value: '', disabled: true };
@@ -64,7 +86,7 @@ async function loadClient(role, failSave = false) {
       return { ok: !failure, json: async () => url === '/api/me'
         ? { user: { role, status: 'active' } }
         : failure ? { message: 'IP không hợp lệ' }
-          : { allowedIps: options.body ? JSON.parse(options.body).allowedIps : [], currentIp: '8.8.8.8' } };
+          : { allowedIps: options.body ? JSON.parse(options.body).allowedIps : [], currentIp, currentNetwork: getOfficeNetwork(currentIp) } };
     },
   };
   await vm.runInNewContext(source, context);
@@ -97,4 +119,13 @@ test('save failures are visible and preserve the edited list', async () => {
   assert.equal(client.status.textContent, 'IP không hợp lệ');
   assert.equal(client.input.value, 'invalid');
   assert.equal(client.save.disabled, false);
+});
+
+test('adding IPv6 office network requires explicit save and uses /64 rather than a device address', async () => {
+  const client = await loadClient('admin', false, '2402:800:6370:b5c8:2c78:af15:42d4:6c18');
+  client.listeners.add();
+  assert.equal(client.input.value, '2402:800:6370:b5c8::/64');
+  assert.equal(client.calls.length, 2);
+  await client.listeners.submit({ preventDefault() {} });
+  assert.deepEqual(JSON.parse(client.calls.at(-1).body), { allowedIps: ['2402:800:6370:b5c8::/64'] });
 });
