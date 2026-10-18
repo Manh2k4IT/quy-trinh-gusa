@@ -1528,10 +1528,28 @@ async function updateOrganizationChart(req, res) {
   sendJson(res, 200, { nodes: cleanNodes, freeLines: cleanFreeLines });
 }
 
+async function completeZaloAuth(req, res) {
+  const user = getCurrentUser(req);
+  if (!isManagementUser(user) || user.status !== "active") {
+    return sendJson(res, 403, { message: "Đăng nhập Gusa bằng tài khoản Admin/CEO rồi mở lại liên kết này." });
+  }
+  const code = new URL(req.url, "http://localhost").searchParams.get("code");
+  if (!code) return sendJson(res, 400, { message: "Thiếu mã cấp quyền Zalo." });
+  try {
+    await zaloClient.exchangeAuthorizationCode(code);
+  } catch (error) {
+    console.warn(error.message);
+    return sendJson(res, 502, { message: error.message });
+  }
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+  res.end("<!doctype html><meta charset=utf-8><title>Zalo OA</title><p>Đã kết nối Zalo OA. Bạn có thể đóng trang này.</p>");
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
+    if (req.method === "GET" && req.url.startsWith("/zalo/oauth/callback")) return await completeZaloAuth(req, res);
     if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
     if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
