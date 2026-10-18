@@ -408,7 +408,9 @@ async function completeMobileAuth(req, res) {
     const firebaseAuth = getFirebaseAuth();
     if (!firebaseAuth) return sendJson(res, 503, { message: "Đăng nhập mobile chưa được cấu hình trên máy chủ." });
     verificationStage = "verify Firebase ID token";
+    const verifyStartedAt = Date.now();
     const decodedToken = await firebaseAuth.verifyIdToken(idToken);
+    console.log(`Mobile auth: verifyIdToken took ${Date.now() - verifyStartedAt}ms.`);
     const tokenGoogleUid = decodedToken.firebase?.sign_in_provider === "google.com" ? decodedToken.firebase?.identities?.["google.com"]?.[0] : "";
     if (tokenGoogleUid && decodedToken.email && decodedToken.email_verified) {
       // ID token đã được xác minh chứa đủ thông tin, không cần gọi thêm Firebase.
@@ -459,7 +461,9 @@ async function completeMobileAuth(req, res) {
 
   const sessionId = crypto.randomBytes(32).toString("hex");
   sessions.set(sessionId, { userId: profile.sub, createdAt: Date.now() });
+  const persistStartedAt = Date.now();
   saveSessions();
+  console.log(`Mobile auth: saving sessions took ${Date.now() - persistStartedAt}ms.`);
   const redirectTo = nextUser.status === "pending" ? "/pending.html" : "/organization-chart.html?showWelcome=1";
   res.writeHead(200, {
     "Content-Type": "application/json; charset=utf-8",
