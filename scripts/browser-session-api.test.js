@@ -58,7 +58,7 @@ test.before(async () => {
   const sessions = {
     active: { userId: 'active', createdAt: Date.now() },
     pending: { userId: 'pending', createdAt: Date.now() },
-    expired: { userId: 'active', createdAt: Date.now() - 31 * 24 * 60 * 60 * 1000 },
+    expired: { userId: 'active', createdAt: Date.now() - 11 * 365 * 24 * 60 * 60 * 1000 },
   };
   for (const [file, value] of Object.entries({ 'users.json': users, 'sessions.json': sessions, 'push-devices.json': [] })) {
     fs.writeFileSync(path.join(directory, file), JSON.stringify(value));
