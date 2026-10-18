@@ -1044,7 +1044,10 @@ async function sendZaloProposalImages(proposal) {
   ];
   for (const { data, caption } of candidates) {
     const match = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/]+={0,2})$/.exec(typeof data === "string" ? data : "");
-    if (!match) continue;
+    if (!match) {
+      if (data) console.warn(`Zalo image skipped: unsupported format (${String(data).slice(0, 30)}).`);
+      continue;
+    }
     try {
       const sent = await zaloClient.sendGroupImage(Buffer.from(match[2], "base64"), match[1], caption);
       if (!sent) console.warn("Zalo image skipped: not configured or larger than 1MB.");
