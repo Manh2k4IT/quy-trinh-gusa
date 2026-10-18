@@ -1021,10 +1021,20 @@ function getProposalZaloMessage(proposal, { outcome = false, managementApproval 
     return `Đề xuất ${subject} của bạn ${decision}.${reason} Xem trên Gusa: ${url}`;
   }
   const date = proposal.dateFrom && proposal.dateTo ? `${proposal.dateFrom} đến ${proposal.dateTo}` : proposal.date || "";
-  const amount = proposal.type === "payment" ? `; số tiền: ${Number(proposal.amount).toLocaleString("vi-VN")} VNĐ` : "";
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
+  const periodLabels = { "half-day-morning": "buổi sáng", "half-day-afternoon": "buổi chiều" };
+  const details = [
+    `Loại: ${typeLabels[proposal.type] || proposal.type}`,
+    date && `Ngày: ${date}`,
+    proposal.time && `Giờ: ${proposal.time}`,
+    periodLabels[proposal.attendanceType] && `Buổi: ${periodLabels[proposal.attendanceType]}`,
+    proposal.type === "payment" && proposal.category && `Nội dung thanh toán: ${proposal.category}`,
+    proposal.type === "payment" && `Số tiền: ${Number(proposal.amount).toLocaleString("vi-VN")} VNĐ`,
+    proposal.reason && `Lý do: ${String(proposal.reason).slice(0, 500)}`,
+  ].filter(Boolean).join("\n");
   const accountingStage = needsAccountingReview(proposal);
   const reviewer = accountingStage ? "Kế toán" : "Admin/CEO";
-  return `Có ${subject} mới từ ${proposal.userName || "nhân viên"}${date ? `; ngày: ${date}` : ""}${amount}. Người duyệt: ${reviewer}. Mở Gusa để xem và xử lý: ${url}`;
+  return `Có ${subject} mới từ ${proposal.userName || "nhân viên"}.\n${details}\nNgười duyệt: ${reviewer}.\nMở Gusa để xem và xử lý: ${url}`;
 }
 
 async function sendZaloReviewNotification(proposal, { managementApproval = false } = {}) {
