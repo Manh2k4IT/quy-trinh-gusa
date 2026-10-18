@@ -48,7 +48,7 @@ const users = new Map();
 const sessions = new Map();
 const proposalEventClients = new Set();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
-const sessionMaxAgeMilliseconds = 30 * 24 * 60 * 60 * 1000;
+const sessionMaxAgeMilliseconds = 10 * 365 * 24 * 60 * 60 * 1000;
 const attendanceNetworkPath = path.join(dataDirectory, "attendance-network.json");
 const attendanceTrustedProxyHops = Number(process.env.ATTENDANCE_TRUST_PROXY_HOPS?.trim() || (process.env.RENDER === "true" ? 2 : 0));
 if (!Number.isInteger(attendanceTrustedProxyHops) || attendanceTrustedProxyHops < 0 || attendanceTrustedProxyHops > 10) {
@@ -381,7 +381,7 @@ async function completeGoogleAuth(req, res) {
   const destination = users.get(profile.sub).status === "pending" ? "/pending.html" : stateData.returnTo;
   const destinationUrl = new URL(destination, "http://localhost");
   if (destinationUrl.pathname === "/organization-chart.html") destinationUrl.searchParams.set("showWelcome", "1");
-  redirect(res, `${destinationUrl.pathname}${destinationUrl.search}${destinationUrl.hash}`, [cookie("gusa_session", sessionId, { maxAge: 30 * 24 * 60 * 60 }), cookie("google_oauth_state", "", { maxAge: 0 })]);
+  redirect(res, `${destinationUrl.pathname}${destinationUrl.search}${destinationUrl.hash}`, [cookie("gusa_session", sessionId, { maxAge: 400 * 24 * 60 * 60 }), cookie("google_oauth_state", "", { maxAge: 0 })]);
 }
 
 async function completeMobileAuth(req, res) {
@@ -452,7 +452,7 @@ async function completeMobileAuth(req, res) {
   res.writeHead(200, {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-    "Set-Cookie": cookie("gusa_session", sessionId, { maxAge: 30 * 24 * 60 * 60 }),
+    "Set-Cookie": cookie("gusa_session", sessionId, { maxAge: 400 * 24 * 60 * 60 }),
   });
   res.end(JSON.stringify({ redirectTo }));
 }
