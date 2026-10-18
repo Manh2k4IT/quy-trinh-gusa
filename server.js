@@ -8,6 +8,7 @@ const { getMessaging } = require("firebase-admin/messaging");
 const { proposalReportItems, attendanceReportItems } = require("./report-notification-data");
 const proposalDocument = require("./proposal-document");
 const { createProposalPdf } = require("./proposal-document-pdf");
+const { renderPdfPages } = require("./proposal-document-image");
 const paymentDocumentData = require("./payment-document-data");
 const { validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, isAllowedOfficeIp } = require("./attendance-network");
 const { getApprovalConfirmation } = require("./approval-confirmation");
@@ -1038,9 +1039,19 @@ function getProposalZaloMessage(proposal, { outcome = false, managementApproval 
 }
 
 async function sendZaloProposalImages(proposal) {
+  const name = proposal.userName || "nhân viên";
+  try {
+    const pages = await renderPdfPages(await createProposalPdf(proposal));
+    for (const [index, page] of pages.entries()) {
+      const suffix = pages.length > 1 ? ` (trang ${index + 1}/${pages.length})` : "";
+      await zaloClient.sendGroupImage(page, "image/jpeg", `Đơn đề xuất của ${name}${suffix}`);
+    }
+  } catch (error) {
+    console.error("Zalo proposal document image failed:", error.message);
+  }
   const candidates = [
-    { data: proposal.latePhotoData, caption: `Ảnh đi trễ của ${proposal.userName || "nhân viên"}` },
-    { data: proposal.paymentFileData, caption: `Chứng từ thanh toán của ${proposal.userName || "nhân viên"}` },
+    { data: proposal.latePhotoData, caption: `Ảnh đi trễ của ${name}` },
+    { data: proposal.paymentFileData, caption: `Chứng từ thanh toán của ${name}` },
   ];
   for (const { data, caption } of candidates) {
     const match = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/]+={0,2})$/.exec(typeof data === "string" ? data : "");
