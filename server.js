@@ -11,6 +11,7 @@ const { createProposalPdf } = require("./proposal-document-pdf");
 const paymentDocumentData = require("./payment-document-data");
 const { validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, isAllowedOfficeIp } = require("./attendance-network");
 const { getApprovalConfirmation } = require("./approval-confirmation");
+const { createZaloClient } = require("./zalo-oa");
 
 loadEnvFile();
 
@@ -20,6 +21,7 @@ const publicUrl = process.env.RENDER_EXTERNAL_URL;
 const redirectUri = process.env.GOOGLE_REDIRECT_URI || (publicUrl ? `${publicUrl}/auth/callback` : `http://localhost:${port}/auth/callback`);
 const fixedAdminEmail = "manh98627@gmail.com";
 const dataDirectory = process.env.DATA_DIR || (process.env.RENDER ? "/var/data" : process.cwd());
+const zaloClient = createZaloClient({ env: process.env, dataDirectory });
 
 if (!fs.existsSync(dataDirectory)) fs.mkdirSync(dataDirectory, { recursive: true });
 
@@ -997,6 +999,67 @@ async function sendProposalCreatedPush(proposal) {
   console.log(`Proposal-created push processed for ${devices.length} reviewer devices.`);
 }
 
+function getProposalReviewUrl(proposal) {
+  const query = new URLSearchParams({ proposalId: proposal.id });
+  if (proposal.type === "payment") query.set("type", "payment");
+  return `https://quytrinh.gusa.vn/proposal-report.html?${query}`;
+}
+
+function getProposalZaloMessage(proposal, { outcome = false, managementApproval = false } = {}) {
+  const url = getProposalReviewUrl(proposal);
+  const subject = proposal.type === "payment" ? "đề xuất thanh toán" : "đề xuất nhân sự";
+  if (outcome && managementApproval) {
+    return `Đề xuất thanh toán của bạn đã được CEO/Admin duyệt và chuyển đến kế toán xác nhận. Xem trên Gusa: ${url}`;
+  }
+  if (managementApproval) {
+    return `Đề xuất thanh toán của ${proposal.userName || "nhân viên"} đã được CEO/Admin duyệt và chuyển sang bước kế toán. Mở Gusa để xử lý: ${url}`;
+  }
+  if (outcome) {
+    const approved = proposal.status === "approved";
+    const decision = approved ? "đã được duyệt" : "bị từ chối";
+    const reason = !approved && proposal.rejectionReason ? ` Lý do: ${String(proposal.rejectionReason).slice(0, 500)}` : "";
+    return `Đề xuất ${subject} của bạn ${decision}.${reason} Xem trên Gusa: ${url}`;
+  }
+  const date = proposal.dateFrom && proposal.dateTo ? `${proposal.dateFrom} đến ${proposal.dateTo}` : proposal.date || "";
+  const amount = proposal.type === "payment" ? `; số tiền: ${Number(proposal.amount).toLocaleString("vi-VN")} VNĐ` : "";
+  const accountingStage = needsAccountingReview(proposal);
+  const reviewer = accountingStage ? "Kế toán" : "Admin/CEO";
+  return `Có ${subject} mới từ ${proposal.userName || "nhân viên"}${date ? `; ngày: ${date}` : ""}${amount}. Người duyệt: ${reviewer}. Mở Gusa để xem và xử lý: ${url}`;
+}
+
+async function sendZaloReviewNotification(proposal, { managementApproval = false } = {}) {
+  const reviewers = [...users.values()].filter((user) => user.status === "active" && (
+    needsAccountingReview(proposal) ? user.role === "accountant" : isManagementUser(user)
+  ));
+  const text = getProposalZaloMessage(proposal, { managementApproval });
+  const notifications = [];
+  notifications.push(zaloClient.sendGroupMessage(text));
+  const mappedUserIds = reviewers.map((user) => zaloClient.getUserId(getAttendanceUserKey(user)));
+  const recipientIds = new Set(mappedUserIds.filter(Boolean));
+  const unmappedReviewers = mappedUserIds.filter((userId) => !userId).length;
+  if (unmappedReviewers) {
+    console.warn(`Zalo direct reviewer notifications skipped for ${unmappedReviewers} reviewer(s) without a Zalo user ID mapping.`);
+  }
+  for (const zaloUserId of recipientIds) notifications.push(zaloClient.sendDirectMessage(zaloUserId, text));
+  const results = await Promise.allSettled(notifications);
+  results.filter((result) => result.status === "rejected").forEach((result) => {
+    console.error("Zalo proposal-review notification failed:", result.reason.message);
+  });
+}
+
+async function sendZaloProposalOutcome(proposal, { managementApproval = false } = {}) {
+  const zaloUserId = zaloClient.getUserId(proposal.userId);
+  if (!zaloUserId) {
+    console.warn(`Zalo proposal outcome skipped: no Zalo user mapping for proposer of proposal ${proposal.id}.`);
+    return;
+  }
+  try {
+    await zaloClient.sendDirectMessage(zaloUserId, getProposalZaloMessage(proposal, { outcome: true, managementApproval }));
+  } catch (error) {
+    console.error("Zalo proposal-outcome notification failed:", error.message);
+  }
+}
+
 async function updateProposalStatus(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -1060,9 +1123,12 @@ async function updateProposalStatus(req, res) {
     publishProposalEvent(proposal);
     sendProposalStatusPush(proposal, { managementApproval: true }).catch((error) => console.error("Proposal management-approval push failed:", error));
     sendProposalCreatedPush(proposal).catch((error) => console.error("Proposal accounting handoff push failed:", error));
+    sendZaloReviewNotification(proposal, { managementApproval: true }).catch((error) => console.error("Zalo accounting-handoff notification failed:", error.message));
+    sendZaloProposalOutcome(proposal, { managementApproval: true }).catch((error) => console.error("Zalo proposal status notification failed:", error.message));
   } else {
     publishProposalStatusEvent(proposal);
     sendProposalStatusPush(proposal).catch((error) => console.error("Proposal push failed:", error));
+    if (["approved", "rejected"].includes(proposal.status)) sendZaloProposalOutcome(proposal).catch((error) => console.error("Zalo proposal status notification failed:", error.message));
   }
   sendJson(res, 200, { proposal, movedToAccounting });
 }
@@ -1135,6 +1201,7 @@ async function createProposal(req, res) {
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
   publishProposalEvent(proposal);
   sendProposalCreatedPush(proposal).catch((error) => console.error("Proposal-created push failed:", error.code || "unknown"));
+  sendZaloReviewNotification(proposal).catch((error) => console.error("Zalo proposal-created notification failed:", error.message));
   sendJson(res, 201, { proposal });
 }
 
@@ -1534,6 +1601,13 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
+    if (req.url.split("?")[0] === "/proposal-report.html") {
+      const currentUser = getCurrentUser(req);
+      if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) {
+        const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+        return redirect(res, `/auth/google?returnTo=${encodeURIComponent(`${requestUrl.pathname}${requestUrl.search}`)}`);
+      }
+    }
     if (req.url === "/attendance.html") {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
@@ -1549,4 +1623,11 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => console.log(`Gusa Quy Trinh: http://localhost:${port}`));
+server.listen(port, () => {
+  console.log(`Gusa Quy Trinh: http://localhost:${port}`);
+  if (process.env.ZALO_LIST_GROUPS === "1") {
+    zaloClient.listGroups()
+      .then((groups) => console.log("Zalo GMF groups:", JSON.stringify(groups)))
+      .catch((error) => console.warn(error.message));
+  }
+});

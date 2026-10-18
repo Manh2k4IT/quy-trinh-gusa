@@ -1,7 +1,9 @@
 const list = document.querySelector('[data-proposal-list]');
 const search = document.querySelector('[data-proposal-search]');
 const filter = document.querySelector('[data-proposal-status-filter]');
-const isPaymentReport = new URLSearchParams(window.location.search).get('type') === 'payment';
+const proposalUrl = new URLSearchParams(window.location.search);
+const requestedProposalId = proposalUrl.get('proposalId') || '';
+const isPaymentReport = proposalUrl.get('type') === 'payment';
 if (isPaymentReport) {
   document.title = 'Báo cáo đề xuất thanh toán - Quy Trình';
   document.querySelector('.breadcrumbs strong').textContent = 'Báo cáo đề xuất thanh toán';
@@ -22,7 +24,8 @@ allDaysOption.value = 'all';
 allDaysOption.textContent = 'Tất cả ngày';
 dayFilter.append(allDaysOption);
 document.querySelector('.report-toolbar')?.insertBefore(dayFilter, filter);
-dayFilter.value = '0';
+dayFilter.value = requestedProposalId ? 'all' : '0';
+if (requestedProposalId) filter.value = 'all';
 const paymentFlowTabs = document.createElement('div');
 paymentFlowTabs.className = 'payment-flow-tabs';
 paymentFlowTabs.setAttribute('role', 'tablist');
@@ -264,10 +267,11 @@ function render() {
     const dayOffset = proposalDayOffset(proposal);
     const matchesDay = dayFilter.value === 'all' || dayOffset === Number(dayFilter.value);
     const matchesType = isPaymentReport ? proposal.type === 'payment' : proposal.type !== 'payment';
+    const matchesProposal = !requestedProposalId || proposal.id === requestedProposalId;
     const matchesPaymentFlow = !isPaymentReport || (proposal.paymentFlow || 'ceo') === selectedPaymentFlow;
     const matchesStatus = filter.value === 'all' || proposal.status === filter.value;
     const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''}`.toLowerCase().includes(query);
-    return matchesDay && matchesType && matchesPaymentFlow && matchesStatus && matchesSearch;
+    return matchesDay && matchesType && matchesProposal && matchesPaymentFlow && matchesStatus && matchesSearch;
   }).sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date));
   list.innerHTML = visible.length ? visible.map((proposal) => {
     const isPayment = proposal.type === 'payment';
@@ -287,7 +291,7 @@ function render() {
       : canApprove
         ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>`
         : '';
-    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${decisionActions}</div></article>`;
+    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}" data-proposal-id="${proposal.id}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${decisionActions}</div></article>`;
   }).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
   if (visible.length) {
     const reportItems = list.querySelectorAll('.report-item');
@@ -325,6 +329,15 @@ async function load(showFeedback = false) {
       const nextProposals = result.proposals || [];
       canReview = result.canReview === true;
       viewerRole = result.viewerRole || 'employee';
+      const linkedProposal = nextProposals.find((proposal) => proposal.id === requestedProposalId);
+      if (requestedProposalId && linkedProposal?.type === 'payment') {
+        selectedPaymentFlow = linkedProposal.paymentFlow || 'ceo';
+        paymentFlowTabs.querySelectorAll('[data-payment-flow-filter]').forEach((button) => {
+          const selected = button.dataset.paymentFlowFilter === selectedPaymentFlow;
+          button.classList.toggle('is-active', selected);
+          button.setAttribute('aria-selected', String(selected));
+        });
+      }
       paymentFlowTabs.hidden = !isPaymentReport || viewerRole !== 'accountant';
     const knownIds = new Set(proposals.map((proposal) => proposal.id));
     const newProposals = notificationInitialized ? nextProposals.filter((proposal) => !knownIds.has(proposal.id)) : [];
@@ -332,6 +345,11 @@ async function load(showFeedback = false) {
     notificationInitialized = true;
     renderSummary();
     render();
+    if (requestedProposalId) {
+      [...list.querySelectorAll('[data-proposal-id]')]
+        .find((item) => item.dataset.proposalId === requestedProposalId)
+        ?.scrollIntoView({ block: 'center' });
+    }
     window.GusaReportNotifications?.markSeen(result.reportNotificationSnapshot);
     await showProposalNotification(newProposals);
     if (showFeedback) refreshButton.textContent = 'Đã cập nhật';

@@ -46,7 +46,15 @@ test.before(async () => {
   baseUrl = `http://127.0.0.1:${port}`;
   server = spawn(process.execPath, ["server.js"], {
     cwd: path.join(__dirname, ".."),
-    env: { ...process.env, PORT: String(port), DATA_DIR: directory, ALLOW_LOCAL_DEV: "false", NODE_ENV: "production" },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      DATA_DIR: directory,
+      ALLOW_LOCAL_DEV: "false",
+      NODE_ENV: "production",
+      GOOGLE_CLIENT_ID: "test-client-id",
+      GOOGLE_CLIENT_SECRET: "test-client-secret",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   await new Promise((resolve, reject) => {
@@ -75,6 +83,16 @@ test.after(async () => {
 async function request(url, role) {
   return fetch(`${baseUrl}${url}`, { headers: role ? { Cookie: `gusa_session=${role}-session` } : {} });
 }
+
+test("proposal notification links preserve their destination through sign-in", async () => {
+  const response = await fetch(`${baseUrl}/proposal-report.html?type=payment&proposalId=accounting-payment`, { redirect: "manual" });
+  assert.equal(response.status, 302);
+  const location = new URL(response.headers.get("location"), baseUrl);
+  assert.equal(location.pathname, "/auth/google");
+  assert.equal(location.searchParams.get("returnTo"), "/proposal-report.html?type=payment&proposalId=accounting-payment");
+  const authenticated = await request("/proposal-report.html?type=payment&proposalId=accounting-payment", "accountant");
+  assert.equal(authenticated.status, 200);
+});
 
 test("management approval adds confirmation to saved HTML/PDF, never to pending or direct-accounting documents", async () => {
   const file = path.join(directory, "proposals.json");
