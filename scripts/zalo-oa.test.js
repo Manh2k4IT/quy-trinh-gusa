@@ -70,6 +70,28 @@ test("does not send when OA credentials are not configured", async () => {
   assert.equal(calls, 0);
 });
 
+test("uploads an image then sends it to the GMF group", async () => {
+  const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-zalo-image-test-"));
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({ url, options });
+    if (url === "https://oauth.zaloapp.com/v4/access_token") return Response.json({ access_token: "token", refresh_token: "rotated", expires_in: 3600 });
+    if (url.endsWith("/v2.0/oa/upload/image")) return Response.json({ error: 0, data: { attachment_id: "att-1" } });
+    return Response.json({ error: 0, data: { message_id: "m1" } });
+  };
+  try {
+    const client = createZaloClient({ env: baseEnv, dataDirectory, fetchImpl, logger: { warn() {}, error() {} } });
+    assert.equal(await client.sendGroupImage(Buffer.from("img"), "image/png", "caption"), true);
+    assert.equal(await client.sendGroupImage(Buffer.alloc(1024 * 1024 + 1), "image/png", "big"), false);
+    assert.equal(await client.sendGroupImage(Buffer.from("x"), "application/pdf", "pdf"), false);
+    const body = JSON.parse(requests.at(-1).options.body);
+    assert.equal(body.message.attachment.payload.elements[0].attachment_id, "att-1");
+    assert.equal(requests.filter((request) => request.url.endsWith("/upload/image")).length, 1);
+  } finally {
+    fs.rmSync(dataDirectory, { recursive: true });
+  }
+});
+
 test("surfaces API failures without exposing credentials in the error", async () => {
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-zalo-failure-test-"));
   const fetchImpl = async (url) => url === "https://oauth.zaloapp.com/v4/access_token"

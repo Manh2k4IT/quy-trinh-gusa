@@ -3,6 +3,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 
 const ZALO_OA_API = "https://openapi.zalo.me";
+const MAX_IMAGE_BYTES = 1024 * 1024;
 const ZALO_OAUTH_API = "https://oauth.zaloapp.com/v4/access_token";
 
 function loadUserIdMap(value) {
@@ -146,6 +147,34 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     return sendMessage({ group_id: groupId }, text);
   }
 
+  async function sendGroupImage(buffer, mimeType, caption) {
+    if (!groupId || !["image/jpeg", "image/png"].includes(mimeType) || !buffer?.length || buffer.length > MAX_IMAGE_BYTES) return false;
+    const accessToken = await getAccessToken();
+    if (!accessToken) return false;
+    const form = new FormData();
+    form.append("file", new Blob([buffer], { type: mimeType }), mimeType === "image/png" ? "proposal.png" : "proposal.jpg");
+    const uploadResponse = await fetchImpl(`${ZALO_OA_API}/v2.0/oa/upload/image`, { method: "POST", headers: { access_token: accessToken }, body: form });
+    const upload = await uploadResponse.json();
+    const attachmentId = upload?.data?.attachment_id;
+    if (!uploadResponse.ok || upload.error !== 0 || !attachmentId) {
+      throw new Error(`Zalo OA từ chối tải ảnh lên (mã ${upload?.error || uploadResponse.status}).`);
+    }
+    const response = await fetchImpl(`${ZALO_OA_API}/v3.0/oa/group/message`, {
+      method: "POST",
+      headers: { access_token: accessToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { group_id: groupId },
+        message: {
+          text: String(caption || "Ảnh đính kèm").slice(0, 2000),
+          attachment: { type: "template", payload: { template_type: "media", elements: [{ media_type: "image", attachment_id: attachmentId }] } },
+        },
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || payload.error !== 0) throw new Error(`Zalo OA từ chối gửi ảnh (mã ${payload.error || response.status}).`);
+    return true;
+  }
+
   async function sendDirectMessage(zaloUserId, text) {
     const accessToken = await getAccessToken();
     if (!accessToken) return false;
@@ -203,7 +232,7 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     return userIdMap[String(gusaUserId || "")] || "";
   }
 
-  return { exchangeAuthorizationCode, getUserId, isConfigured, listGroups, sendDirectMessage, sendGroupMessage };
+  return { exchangeAuthorizationCode, getUserId, isConfigured, listGroups, sendDirectMessage, sendGroupImage, sendGroupMessage };
 }
 
 module.exports = { createZaloClient, loadUserIdMap };

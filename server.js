@@ -1037,13 +1037,30 @@ function getProposalZaloMessage(proposal, { outcome = false, managementApproval 
   return `Có ${subject} mới từ ${proposal.userName || "nhân viên"}.\n${details}\nNgười duyệt: ${reviewer}.\nMở Gusa để xem và xử lý: ${url}`;
 }
 
+async function sendZaloProposalImages(proposal) {
+  const candidates = [
+    { data: proposal.latePhotoData, caption: `Ảnh đi trễ của ${proposal.userName || "nhân viên"}` },
+    { data: proposal.paymentFileData, caption: `Chứng từ thanh toán của ${proposal.userName || "nhân viên"}` },
+  ];
+  for (const { data, caption } of candidates) {
+    const match = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/]+={0,2})$/.exec(typeof data === "string" ? data : "");
+    if (!match) continue;
+    try {
+      const sent = await zaloClient.sendGroupImage(Buffer.from(match[2], "base64"), match[1], caption);
+      if (!sent) console.warn("Zalo image skipped: not configured or larger than 1MB.");
+    } catch (error) {
+      console.error("Zalo proposal image failed:", error.message);
+    }
+  }
+}
+
 async function sendZaloReviewNotification(proposal, { managementApproval = false } = {}) {
   const reviewers = [...users.values()].filter((user) => user.status === "active" && (
     needsAccountingReview(proposal) ? user.role === "accountant" : isManagementUser(user)
   ));
   const text = getProposalZaloMessage(proposal, { managementApproval });
   const notifications = [];
-  notifications.push(zaloClient.sendGroupMessage(text));
+  notifications.push(zaloClient.sendGroupMessage(text).then(() => sendZaloProposalImages(proposal)));
   const mappedUserIds = reviewers.map((user) => zaloClient.getUserId(getAttendanceUserKey(user)));
   const recipientIds = new Set(mappedUserIds.filter(Boolean));
   const unmappedReviewers = mappedUserIds.filter((userId) => !userId).length;
