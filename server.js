@@ -13,6 +13,7 @@ const paymentDocumentData = require("./payment-document-data");
 const { validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, isAllowedOfficeIp } = require("./attendance-network");
 const { getApprovalConfirmation } = require("./approval-confirmation");
 const { createZaloClient } = require("./zalo-oa");
+const { createAttachmentStore } = require("./proposal-attachments");
 
 loadEnvFile();
 
@@ -23,6 +24,7 @@ const redirectUri = process.env.GOOGLE_REDIRECT_URI || (publicUrl ? `${publicUrl
 const fixedAdminEmail = "manh98627@gmail.com";
 const dataDirectory = process.env.DATA_DIR || (process.env.RENDER ? "/var/data" : process.cwd());
 const zaloClient = createZaloClient({ env: process.env, dataDirectory });
+const attachments = createAttachmentStore(dataDirectory);
 
 if (!fs.existsSync(dataDirectory)) fs.mkdirSync(dataDirectory, { recursive: true });
 
@@ -704,11 +706,41 @@ function serveAttendance(req, res) {
 function getProposals() {
   try {
     const data = JSON.parse(fs.readFileSync(proposalsPath, "utf8"));
-    return Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) return [];
+    let migrated = false;
+    const light = data.map((item) => {
+      const result = attachments.externalize(item);
+      migrated ||= result.changed;
+      return result.proposal;
+    });
+    if (migrated) fs.writeFileSync(proposalsPath, JSON.stringify(light, null, 2));
+    return light;
   } catch (error) {
     if (error.code !== "ENOENT") console.error(error);
     return [];
   }
+}
+
+async function serveProposalAttachment(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const match = /^\/api\/proposals\/([^/]+)\/attachment\/(payment|late)/.exec(new URL(req.url, "http://localhost").pathname);
+  const proposal = match && getProposals().find((item) => item.id === decodeURIComponent(match[1]));
+  if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
+  if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && canViewPaymentProposal(currentUser, proposal))) return send(res, 403, "Forbidden");
+  const dataUrl = attachments.read(proposal.id, match[2]);
+  const parsed = /^data:([^;,]*)(?:;[^,]*)?;base64,(.*)$/s.exec(dataUrl);
+  if (!parsed) return send(res, 404, "Không có tệp đính kèm.");
+  const body = Buffer.from(parsed[2], "base64");
+  const isImage = /^image\/(jpeg|png|gif|webp)$/.test(parsed[1]);
+  res.writeHead(200, {
+    "Content-Type": isImage ? parsed[1] : "application/octet-stream",
+    "Content-Length": body.length,
+    "Content-Disposition": isImage ? "inline" : "attachment",
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+  });
+  res.end(body);
 }
 
 function getPaymentFlow(proposal) {
@@ -799,7 +831,7 @@ function serveProposals(req, res) {
   const enrichedProposals = proposals.map((proposal) => {
     const proposer = users.get(proposal.userId);
     return {
-      ...proposal,
+      ...attachments.withUrls(proposal),
       ...(proposal.type === "payment" ? { paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal) } : {}),
       userName: proposal.userName || proposer?.name || proposer?.email || "Nhân viên",
       userEmail: proposal.userEmail || proposer?.email || "",
@@ -1089,8 +1121,8 @@ async function sendZaloProposalImages(proposal, { approved = false } = {}) {
     console.error("Zalo proposal document image failed:", error.stack || error.message);
   }
   const candidates = [
-    { data: proposal.latePhotoData, caption: `Ảnh đi trễ của ${name}` },
-    { data: proposal.paymentFileData, caption: `Chứng từ thanh toán của ${name}` },
+    { data: attachments.read(proposal.id, "late") || proposal.latePhotoData, caption: `Ảnh đi trễ của ${name}` },
+    { data: attachments.read(proposal.id, "payment") || proposal.paymentFileData, caption: `Chứng từ thanh toán của ${name}` },
   ];
   for (const { data, caption } of candidates) {
     if (typeof data === "string" && data.length > 1.5 * 1024 * 1024) {
@@ -1228,7 +1260,7 @@ async function updateProposalStatus(req, res) {
     if (["approved", "rejected"].includes(proposal.status)) sendZaloProposalOutcome(proposal).catch((error) => console.error("Zalo proposal status notification failed:", error.message));
     if (proposal.status === "approved") sendZaloApprovedToGroup(proposal);
   }
-  sendJson(res, 200, { proposal, movedToAccounting });
+  sendJson(res, 200, { proposal: attachments.withUrls(proposal), movedToAccounting });
 }
 
 async function cancelProposal(req, res, proposalId) {
@@ -1241,7 +1273,7 @@ async function cancelProposal(req, res, proposalId) {
   proposal.status = "canceled";
   proposal.canceledAt = new Date().toISOString();
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
-  sendJson(res, 200, { proposal });
+  sendJson(res, 200, { proposal: attachments.withUrls(proposal) });
 }
 
 async function createProposal(req, res) {
@@ -1295,12 +1327,13 @@ async function createProposal(req, res) {
     proposal.signatureData = signatureData;
     proposal.signatureName = signatureName;
   }
-  proposals.unshift(proposal);
+  const { proposal: lightProposal } = attachments.externalize(proposal);
+  proposals.unshift(lightProposal);
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
-  publishProposalEvent(proposal);
-  sendProposalCreatedPush(proposal).catch((error) => console.error("Proposal-created push failed:", error.code || "unknown"));
-  sendZaloReviewNotification(proposal).catch((error) => console.error("Zalo proposal-created notification failed:", error.message));
-  sendJson(res, 201, { proposal });
+  publishProposalEvent(lightProposal);
+  sendProposalCreatedPush(lightProposal).catch((error) => console.error("Proposal-created push failed:", error.code || "unknown"));
+  sendZaloReviewNotification(lightProposal).catch((error) => console.error("Zalo proposal-created notification failed:", error.message));
+  sendJson(res, 201, { proposal: attachments.withUrls(lightProposal) });
 }
 
 function serveAttendanceOverview(req, res) {
@@ -1665,6 +1698,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/api/proposals") return serveProposals(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/proposals?")) return serveProposals(req, res);
     if (req.method === "GET" && /^\/api\/proposals\/[^/]+\/document(?:\?|$)/.test(req.url)) return await serveProposalDocument(req, res);
+    if (req.method === "GET" && /^\/api\/proposals\/[^/]+\/attachment\/(?:payment|late)(?:\?|$)/.test(req.url)) return await serveProposalAttachment(req, res);
     if (req.method === "POST" && req.url === "/api/proposals") return await createProposal(req, res);
     if (req.method === "POST" && req.url === "/api/proposals/status") return await updateProposalStatus(req, res);
     if (req.method === "POST" && req.url.startsWith("/api/proposals/") && req.url.endsWith("/cancel")) {
