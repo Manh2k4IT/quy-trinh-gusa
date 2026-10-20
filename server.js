@@ -1059,12 +1059,14 @@ async function sendZaloProposalImages(proposal, { approved = false } = {}) {
   const groupOptions = { kind: approved ? "approved" : proposal.type === "payment" ? "payment" : "general" };
   try {
     const pages = await renderPdfPages(await createProposalPdf(proposal));
+    if (!pages.length) console.warn(`Zalo document image skipped for proposal ${proposal.id}: no page rendered within 1MB.`);
     for (const [index, page] of pages.entries()) {
       const suffix = pages.length > 1 ? ` (trang ${index + 1}/${pages.length})` : "";
-      await zaloClient.sendGroupImage(page, "image/jpeg", `Đơn đề xuất của ${name}${suffix}`, groupOptions);
+      const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Đơn đề xuất của ${name}${suffix}`, groupOptions);
+      console.log(`Zalo document image ${index + 1}/${pages.length} (${groupOptions.kind}, ${page.length} bytes): ${sent ? "sent" : "not sent"}.`);
     }
   } catch (error) {
-    console.error("Zalo proposal document image failed:", error.message);
+    console.error("Zalo proposal document image failed:", error.stack || error.message);
   }
   const candidates = [
     { data: proposal.latePhotoData, caption: `Ảnh đi trễ của ${name}` },
