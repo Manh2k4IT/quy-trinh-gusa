@@ -525,6 +525,58 @@
     }
   });
 
+  // node_modules/@capacitor/app/dist/esm/web.js
+  var web_exports = {};
+  __export(web_exports, {
+    AppWeb: () => AppWeb
+  });
+  var AppWeb;
+  var init_web = __esm({
+    "node_modules/@capacitor/app/dist/esm/web.js"() {
+      init_dist();
+      AppWeb = class extends WebPlugin {
+        constructor() {
+          super();
+          this.handleVisibilityChange = () => {
+            const data = {
+              isActive: document.hidden !== true
+            };
+            this.notifyListeners("appStateChange", data);
+            if (document.hidden) {
+              this.notifyListeners("pause", null);
+            } else {
+              this.notifyListeners("resume", null);
+            }
+          };
+          document.addEventListener("visibilitychange", this.handleVisibilityChange, false);
+        }
+        exitApp() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getInfo() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getLaunchUrl() {
+          return { url: "" };
+        }
+        async getState() {
+          return { isActive: document.hidden !== true };
+        }
+        async minimizeApp() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async toggleBackButtonHandler() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getAppLanguage() {
+          return {
+            value: navigator.language.split("-")[0].toLowerCase()
+          };
+        }
+      };
+    }
+  });
+
   // node_modules/@firebase/util/dist/postinstall.mjs
   var getDefaultsFromPostinstall;
   var init_postinstall = __esm({
@@ -4040,12 +4092,12 @@
   });
 
   // node_modules/@capacitor-firebase/messaging/dist/esm/web.js
-  var web_exports = {};
-  __export(web_exports, {
+  var web_exports2 = {};
+  __export(web_exports2, {
     FirebaseMessagingWeb: () => FirebaseMessagingWeb
   });
   var FirebaseMessagingWeb;
-  var init_web = __esm({
+  var init_web2 = __esm({
     "node_modules/@capacitor-firebase/messaging/dist/esm/web.js"() {
       init_dist();
       init_index_esm7();
@@ -4167,6 +4219,12 @@
     }
   });
 
+  // node_modules/@capacitor/app/dist/esm/index.js
+  init_dist();
+  var App = registerPlugin("App", {
+    web: () => Promise.resolve().then(() => (init_web(), web_exports)).then((m) => new m.AppWeb())
+  });
+
   // mobile/push-client.js
   init_dist();
 
@@ -4191,7 +4249,7 @@
 
   // node_modules/@capacitor-firebase/messaging/dist/esm/index.js
   var FirebaseMessaging = registerPlugin("FirebaseMessaging", {
-    web: () => Promise.resolve().then(() => (init_web(), web_exports)).then((m) => new m.FirebaseMessagingWeb())
+    web: () => Promise.resolve().then(() => (init_web2(), web_exports2)).then((m) => new m.FirebaseMessagingWeb())
   });
 
   // mobile/push-client.js
@@ -4323,6 +4381,27 @@
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") retryPushAfterResume();
   });
+  function openAppLink(url) {
+    try {
+      const target = new URL(url);
+      if (target.origin !== apiOrigin || target.href === window.location.href) return;
+      window.location.assign(target.href);
+    } catch {
+    }
+  }
+  async function registerAppLinkHandler() {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      await App.addListener("appUrlOpen", ({ url }) => openAppLink(url));
+      const launch = await App.getLaunchUrl();
+      if (launch?.url && sessionStorage.getItem("gusa-launch-url") !== launch.url) {
+        sessionStorage.setItem("gusa-launch-url", launch.url);
+        openAppLink(launch.url);
+      }
+    } catch {
+    }
+  }
+  registerAppLinkHandler();
   document.addEventListener("click", (event) => {
     const logoutLink = event.target.closest('a[href="/auth/logout"]');
     if (!logoutLink || !localStorage.getItem(tokenStorageKey)) return;

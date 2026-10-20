@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "vn.gusa.quytrinh.mobile",
+      "sha256_cert_fingerprints": [
+        "1A:38:1C:B1:41:97:B9:DB:DB:B1:53:BC:51:C6:CA:5B:00:34:9C:2B:AE:BF:FC:12:12:47:4C:1E:90:B5:81:FC"
+      ]
+    }
+  }
+]

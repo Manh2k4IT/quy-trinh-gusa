@@ -490,6 +490,10 @@ function serveStatic(req, res) {
   fs.readFile(filePath, (error, data) => {
     if (error) return send(res, 404, "Not found");
     const extension = path.extname(filePath).toLowerCase();
+    if (requestPath === "/.well-known/assetlinks.json") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+      return res.end(data);
+    }
     if (requestPath === "/firebase-messaging-sw.js") {
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store" });
       return res.end(`self.GUSA_FIREBASE_WEB_CONFIG = ${JSON.stringify(getFirebaseWebConfig())};\n${data.toString("utf8")}`);

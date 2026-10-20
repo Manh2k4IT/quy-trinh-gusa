@@ -1,3 +1,4 @@
+import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 
@@ -137,6 +138,28 @@ window.addEventListener('focus', retryPushAfterResume);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') retryPushAfterResume();
 });
+
+function openAppLink(url) {
+  try {
+    const target = new URL(url);
+    if (target.origin !== apiOrigin || target.href === window.location.href) return;
+    window.location.assign(target.href);
+  } catch {}
+}
+
+// Plugin is absent in older installed APKs, so failures must not break push setup.
+async function registerAppLinkHandler() {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await App.addListener('appUrlOpen', ({ url }) => openAppLink(url));
+    const launch = await App.getLaunchUrl();
+    if (launch?.url && sessionStorage.getItem('gusa-launch-url') !== launch.url) {
+      sessionStorage.setItem('gusa-launch-url', launch.url);
+      openAppLink(launch.url);
+    }
+  } catch {}
+}
+registerAppLinkHandler();
 
 document.addEventListener('click', (event) => {
   const logoutLink = event.target.closest('a[href="/auth/logout"]');
