@@ -1168,7 +1168,9 @@ async function sendZaloApprovedToGroup(proposal) {
   const text = `Đề xuất ${typeLabels[proposal.type] || proposal.type} của ${proposal.userName || "nhân viên"} đã được duyệt.\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
   try {
     console.log(`Zalo approved group: sending proposal ${proposal.id} (rss ${Math.round(process.memoryUsage().rss / 1048576)}MB).`);
-    if (await zaloClient.sendGroupMessage(text, { kind: "approved" })) await sendZaloProposalImages(proposal, { approved: true });
+    if (await zaloClient.sendGroupMessage(text, { kind: "approved" })) {
+      if (proposal.type !== "payment") await sendZaloProposalImages(proposal, { approved: true });
+    }
     else console.warn("Zalo approved group skipped: ZALO_APPROVED_GROUP_ID is not configured.");
     console.log(`Zalo approved group: done (rss ${Math.round(process.memoryUsage().rss / 1048576)}MB).`);
   } catch (error) {
