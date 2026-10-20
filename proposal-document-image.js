@@ -22,4 +22,29 @@ async function renderPdfPages(pdfBuffer) {
   return pages;
 }
 
-module.exports = { renderPdfPages };
+// Render in a child process so a memory spike cannot crash the web server.
+function renderProposalPages(proposal, { timeoutMs = 60000 } = {}) {
+  const { fork } = require("node:child_process");
+  const path = require("node:path");
+  const { latePhotoData, paymentFileData, ...documentFields } = proposal;
+  return new Promise((resolve, reject) => {
+    const child = fork(path.join(__dirname, "proposal-image-worker.js"), [], { execArgv: ["--max-old-space-size=192"], stdio: ["ignore", "inherit", "inherit", "ipc"] });
+    let settled = false;
+    const finish = (error, pages) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (!child.killed) child.kill();
+      if (error) reject(error); else resolve(pages);
+    };
+    const timer = setTimeout(() => finish(new Error("Tạo ảnh đơn quá thời gian cho phép.")), timeoutMs);
+    child.once("message", (message) => message.error
+      ? finish(new Error(message.error))
+      : finish(null, message.pages.map((page) => Buffer.from(page, "base64"))));
+    child.once("error", finish);
+    child.once("exit", (code, signal) => finish(new Error(`Tiến trình tạo ảnh đơn dừng đột ngột (mã ${code ?? signal}).`)));
+    child.send(documentFields);
+  });
+}
+
+module.exports = { renderPdfPages, renderProposalPages };
