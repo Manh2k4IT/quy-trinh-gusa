@@ -1056,11 +1056,12 @@ function getProposalZaloMessage(proposal, { outcome = false, managementApproval 
 
 async function sendZaloProposalImages(proposal) {
   const name = proposal.userName || "nhân viên";
+  const groupOptions = { kind: proposal.type === "payment" ? "payment" : "general" };
   try {
     const pages = await renderPdfPages(await createProposalPdf(proposal));
     for (const [index, page] of pages.entries()) {
       const suffix = pages.length > 1 ? ` (trang ${index + 1}/${pages.length})` : "";
-      await zaloClient.sendGroupImage(page, "image/jpeg", `Đơn đề xuất của ${name}${suffix}`);
+      await zaloClient.sendGroupImage(page, "image/jpeg", `Đơn đề xuất của ${name}${suffix}`, groupOptions);
     }
   } catch (error) {
     console.error("Zalo proposal document image failed:", error.message);
@@ -1076,7 +1077,7 @@ async function sendZaloProposalImages(proposal) {
       continue;
     }
     try {
-      const sent = await zaloClient.sendGroupImage(Buffer.from(match[2], "base64"), match[1], caption);
+      const sent = await zaloClient.sendGroupImage(Buffer.from(match[2], "base64"), match[1], caption, groupOptions);
       if (!sent) console.warn("Zalo image skipped: not configured or larger than 1MB.");
     } catch (error) {
       console.error("Zalo proposal image failed:", error.message);
@@ -1090,7 +1091,7 @@ async function sendZaloReviewNotification(proposal, { managementApproval = false
   ));
   const text = getProposalZaloMessage(proposal, { managementApproval });
   const notifications = [];
-  notifications.push(zaloClient.sendGroupMessage(text).then(() => sendZaloProposalImages(proposal)));
+  notifications.push(zaloClient.sendGroupMessage(text, { kind: proposal.type === "payment" ? "payment" : "general" }).then(() => sendZaloProposalImages(proposal)));
   const mappedUserIds = reviewers.map((user) => zaloClient.getUserId(getAttendanceUserKey(user)));
   const recipientIds = new Set(mappedUserIds.filter(Boolean));
   const unmappedReviewers = mappedUserIds.filter((userId) => !userId).length;

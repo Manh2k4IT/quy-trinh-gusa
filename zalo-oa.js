@@ -21,13 +21,14 @@ function loadUserIdMap(value) {
 function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch, logger = console }) {
   const userIdMap = loadUserIdMap(env.ZALO_USER_ID_MAP);
   const groupId = String(env.ZALO_GROUP_ID || "").trim();
+  const paymentGroupId = String(env.ZALO_PAYMENT_GROUP_ID || "").trim() || groupId;
   const encryptionKey = String(env.ZALO_TOKEN_ENCRYPTION_KEY || "");
   let refreshPromise;
   let missingConfigWarned = false;
   let missingGroupWarned = false;
 
   function isConfigured() {
-    return Boolean((groupId || Object.keys(userIdMap).length) && env.ZALO_APP_ID && env.ZALO_APP_SECRET && encryptionKey.length >= 32);
+    return Boolean((groupId || paymentGroupId || Object.keys(userIdMap).length) && env.ZALO_APP_ID && env.ZALO_APP_SECRET && encryptionKey.length >= 32);
   }
 
   function getTokenFile() {
@@ -88,7 +89,8 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     const payload = await response.json();
     if (!response.ok || !payload.access_token || !payload.refresh_token || !Number(payload.expires_in)) {
       const errorCode = payload.error || response.status;
-      throw new Error(`Không thể làm mới token Zalo OA (mã ${errorCode}).`);
+      const hint = errorCode === -14014 ? " Refresh token đã hết hạn hoặc bị thu hồi: cấp quyền lại Zalo OA, rồi xóa zalo-oa-tokens.json cũ nếu dùng ZALO_REFRESH_TOKEN mới." : "";
+      throw new Error(`Không thể làm mới token Zalo OA (mã ${errorCode}).${hint}`);
     }
     const tokens = {
       accessToken: payload.access_token,
@@ -136,19 +138,25 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     return true;
   }
 
-  async function sendGroupMessage(text) {
-    if (!groupId) {
+  function resolveGroupId(kind) {
+    return kind === "payment" ? paymentGroupId : groupId;
+  }
+
+  async function sendGroupMessage(text, { kind } = {}) {
+    const targetGroupId = resolveGroupId(kind);
+    if (!targetGroupId) {
       if (!missingGroupWarned) {
         logger.warn("Zalo GMF delivery skipped: configure ZALO_GROUP_ID.");
         missingGroupWarned = true;
       }
       return false;
     }
-    return sendMessage({ group_id: groupId }, text);
+    return sendMessage({ group_id: targetGroupId }, text);
   }
 
-  async function sendGroupImage(buffer, mimeType, caption) {
-    if (!groupId || !["image/jpeg", "image/png"].includes(mimeType) || !buffer?.length || buffer.length > MAX_IMAGE_BYTES) return false;
+  async function sendGroupImage(buffer, mimeType, caption, { kind } = {}) {
+    const targetGroupId = resolveGroupId(kind);
+    if (!targetGroupId || !["image/jpeg", "image/png"].includes(mimeType) || !buffer?.length || buffer.length > MAX_IMAGE_BYTES) return false;
     const accessToken = await getAccessToken();
     if (!accessToken) return false;
     const form = new FormData();
@@ -163,7 +171,7 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
       method: "POST",
       headers: { access_token: accessToken, "Content-Type": "application/json" },
       body: JSON.stringify({
-        recipient: { group_id: groupId },
+        recipient: { group_id: targetGroupId },
         message: {
           text: String(caption || "Ảnh đính kèm").slice(0, 2000),
           attachment: { type: "template", payload: { template_type: "media", elements: [{ media_type: "image", attachment_id: attachmentId }] } },
@@ -214,13 +222,19 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
   async function listGroups() {
     const accessToken = await getAccessToken();
     if (!accessToken) return [];
-    const response = await fetchImpl(`${ZALO_OA_API}/v3.0/oa/group/listgroupofoa?offset=0&count=50`, {
-      headers: { access_token: accessToken },
-    });
-    const payload = await response.json();
-    if (!response.ok || (payload.error && payload.error !== 0)) {
-      throw new Error(`Zalo OA không liệt kê được nhóm (mã ${payload.error || response.status}).`);
+    // Zalo's docs are not machine-readable, so try the known endpoint spellings until one exists.
+    const paths = ["/v3.0/oa/group/getgroupsofoa", "/v3.0/oa/group/listgroupofoa", "/v2.0/oa/group/listgroupofoa", "/v3.0/oa/group/list"];
+    let payload;
+    let status;
+    for (const endpoint of paths) {
+      const response = await fetchImpl(`${ZALO_OA_API}${endpoint}?offset=0&count=50`, { headers: { access_token: accessToken } });
+      status = response.status;
+      payload = await response.json().catch(() => ({}));
+      if (response.ok && (!payload.error || payload.error === 0)) break;
+      logger.warn(`Zalo list groups ${endpoint} failed (mã ${payload.error || status}).`);
+      payload = null;
     }
+    if (!payload) throw new Error(`Zalo OA không liệt kê được nhóm (mã ${status}).`);
     const groups = payload.data?.groups || payload.data || [];
     return (Array.isArray(groups) ? groups : []).map((group) => ({
       groupId: group.group_id,

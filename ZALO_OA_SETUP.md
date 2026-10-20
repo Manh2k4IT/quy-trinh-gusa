@@ -23,6 +23,7 @@ Set these variables in the server's secret/environment configuration:
 | `ZALO_REFRESH_TOKEN` | Initial OA refresh token |
 | `ZALO_TOKEN_ENCRYPTION_KEY` | A unique random secret of at least 32 characters used to encrypt rotated OA tokens at rest |
 | `ZALO_GROUP_ID` | Active OA-managed GMF group ID |
+| `ZALO_PAYMENT_GROUP_ID` | Optional GMF group for payment proposals (message and images); falls back to `ZALO_GROUP_ID` when empty |
 | `ZALO_USER_ID_MAP` | JSON object mapping Gusa user IDs to Zalo OA user IDs |
 
 Example mapping shape only (replace with actual IDs in the deployment secret manager):
@@ -34,6 +35,15 @@ Example mapping shape only (replace with actual IDs in the deployment secret man
 The server refreshes OA access tokens as needed and stores the rotated access/refresh tokens encrypted in `DATA_DIR/zalo-oa-tokens.json`. The encryption key must remain stable across deploys, and `DATA_DIR` must be on persistent storage so a rotated refresh token is not lost. The initial refresh token is read from the environment only when the encrypted token file does not yet exist.
 
 If credentials or destinations are absent, Zalo notifications remain disabled and the normal Gusa proposal flow continues. API failures are logged without logging tokens or message credentials. Zalo's API may reject 1:1 messages when a recipient is outside the allowed interaction window; group delivery and direct-message delivery are handled independently.
+
+## Re-authorizing when the refresh token expires (error -14014)
+
+If the log shows `Không thể làm mới token Zalo OA (mã -14014)`, the stored refresh token is invalid:
+
+1. Sign in to Gusa as Admin/CEO.
+2. Open the OA authorization URL (`https://oauth.zaloapp.com/v4/oa/permission?app_id=<ZALO_APP_ID>&redirect_uri=<URL-encoded https://quytrinh.gusa.vn/zalo/oauth/callback>`) and approve. The callback stores the new encrypted tokens.
+3. If you instead set a new `ZALO_REFRESH_TOKEN`, delete the old `DATA_DIR/zalo-oa-tokens.json` first, because the file takes precedence over the environment variable.
+4. Run the OA on only one server; two servers sharing one OA invalidate each other's rotating refresh tokens.
 
 ## Approval links and authorization
 

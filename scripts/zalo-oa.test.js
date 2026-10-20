@@ -92,6 +92,24 @@ test("uploads an image then sends it to the GMF group", async () => {
   }
 });
 
+test("sends payment messages to the payment group when configured", async () => {
+  const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-zalo-payment-test-"));
+  const bodies = [];
+  const fetchImpl = async (url, options) => {
+    if (url === "https://oauth.zaloapp.com/v4/access_token") return Response.json({ access_token: "t", refresh_token: "r", expires_in: 3600 });
+    bodies.push(JSON.parse(options.body));
+    return Response.json({ error: 0 });
+  };
+  try {
+    const client = createZaloClient({ env: { ...baseEnv, ZALO_PAYMENT_GROUP_ID: "payment-group" }, dataDirectory, fetchImpl, logger: { warn() {}, error() {} } });
+    await client.sendGroupMessage("payment", { kind: "payment" });
+    await client.sendGroupMessage("general");
+    assert.deepEqual(bodies.map((body) => body.recipient.group_id), ["payment-group", "group-id"]);
+  } finally {
+    fs.rmSync(dataDirectory, { recursive: true });
+  }
+});
+
 test("surfaces API failures without exposing credentials in the error", async () => {
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-zalo-failure-test-"));
   const fetchImpl = async (url) => url === "https://oauth.zaloapp.com/v4/access_token"
