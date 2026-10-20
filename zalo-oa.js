@@ -22,13 +22,14 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
   const userIdMap = loadUserIdMap(env.ZALO_USER_ID_MAP);
   const groupId = String(env.ZALO_GROUP_ID || "").trim();
   const paymentGroupId = String(env.ZALO_PAYMENT_GROUP_ID || "").trim() || groupId;
+  const approvedGroupId = String(env.ZALO_APPROVED_GROUP_ID || "").trim();
   const encryptionKey = String(env.ZALO_TOKEN_ENCRYPTION_KEY || "");
   let refreshPromise;
   let missingConfigWarned = false;
   let missingGroupWarned = false;
 
   function isConfigured() {
-    return Boolean((groupId || paymentGroupId || Object.keys(userIdMap).length) && env.ZALO_APP_ID && env.ZALO_APP_SECRET && encryptionKey.length >= 32);
+    return Boolean((groupId || paymentGroupId || approvedGroupId || Object.keys(userIdMap).length) && env.ZALO_APP_ID && env.ZALO_APP_SECRET && encryptionKey.length >= 32);
   }
 
   function getTokenFile() {
@@ -139,6 +140,7 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
   }
 
   function resolveGroupId(kind) {
+    if (kind === "approved") return approvedGroupId;
     return kind === "payment" ? paymentGroupId : groupId;
   }
 

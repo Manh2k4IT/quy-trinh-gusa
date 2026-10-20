@@ -24,6 +24,7 @@ Set these variables in the server's secret/environment configuration:
 | `ZALO_TOKEN_ENCRYPTION_KEY` | A unique random secret of at least 32 characters used to encrypt rotated OA tokens at rest |
 | `ZALO_GROUP_ID` | Active OA-managed GMF group ID |
 | `ZALO_PAYMENT_GROUP_ID` | Optional GMF group for payment proposals (message and images); falls back to `ZALO_GROUP_ID` when empty |
+| `ZALO_APPROVED_GROUP_ID` | Optional GMF group that receives final-approved proposals (message and document images); nothing is sent when empty |
 | `ZALO_USER_ID_MAP` | JSON object mapping Gusa user IDs to Zalo OA user IDs |
 
 Example mapping shape only (replace with actual IDs in the deployment secret manager):

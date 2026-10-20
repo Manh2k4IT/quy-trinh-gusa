@@ -1054,9 +1054,9 @@ function getProposalZaloMessage(proposal, { outcome = false, managementApproval 
   return `Có ${subject} mới từ ${proposal.userName || "nhân viên"}.\n${details}\nNgười duyệt: ${reviewer}.\nMở Gusa để xem và xử lý: ${url}`;
 }
 
-async function sendZaloProposalImages(proposal) {
+async function sendZaloProposalImages(proposal, { approved = false } = {}) {
   const name = proposal.userName || "nhân viên";
-  const groupOptions = { kind: proposal.type === "payment" ? "payment" : "general" };
+  const groupOptions = { kind: approved ? "approved" : proposal.type === "payment" ? "payment" : "general" };
   try {
     const pages = await renderPdfPages(await createProposalPdf(proposal));
     for (const [index, page] of pages.entries()) {
@@ -1103,6 +1103,16 @@ async function sendZaloReviewNotification(proposal, { managementApproval = false
   results.filter((result) => result.status === "rejected").forEach((result) => {
     console.error("Zalo proposal-review notification failed:", result.reason.message);
   });
+}
+
+async function sendZaloApprovedToGroup(proposal) {
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
+  const text = `Đề xuất ${typeLabels[proposal.type] || proposal.type} của ${proposal.userName || "nhân viên"} đã được duyệt.\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
+  try {
+    if (await zaloClient.sendGroupMessage(text, { kind: "approved" })) await sendZaloProposalImages(proposal, { approved: true });
+  } catch (error) {
+    console.error("Zalo approved-proposal group notification failed:", error.message);
+  }
 }
 
 async function sendZaloProposalOutcome(proposal, { managementApproval = false } = {}) {
@@ -1187,6 +1197,7 @@ async function updateProposalStatus(req, res) {
     publishProposalStatusEvent(proposal);
     sendProposalStatusPush(proposal).catch((error) => console.error("Proposal push failed:", error));
     if (["approved", "rejected"].includes(proposal.status)) sendZaloProposalOutcome(proposal).catch((error) => console.error("Zalo proposal status notification failed:", error.message));
+    if (proposal.status === "approved") sendZaloApprovedToGroup(proposal);
   }
   sendJson(res, 200, { proposal, movedToAccounting });
 }
