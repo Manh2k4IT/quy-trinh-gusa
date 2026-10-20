@@ -487,6 +487,22 @@ function serveStatic(req, res) {
   if (!filePath.startsWith(path.resolve(process.cwd()))) return send(res, 403, "Forbidden");
   if (["attendance-network.json", "attendance-network.json.tmp"].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
 
+  const streamedExtension = path.extname(filePath).toLowerCase();
+  const needsRewrite = streamedExtension === ".html" || requestPath === "/.well-known/assetlinks.json" || requestPath === "/firebase-messaging-sw.js";
+  if (!needsRewrite) {
+    return fs.stat(filePath, (statError, stats) => {
+      if (statError || !stats.isFile()) return send(res, 404, "Not found");
+      res.writeHead(200, {
+        "Content-Type": mimeTypes[streamedExtension] || "application/octet-stream",
+        "Content-Length": stats.size,
+        "Cache-Control": "no-store, max-age=0",
+      });
+      const stream = fs.createReadStream(filePath);
+      stream.on("error", () => res.destroy());
+      stream.pipe(res);
+    });
+  }
+
   fs.readFile(filePath, (error, data) => {
     if (error) return send(res, 404, "Not found");
     const extension = path.extname(filePath).toLowerCase();

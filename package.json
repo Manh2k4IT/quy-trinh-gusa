@@ -5,7 +5,7 @@
   "description": "Gusa Quy Trinh local OAuth application",
   "main": "desktop/main.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node --max-old-space-size=160 server.js",
     "desktop": "electron .",
     "icons:generate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-app-icons.ps1",
     "dist:win": "electron-builder --win nsis",
