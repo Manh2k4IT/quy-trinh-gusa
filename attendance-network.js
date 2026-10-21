@@ -43,10 +43,11 @@ function validateAllowedIps(values) {
     if (typeof value === "string" && value.trim().includes("/")) {
       const [address, prefix, extra] = value.trim().split("/");
       const ip = normalizeIp(address);
-      if (extra !== undefined || prefix !== "64" || isIP(ip) !== 6 || !isPublicIp(ip)) {
+      const bits = Number(prefix);
+      if (extra !== undefined || !/^\d+$/.test(prefix) || bits < 48 || bits > 64 || isIP(ip) !== 6 || !isPublicIp(ip)) {
         throw new Error("Dải mạng chỉ hỗ trợ IPv6 công cộng /64, ví dụ 2402:800:6370:b5c8::/64.");
       }
-      return getOfficeNetwork(ip);
+      return bits === 64 ? getOfficeNetwork(ip) : `${ip}/${bits}`;
     }
     const ip = normalizeIp(value);
     if (!ip || !isPublicIp(ip)) throw new Error("Chỉ nhập IP Internet công cộng IPv4 hoặc IPv6, không nhập IP nội bộ, tên Wi-Fi hay đường dẫn.");
@@ -60,10 +61,10 @@ function isAllowedOfficeIp(value, allowedIps) {
   if (!ip) return false;
   return allowedIps.some((allowed) => {
     if (!allowed.includes("/")) return allowed === ip;
-    const [network] = allowed.split("/");
+    const [network, prefix] = allowed.split("/");
     if (isIP(ip) !== 6) return false;
     const subnet = new BlockList();
-    subnet.addSubnet(network, 64, "ipv6");
+    subnet.addSubnet(network, Number(prefix), "ipv6");
     return subnet.check(ip, "ipv6");
   });
 }

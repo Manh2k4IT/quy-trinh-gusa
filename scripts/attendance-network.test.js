@@ -22,7 +22,7 @@ test('IPv6 /64 allows different office devices, not adjacent networks or invalid
   }
   assert.equal(isAllowedOfficeIp(phone, [desktop]), false);
   assert.equal(isAllowedOfficeIp('::ffff:8.8.8.8', ['8.8.8.8']), true);
-  for (const value of ['2402:800::/0', '2402:800::/48', '2402:800::/65', '2402:800::/64/64', 'fe80::/64', 'fc00::/64', '2001:db8::/64', '8.8.8.8/64']) {
+  for (const value of ['2402:800::/0', '2402:800::/47', '2402:800::/65', '2402:800::/64/64', 'fe80::/64', 'fc00::/64', '2001:db8::/64', '8.8.8.8/64']) {
     assert.throws(() => validateAllowedIps([value]));
   }
 });
