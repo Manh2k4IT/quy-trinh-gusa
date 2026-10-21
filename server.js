@@ -481,7 +481,10 @@ function serveStatic(req, res) {
     const currentUser = getCurrentUser(req);
     if (currentUser && ["active", "pending"].includes(currentUser.status)) {
       res.setHeader("Cache-Control", "no-store");
-      return redirect(res, currentUser.status === "active" ? "/organization-chart.html" : "/pending.html");
+      const userAgent = String(req.headers["user-agent"] || "");
+      const isNativeWebView = /; wv\)/.test(userAgent) || (/iPhone|iPad/.test(userAgent) && !/Safari\//.test(userAgent));
+      const activeDestination = isNativeWebView ? "/organization-chart.html?showWelcome=1" : "/organization-chart.html";
+      return redirect(res, currentUser.status === "active" ? activeDestination : "/pending.html");
     }
   }
   const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
