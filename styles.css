@@ -173,19 +173,13 @@ body {
 .auth-video-background {
   z-index: 0;
   object-fit: cover;
+  object-position: center 30%;
   background: var(--blue-100);
 }
 
 .auth-video-overlay {
   z-index: 0;
-  background: rgba(234, 242, 250, 0.66);
-  backdrop-filter: blur(1px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-video-background {
-    display: none;
-  }
+  background: rgba(234, 242, 250, 0.62);
 }
 
 .auth-shell {
