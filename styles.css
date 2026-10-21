@@ -196,7 +196,7 @@ body {
   position: absolute;
   top: 50%;
   left: max(2rem, calc(50% - 680px));
-  width: min(280px, 22vw);
+  width: min(340px, 26vw);
   margin: 0;
   color: #315d91;
   text-align: center;

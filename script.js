@@ -7,10 +7,9 @@ document.querySelectorAll("[data-action]").forEach((button) => {
 
 const typingLines = document.querySelectorAll("[data-typing-line]");
 const typingMessages = [
-  "Chủ động hôm nay, nhẹ nhàng ngày mai.",
-  "Mỗi việc hoàn thành là một bước tiến.",
-  "Cùng phối hợp, cùng tạo kết quả tốt.",
-  "Làm đúng từ đầu, tiến xa hơn mỗi ngày.",
+  "Sứ mệnh: Đồng hành cùng cộng đồng thời trang bền vững, mang đến sản phẩm linen chất lượng và kiến tạo cơ hội kinh doanh đáng tự hào.",
+  "Tầm nhìn: Đến năm 2035, trở thành nền tảng kết nối và phát triển hệ sinh thái thời trang bền vững hàng đầu Việt Nam.",
+  "Giá trị cốt lõi: Dụng tâm · Cộng sinh · Học hỏi phát triển.",
 ];
 
 function typeMessageLines() {
@@ -36,7 +35,7 @@ function typeMessageLines() {
       if (characterIndex < message.length) {
         activeLine.textContent += message[characterIndex];
         characterIndex += 1;
-        setTimeout(typeNextCharacter, 52);
+        setTimeout(typeNextCharacter, 28);
         return;
       }
 
