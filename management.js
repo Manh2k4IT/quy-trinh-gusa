@@ -247,6 +247,7 @@ async function loadUserManagement() {
   if (!response.ok) throw new Error("Không thể tải danh sách user");
   const data = await response.json();
   const users = data.users || [];
+  const canAssignManagement = Boolean(data.canAssignManagement);
   const list = document.querySelector("[data-user-list]");
   const empty = document.querySelector("[data-table-empty]");
 
@@ -298,7 +299,40 @@ async function loadUserManagement() {
     userCell.append(identity);
 
     const role = document.createElement("td");
-    role.textContent = user.role === "admin" ? "Quản trị viên" : user.role === "ceo" ? "CEO" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
+    const roleLabels = { employee: "Nhân viên", accountant: "Kế toán", ceo: "CEO", admin: "Quản trị viên" };
+    const touchesManagement = !canAssignManagement && ["admin", "ceo"].includes(user.role);
+    if (user.roleLocked || touchesManagement) {
+      role.textContent = roleLabels[user.role] || "Nhân viên";
+    } else {
+      const select = document.createElement("select");
+      select.className = "user-role-select";
+      select.setAttribute("aria-label", `Vai trò của ${user.email}`);
+      const options = canAssignManagement ? ["employee", "accountant", "ceo", "admin"] : ["employee", "accountant"];
+      options.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = roleLabels[value];
+        select.append(option);
+      });
+      select.value = options.includes(user.role) ? user.role : "employee";
+      select.addEventListener("change", async () => {
+        const previousRole = user.role;
+        select.disabled = true;
+        const response = await fetch(`/api/users/${encodeURIComponent(user.id)}/role`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: select.value }),
+        });
+        if (response.ok) {
+          user.role = select.value;
+        } else {
+          window.alert(await response.text());
+          select.value = previousRole;
+        }
+        select.disabled = false;
+      });
+      role.append(select);
+    }
     const state = document.createElement("td");
     const stateLabel = { active: "Đang hoạt động", pending: "Chờ duyệt", blocked: "Đang khóa" }[user.status];
     const pill = document.createElement("span");

@@ -556,7 +556,36 @@ function serveUsers(req, res) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
   res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify({ users: [...users.values()] }));
+  const list = [...users.values()].map((user) => ({
+    ...user,
+    roleLocked: user.id === currentUser.id || normalizeEmail(user.email) === fixedAdminEmail,
+  }));
+  res.end(JSON.stringify({ users: list, canAssignManagement: currentUser.role === "admin" }));
+}
+
+async function updateUserRole(req, res, userId) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  let payload;
+  try {
+    payload = JSON.parse(body || "{}");
+  } catch {
+    return send(res, 400, "Invalid JSON");
+  }
+  const user = users.get(userId);
+  if (!user) return send(res, 404, "Không tìm thấy tài khoản");
+  if (!["employee", "accountant", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trò không hợp lệ");
+  if (user.id === currentUser.id || normalizeEmail(user.email) === fixedAdminEmail) {
+    return send(res, 400, "Không thể đổi vai trò của tài khoản này.");
+  }
+  const touchesManagement = ["admin", "ceo"].includes(payload.role) || ["admin", "ceo"].includes(user.role);
+  if (touchesManagement && currentUser.role !== "admin") return send(res, 403, "Chỉ Quản trị viên mới đổi được vai trò CEO/Quản trị.");
+  user.role = payload.role;
+  user.updatedAt = new Date().toISOString();
+  saveUsers();
+  sendJson(res, 200, { user });
 }
 
 async function updateUserStatus(req, res, userId) {
@@ -1736,6 +1765,10 @@ const server = http.createServer(async (req, res) => {
       return deleteOrganizationMember(req, res, decodeURIComponent(parts[0]), decodeURIComponent(parts[1] || ""));
     }
     if (req.method === "POST" && req.url === "/api/users/invite") return await inviteUser(req, res);
+    if (req.method === "POST" && req.url.startsWith("/api/users/") && req.url.endsWith("/role")) {
+      const userId = decodeURIComponent(req.url.slice("/api/users/".length, -"/role".length));
+      return await updateUserRole(req, res, userId);
+    }
     if (req.method === "POST" && req.url.startsWith("/api/users/") && req.url.endsWith("/status")) {
       const userId = req.url.slice("/api/users/".length, -"/status".length);
       return await updateUserStatus(req, res, userId);

@@ -4061,6 +4061,17 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
 .user-actions { display: flex; gap: .55rem; justify-content: flex-end; }
 .user-action-delete { color: #b42318; }
 
+.user-role-select {
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #cdd8e6;
+  border-radius: 6px;
+  color: var(--navy);
+  background: #fff;
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
 .table-empty {
   margin: 0;
   padding: 1.5rem;
