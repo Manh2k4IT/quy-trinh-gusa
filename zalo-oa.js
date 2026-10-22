@@ -49,6 +49,9 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     return JSON.stringify({ iv: iv.toString("base64"), tag: cipher.getAuthTag().toString("base64"), data: encrypted.toString("base64") });
   }
 
+  // Refresh tokens are single-use: keep the latest pair in memory so a lost/unwritable file doesn't fall back to a spent env token.
+  let memoryTokens = null;
+
   function readTokens() {
     try {
       const saved = JSON.parse(fs.readFileSync(getTokenFile(), "utf8"));
@@ -57,7 +60,13 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
       const decrypted = Buffer.concat([decipher.update(Buffer.from(saved.data, "base64")), decipher.final()]);
       return JSON.parse(decrypted.toString("utf8"));
     } catch (error) {
-      if (error.code === "ENOENT") return { refreshToken: String(env.ZALO_REFRESH_TOKEN || "") };
+      if (error.code === "ENOENT") {
+        if (memoryTokens) {
+          logger.warn("Zalo OA token file is missing; using in-memory tokens. Check that DATA_DIR is on persistent storage.");
+          return memoryTokens;
+        }
+        return { refreshToken: String(env.ZALO_REFRESH_TOKEN || "") };
+      }
       if (error.code === "ERR_OSSL_BAD_DECRYPT" || error instanceof SyntaxError) {
         throw new Error("Không thể giải mã token Zalo đã lưu; kiểm tra ZALO_TOKEN_ENCRYPTION_KEY và tệp dữ liệu Zalo.");
       }
@@ -66,15 +75,21 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
   }
 
   function saveTokens(tokens) {
-    const filePath = getTokenFile();
-    const tempPath = `${filePath}.tmp`;
-    fs.writeFileSync(tempPath, encryptTokens(tokens), { mode: 0o600 });
-    fs.renameSync(tempPath, filePath);
+    memoryTokens = tokens;
+    try {
+      const filePath = getTokenFile();
+      const tempPath = `${filePath}.tmp`;
+      fs.writeFileSync(tempPath, encryptTokens(tokens), { mode: 0o600 });
+      fs.renameSync(tempPath, filePath);
+    } catch (error) {
+      logger.error(`Không thể lưu token Zalo OA mới (${error.message}); giữ trong bộ nhớ.`);
+    }
   }
 
-  async function refreshAccessToken() {
+  async function refreshAccessToken(retried = false) {
     const stored = readTokens();
     if (!stored.refreshToken) throw new Error("Thiếu refresh token Zalo OA.");
+    if (retried && stored.accessToken && stored.expiresAt > Date.now()) return stored;
     const response = await fetchImpl(ZALO_OAUTH_API, {
       method: "POST",
       headers: {
@@ -90,6 +105,12 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     const payload = await response.json();
     if (!response.ok || !payload.access_token || !payload.refresh_token || !Number(payload.expires_in)) {
       const errorCode = payload.error || response.status;
+      // Another instance (e.g. the old one during a deploy) may have rotated the token meanwhile.
+      if (!retried) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const latest = readTokens();
+        if (latest.refreshToken && latest.refreshToken !== stored.refreshToken) return refreshAccessToken(true);
+      }
       const hint = errorCode === -14014 ? " Refresh token đã hết hạn hoặc bị thu hồi: cấp quyền lại Zalo OA, rồi xóa zalo-oa-tokens.json cũ nếu dùng ZALO_REFRESH_TOKEN mới." : "";
       throw new Error(`Không thể làm mới token Zalo OA (mã ${errorCode}).${hint}`);
     }
