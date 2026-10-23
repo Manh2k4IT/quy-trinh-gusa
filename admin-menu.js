@@ -343,7 +343,7 @@ if (sidebarScroll) {
     <p class="menu-label">DANH MỤC</p>
     <nav class="menu" aria-label="Danh mục chính">
       <a class="menu-item" href="organization-chart.html"><span class="menu-icon">▤</span><span>Sơ đồ tổ chức</span></a>
-      <a class="menu-item" href="#"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
+      <a class="menu-item" href="process-choice.html"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
       <a class="menu-item" href="#"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
       <a class="menu-item" href="#"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
       <a class="menu-item" href="#"><span class="menu-icon">▥</span><span>Báo cáo doanh số</span></a>
@@ -378,9 +378,10 @@ if (sidebarScroll) {
     const url = new URL(href, window.location.href);
     const attendanceSectionMatch = href === 'attendance-choice.html' && currentPath === 'attendance.html' && currentQuery !== '?view=days';
     const reportSectionMatch = href === 'report-choice.html' && ['attendance-overview.html', 'proposal-report.html'].includes(currentPath);
+    const processSectionMatch = href === 'process-choice.html' && currentPath === 'production.html';
     const proposalSectionMatch = href === 'proposal-choice.html' && ['proposals.html', 'payment-proposal.html'].includes(currentPath);
-    const samePath = url.pathname.split('/').pop() === currentPath || attendanceSectionMatch || reportSectionMatch || proposalSectionMatch;
-    const sameQuery = url.search === currentQuery || attendanceSectionMatch || reportSectionMatch || proposalSectionMatch;
+    const samePath = url.pathname.split('/').pop() === currentPath || attendanceSectionMatch || reportSectionMatch || proposalSectionMatch || processSectionMatch;
+    const sameQuery = url.search === currentQuery || attendanceSectionMatch || reportSectionMatch || proposalSectionMatch || processSectionMatch;
     const targetHash = url.hash || '';
     const matchesCurrentSection = href === 'interface-settings.html' || (targetHash ? targetHash === currentHash : !currentHash);
     if (samePath && sameQuery && matchesCurrentSection) {
@@ -400,13 +401,13 @@ if (sidebarScroll) {
           element.textContent = user.name || user.email || 'Tài khoản Google';
         });
         document.querySelectorAll('[data-user-role], [data-profile-role]').forEach((element) => {
-          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : user.role === 'accountant' ? 'Kế toán' : 'Nhân viên';
+          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : 'Nhân viên';
         });
-        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán' : 'Nhân viên';
+        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : 'Nhân viên';
         document.querySelectorAll('.role-chip').forEach((button) => {
           const originalRole = button.dataset.role || button.textContent.trim();
           button.dataset.role = originalRole;
-          const expectedRole = user.role === 'accountant' ? 'Nhân viên' : roleChipLabel;
+          const expectedRole = ['ceo', 'admin'].includes(user.role) ? roleChipLabel : 'Nhân viên';
           const matchesRole = originalRole === expectedRole;
           button.textContent = matchesRole ? roleChipLabel : originalRole;
           button.hidden = !matchesRole;

@@ -16,3 +16,7 @@ android/.gradle/
 android/local.properties
 ios/Pods/
 ios/App/DerivedData/
+production-orders.json
+production-settings.json
+production-files/
+attachments/

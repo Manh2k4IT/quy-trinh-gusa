@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Đề xuất sản xuất - Quy Trình</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="management.css?v=20260929-2" />
+    <link rel="stylesheet" href="production.css?v=20261023-1" />
+  </head>
+  <body>
+    <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand"><div class="mini-logo"><img src="logo1.jpg" alt="" /></div><span>Quy Trình</span><button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5M19 7l-5 5 5 5" /></svg></button></div>
+        <div class="sidebar-scroll"></div>
+        <div class="sidebar-account"><div class="avatar" data-user-avatar>B</div><div><strong data-user-name>Đang tải...</strong><small data-user-role></small></div><a class="sidebar-logout" href="/auth/logout">Đăng xuất</a></div>
+      </aside>
+      <main class="workspace">
+        <header class="topbar"><button class="mobile-menu-toggle" type="button" data-mobile-menu-toggle aria-label="Mở menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button><div class="breadcrumbs"><a href="process-choice.html">Quy Trình</a><span class="crumb-separator">/</span><strong>Đề xuất sản xuất</strong></div><div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div></header>
+        <section class="production-content">
+          <div class="production-heading">
+            <div>
+              <span class="production-eyebrow">QT.SX.01 · ĐỢT 1</span>
+              <h1>Đề xuất sản xuất &amp; bàn giao vải</h1>
+              <p>Từ lập đề xuất đến khi xưởng nhận vải và báo giá. Mỗi hồ sơ là một mã thành phẩm.</p>
+            </div>
+            <div class="production-heading-actions">
+              <button class="production-button is-secondary" type="button" data-open-settings hidden>Phân công</button>
+              <button class="production-button" type="button" data-open-create hidden>+ Lập đề xuất</button>
+            </div>
+          </div>
+          <p class="production-status" data-status role="status">Đang tải...</p>
+          <div class="production-stage-summary" data-stage-summary></div>
+          <div class="production-toolbar">
+            <div class="production-tabs" role="tablist" data-tabs>
+              <button type="button" role="tab" data-tab="mine">Việc của tôi</button>
+              <button type="button" role="tab" data-tab="active">Đang xử lý</button>
+              <button type="button" role="tab" data-tab="producing">Đang sản xuất</button>
+              <button type="button" role="tab" data-tab="all">Tất cả</button>
+            </div>
+            <input class="production-search" type="search" placeholder="Tìm mã hồ sơ, mã hoặc tên thành phẩm..." data-search />
+          </div>
+          <div class="production-list" data-list></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="production-modal" data-detail-modal hidden>
+      <div class="production-modal-card is-wide" role="dialog" aria-modal="true" aria-labelledby="production-detail-title">
+        <button class="production-modal-close" type="button" data-close-modal aria-label="Đóng">×</button>
+        <div data-detail></div>
+      </div>
+    </div>
+
+    <div class="production-modal" data-create-modal hidden>
+      <div class="production-modal-card" role="dialog" aria-modal="true" aria-labelledby="production-create-title">
+        <button class="production-modal-close" type="button" data-close-modal aria-label="Đóng">×</button>
+        <h2 id="production-create-title" data-create-title>Lập phiếu đề xuất sản xuất</h2>
+        <p class="production-muted">BM01/QT.SX.01 · Mỗi phiếu tương ứng một mã thành phẩm.</p>
+        <form class="production-form" data-create-form novalidate>
+          <div class="production-grid">
+            <label>Ngày đề xuất<input name="date" type="date" required /></label>
+            <label>Mã thành phẩm<input name="productCode" maxlength="60" required placeholder="VD: AK037" /></label>
+            <label class="is-full">Tên thành phẩm<input name="productName" maxlength="200" required placeholder="VD: Áo linen thêu phối nút" /></label>
+            <label>Số lượng sản xuất<input name="quantity" type="number" min="1" step="1" inputmode="numeric" required /></label>
+            <label>Định mức vải (m/sản phẩm)<input name="fabricNorm" type="number" min="0.01" step="0.01" inputmode="decimal" required /></label>
+          </div>
+          <p class="production-hint" data-fabric-estimate></p>
+          <fieldset class="production-fieldset">
+            <legend>Số lượng theo màu / size <span>(không bắt buộc)</span></legend>
+            <div class="production-rows" data-variant-rows></div>
+            <button class="production-link-button" type="button" data-add-variant>+ Thêm dòng màu/size</button>
+          </fieldset>
+          <label>Ghi chú<textarea name="note" rows="2" maxlength="1000"></textarea></label>
+          <fieldset class="production-fieldset">
+            <legend>Chữ ký người đề xuất <span>(bắt buộc)</span></legend>
+            <canvas class="production-signature" width="600" height="200" aria-label="Bảng vẽ chữ ký tay" data-signature></canvas>
+            <div class="production-signature-actions"><span data-signature-status>Chưa có chữ ký</span><button class="production-link-button" type="button" data-clear-signature>Xóa / Ký lại</button></div>
+            <label>Họ và tên đầy đủ<input name="signatureName" maxlength="150" autocomplete="name" required /></label>
+          </fieldset>
+          <p class="production-error" data-create-error role="alert"></p>
+          <div class="production-form-actions"><button class="production-button is-secondary" type="button" data-close-modal>Hủy</button><button class="production-button" type="submit">Ký &amp; gửi duyệt</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="production-modal" data-settings-modal hidden>
+      <div class="production-modal-card" role="dialog" aria-modal="true" aria-labelledby="production-settings-title">
+        <button class="production-modal-close" type="button" data-close-modal aria-label="Đóng">×</button>
+        <h2 id="production-settings-title">Phân công người phụ trách</h2>
+        <p class="production-muted">Chọn người phụ trách cho từng bước. Mỗi bước có thể có nhiều người. Chỉ người được chọn mới thao tác được bước đó; CEO/Quản trị chỉ xem và chỉnh phân công.</p>
+        <form class="production-form" data-settings-form>
+          <div data-settings-roles></div>
+          <p class="production-error" data-settings-error role="alert"></p>
+          <div class="production-form-actions"><button class="production-button is-secondary" type="button" data-close-modal>Hủy</button><button class="production-button" type="submit">Lưu phân công</button></div>
+        </form>
+      </div>
+    </div>
+
+    <script src="production.js?v=20261023-1"></script>
+    <script src="admin-menu.js?v=20261023-1"></script>
+  </body>
+</html>

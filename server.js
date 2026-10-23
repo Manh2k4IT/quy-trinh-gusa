@@ -14,6 +14,7 @@ const { validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, 
 const { getApprovalConfirmation } = require("./approval-confirmation");
 const { createZaloClient } = require("./zalo-oa");
 const { createAttachmentStore } = require("./proposal-attachments");
+const { createProductionOrders } = require("./production-orders");
 
 loadEnvFile();
 
@@ -490,8 +491,9 @@ function serveStatic(req, res) {
   const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
   const filePath = path.resolve(process.cwd(), relativePath);
   if (!filePath.startsWith(path.resolve(process.cwd()))) return send(res, 403, "Forbidden");
-  if (["attendance-network.json", "attendance-network.json.tmp"].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
+  if (["attendance-network.json", "attendance-network.json.tmp", ...productionOrders.dataFiles].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
 
+  if (path.relative(process.cwd(), filePath).split(path.sep)[0] === "production-files") return send(res, 403, "Forbidden");
   const streamedExtension = path.extname(filePath).toLowerCase();
   const needsRewrite = streamedExtension === ".html" || requestPath === "/.well-known/assetlinks.json" || requestPath === "/firebase-messaging-sw.js";
   if (!needsRewrite) {
@@ -576,7 +578,7 @@ async function updateUserRole(req, res, userId) {
   }
   const user = users.get(userId);
   if (!user) return send(res, 404, "Không tìm thấy tài khoản");
-  if (!["employee", "accountant", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trò không hợp lệ");
+  if (!["employee", "accountant", "warehouse", "manager", "production", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trò không hợp lệ");
   if (user.id === currentUser.id || normalizeEmail(user.email) === fixedAdminEmail) {
     return send(res, 400, "Không thể đổi vai trò của tài khoản này.");
   }
@@ -636,7 +638,7 @@ async function inviteUser(req, res) {
     name: email.split("@")[0],
     email,
     picture: "",
-    role: ["accountant", "admin", "ceo"].includes(payload.role) ? payload.role : "employee",
+    role: ["accountant", "warehouse", "manager", "production", "admin", "ceo"].includes(payload.role) ? payload.role : "employee",
     status: "active",
     invited: true,
     updatedAt: new Date().toISOString(),
@@ -1195,6 +1197,30 @@ async function sendZaloReviewNotification(proposal, { managementApproval = false
   });
 }
 
+async function sendUserNotification(recipients, { title, body, path: targetPath }) {
+  const url = `https://quytrinh.gusa.vn${targetPath}`;
+  const recipientIds = new Set(recipients.map(getAttendanceUserKey));
+  const tasks = recipients.map((user) => zaloClient.getUserId(getAttendanceUserKey(user))).filter(Boolean)
+    .map((zaloUserId) => zaloClient.sendDirectMessage(zaloUserId, `${title}
+${body}
+Xem trên Gusa: ${url}`));
+  const devices = getPushDevices().filter((device) => recipientIds.has(device.userId));
+  const messaging = devices.length ? getFirebaseMessaging() : null;
+  if (messaging) {
+    tasks.push(...devices.map((device) => messaging.send({
+      token: device.token,
+      notification: { title, body },
+      data: { type: "production-stage", url },
+      android: { priority: "high", notification: { channelId: "proposal-created-general-v2", sound: "proposal_new_general" } },
+      webpush: { notification: { icon: "https://quytrinh.gusa.vn/app-icons/icon-192.png" }, fcmOptions: { link: url } },
+    })));
+  }
+  const results = await Promise.allSettled(tasks);
+  results.filter((result) => result.status === "rejected").forEach((result) => console.error("User notification failed:", result.reason?.code || result.reason?.message));
+}
+
+const productionOrders = createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey: getAttendanceUserKey, sendJson, send, notify: sendUserNotification });
+
 async function sendZaloApprovedToGroup(proposal) {
   const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
   const text = `Đề xuất ${typeLabels[proposal.type] || proposal.type} của ${proposal.userName || "nhân viên"} đã được duyệt.\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
@@ -1718,6 +1744,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
     if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
+    if (await productionOrders.handle(req, res)) return;
     if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
     if (req.method === "GET" && req.url === "/api/report-notifications") return serveReportNotifications(req, res);
     if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
@@ -1800,7 +1827,7 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
-    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html"].includes(req.url.split("?")[0])) {
+    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html"].includes(req.url.split("?")[0])) {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }

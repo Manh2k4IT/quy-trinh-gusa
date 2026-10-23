@@ -150,7 +150,7 @@ function setAdminVisibility(isAdmin, role = 'employee') {
   document.querySelectorAll('.role-chip').forEach((button) => {
     const originalRole = button.dataset.role || button.textContent.trim();
     button.dataset.role = originalRole;
-    const roleLabel = role === 'ceo' ? 'CEO' : role === 'admin' ? 'Quản trị' : role === 'accountant' ? 'Kế toán' : 'Nhân viên';
+    const roleLabel = role === 'ceo' ? 'CEO' : role === 'admin' ? 'Quản trị' : role === 'accountant' ? 'Kế toán' : role === 'warehouse' ? 'Vận hành kho' : role === 'manager' ? 'Quản lý cấp 1' : role === 'production' ? 'Sản xuất' : 'Nhân viên';
     const expectedRole = role === 'ceo' ? 'CEO' : role === 'admin' ? 'Quản trị' : 'Nhân viên';
     const current = originalRole === expectedRole;
     button.textContent = current ? roleLabel : originalRole;
@@ -335,12 +335,12 @@ async function submitAttendance(action) { checkIn.disabled = true; checkOut.disa
 const today = new Date(); for (let offset = 0; offset < 12; offset += 1) { const date = new Date(today.getFullYear(), today.getMonth() - offset, 1); const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; monthSelect.append(new Option(date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }), value)); }
 monthSelect.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 monthSelect.addEventListener('change', loadAttendance); attendanceTypeChoice?.addEventListener('change', () => setStatus(records)); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => submitAttendance('check-out')); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
-fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin, user.role); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : user.role === 'accountant' ? 'Kế toán' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'ceo'
+fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin, user.role); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'ceo'
       ? originalRole === 'CEO'
       : user.role === 'admin'
         ? originalRole === 'Quản trị'
         : originalRole === 'Nhân viên';
-    const roleLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán' : 'Nhân viên';
+    const roleLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : 'Nhân viên';
     button.textContent = current ? roleLabel : originalRole;
     button.hidden = !current;
     button.classList.toggle('is-selected', current);

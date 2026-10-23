@@ -126,13 +126,13 @@ async function syncAccountRole() {
     element.replaceChildren(image);
   });
   document.querySelectorAll(".sidebar-account small, [data-user-role]").forEach((element) => {
-    element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
+    element.textContent = user.role === "ceo" ? "CEO" : admin ? "Quản trị viên" : user.role === "accountant" ? "Kế toán" : user.role === "warehouse" ? "Vận hành kho" : user.role === "manager" ? "Quản lý cấp 1" : user.role === "production" ? "Sản xuất" : "Nhân viên";
   });
   document.querySelectorAll(".role-chip").forEach((button) => {
     const originalRole = button.dataset.role || button.textContent.trim();
     button.dataset.role = originalRole;
-    const roleChipLabel = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị" : user.role === "accountant" ? "Kế toán" : "Nhân viên";
-    const expectedRole = user.role === "accountant" ? "Nhân viên" : roleChipLabel;
+    const roleChipLabel = user.role === "ceo" ? "CEO" : user.role === "admin" ? "Quản trị" : user.role === "accountant" ? "Kế toán" : user.role === "warehouse" ? "Vận hành kho" : user.role === "manager" ? "Quản lý cấp 1" : user.role === "production" ? "Sản xuất" : "Nhân viên";
+    const expectedRole = ["ceo", "admin"].includes(user.role) ? roleChipLabel : "Nhân viên";
     const isCurrentRole = originalRole === expectedRole;
     button.textContent = isCurrentRole ? roleChipLabel : originalRole;
     button.hidden = !isCurrentRole;
