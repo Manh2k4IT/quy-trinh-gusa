@@ -36,7 +36,7 @@ const maxWashLoss = 0.03;
 const maxFiles = 5;
 const maxFileBytes = 8 * 1024 * 1024;
 
-function createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey, sendJson, send, notify }) {
+function createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey, sendJson, send, notify, publish = () => {} }) {
   const ordersPath = dataPath("production-orders.json");
   const settingsPath = dataPath("production-settings.json");
   const filesDirectory = path.join(path.dirname(ordersPath), "production-files");
@@ -376,6 +376,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     orders.unshift(order);
     saveOrders(orders);
     notifyStage(order);
+    publish();
     sendJson(res, 201, { order: publicOrder(order, user) });
   }
 
@@ -391,6 +392,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     order.status = handler(order, user, payload);
     saveOrders(orders);
     if (stageRole(order) !== previous || order.status === "in-production") notifyStage(order);
+    publish();
     sendJson(res, 200, { order: publicOrder(order, user) });
   }
 
@@ -400,6 +402,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     const validIds = new Set([...users.values()].map(getUserKey));
     const assignees = Object.fromEntries(Object.keys(roles).map((role) => [role, [...new Set(Array.isArray(payload.assignees?.[role]) ? payload.assignees[role] : [])].filter((id) => validIds.has(id))]));
     fs.writeFileSync(settingsPath, JSON.stringify({ assignees }, null, 2));
+    publish();
     sendJson(res, 200, { ok: true });
   }
 
@@ -409,6 +412,8 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     if (!pathname.startsWith("/api/production")) return false;
     const user = getCurrentUser(req);
     if (!user || user.status !== "active") return send(res, 403, "Forbidden"), true;
+    // Số hồ sơ đang chờ người dùng xử lý — dùng cho chấm đỏ trên menu.
+    if (req.method === "GET" && pathname === "/api/production/count") return sendJson(res, 200, { count: getOrders().filter((order) => canAct(user, order)).length }), true;
     if (!canView(user)) return send(res, 403, "Bạn chưa được phân công trong quy trình sản xuất."), true;
     try {
       if (req.method === "GET" && pathname === "/api/production") serveList(req, res, user);

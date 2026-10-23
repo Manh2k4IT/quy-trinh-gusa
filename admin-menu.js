@@ -328,6 +328,45 @@ function initializeProposalApprovalNotifications() {
   });
 }
 
+// Chấm đỏ: số hồ sơ sản xuất đang chờ người dùng xử lý.
+function initializeProductionBadge() {
+  if (window.refreshProductionBadge) return;
+  const baseTitle = document.title.replace(/^\(\d+\) /, '');
+  const setBadge = (host, count) => {
+    if (!host) return;
+    let badge = host.querySelector(':scope > [data-production-badge]');
+    if (!count) return badge?.remove();
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'notification-badge';
+      badge.dataset.productionBadge = '';
+      host.append(badge);
+    }
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.setAttribute('aria-label', `${count} việc đang chờ bạn xử lý`);
+  };
+  let pending = null;
+  window.refreshProductionBadge = () => {
+    pending ||= fetch('/api/production/count', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : { count: 0 })
+      .then(({ count }) => {
+        document.querySelectorAll('.menu-item[href="process-choice.html"] .menu-icon').forEach((icon) => setBadge(icon, count));
+        document.querySelectorAll('.attendance-choice-card[href="production.html"]').forEach((card) => setBadge(card, count));
+        document.title = count ? `(${count}) ${baseTitle}` : baseTitle;
+      })
+      .catch(() => {})
+      .finally(() => { pending = null; });
+    return pending;
+  };
+  window.refreshProductionBadge();
+  window.proposalApprovalEvents?.addEventListener('production', () => {
+    window.refreshProductionBadge();
+    document.dispatchEvent(new Event('gusa:production-changed'));
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) window.refreshProductionBadge(); });
+  setInterval(() => { if (!document.hidden) window.refreshProductionBadge(); }, 60000);
+}
+
 function initializeMobilePush() {
   if (!window.Capacitor?.isNativePlatform?.() || document.querySelector('[data-mobile-push-script]')) return;
   const script = document.createElement('script');
@@ -439,6 +478,7 @@ if (sidebarScroll) {
       const isCeo = user?.role === 'ceo';
       const isAccountant = user?.role === 'accountant';
       initializeProposalApprovalNotifications();
+      initializeProductionBadge();
       initializeMobilePush();
       if (isAdmin || isAccountant) initializeSharedProposalNotifications();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;

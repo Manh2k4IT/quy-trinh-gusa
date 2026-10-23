@@ -65,6 +65,9 @@ function filteredOrders() {
 
 function render() {
   document.querySelectorAll('[data-tab]').forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.tab === activeTab)));
+  const mineCount = state.orders.filter((order) => order.canAct).length;
+  const mineTab = document.querySelector('[data-tab="mine"]');
+  mineTab.innerHTML = `Việc của tôi${mineCount ? ` <span class="notification-badge is-inline">${mineCount > 99 ? '99+' : mineCount}</span>` : ''}`;
   const counts = state.orders.reduce((result, order) => ({ ...result, [order.status]: (result[order.status] || 0) + 1 }), {});
   summary.innerHTML = [...state.stageOrder, 'rejected'].filter((stage) => counts[stage]).map((stage) => `
     <button type="button" class="production-stage-chip${stageFilter === stage ? ' is-active' : ''}" data-stage-filter="${stage}" data-stage="${stage}">
@@ -357,6 +360,7 @@ async function runAction(button) {
     if (['create-transfer', 'send-wash', 'return-wash', 'handover'].includes(action)) payload.files = await readFiles(form.querySelector('[name="files"]'));
     await request(`/api/production/${detailModal.dataset.orderId}/action`, { method: 'POST', body: JSON.stringify(payload) });
     await load();
+    window.refreshProductionBadge?.();
   } catch (requestError) {
     error.textContent = requestError.message;
     form.querySelectorAll('button').forEach((item) => { item.disabled = false; });
@@ -538,5 +542,6 @@ list.addEventListener('click', (event) => {
   if (item) openDetail(item.dataset.openOrder);
 });
 
+document.addEventListener('gusa:production-changed', () => load());
 load();
 })();

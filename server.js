@@ -1219,7 +1219,7 @@ Xem trên Gusa: ${url}`));
   results.filter((result) => result.status === "rejected").forEach((result) => console.error("User notification failed:", result.reason?.code || result.reason?.message));
 }
 
-const productionOrders = createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey: getAttendanceUserKey, sendJson, send, notify: sendUserNotification });
+const productionOrders = createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey: getAttendanceUserKey, sendJson, send, notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
 
 async function sendZaloApprovedToGroup(proposal) {
   const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };

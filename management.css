@@ -4779,3 +4779,11 @@ body[data-theme="dark"] .member-filters select {
   color: #edf0f4 !important;
   background: #252a31 !important;
 }
+
+.menu-icon { position: relative; }
+.notification-badge { position: absolute; top: -7px; right: -10px; display: inline-grid; min-width: 18px; height: 18px; padding: 0 5px; place-items: center; border: 2px solid var(--panel, #fff); border-radius: 999px; color: #fff; background: #e5484d; font-size: 0.68rem; font-weight: 800; font-style: normal; line-height: 1; box-sizing: content-box; }
+.notification-badge.is-inline { position: static; margin-left: 0.35rem; border: 0; vertical-align: 1px; }
+.attendance-choice-card { position: relative; }
+.attendance-choice-card > .notification-badge { top: 1rem; right: 1rem; min-width: 26px; height: 26px; font-size: 0.85rem; }
+body[data-theme="dark"] .notification-badge { border-color: #182536; }
+.menu-icon > .notification-badge { top: -9px; right: auto; left: 62%; min-width: 12px; height: 15px; padding: 0 4px; font-size: 0.62rem; border-width: 1.5px; }
