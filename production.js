@@ -496,12 +496,27 @@ createForm.addEventListener('submit', async (event) => {
 });
 
 // Phân công người phụ trách.
+// Dòng tóm tắt người đã chọn, hiện cả khi mục đang đóng.
+function updateAssignSummary(group) {
+  const names = [...group.querySelectorAll('input:checked')].map((input) => input.dataset.name);
+  const summary = group.querySelector('[data-assign-summary]');
+  summary.textContent = names.length ? names.join(', ') : 'Chưa chọn ai';
+  summary.classList.toggle('is-empty', !names.length);
+}
+settingsForm.addEventListener('change', (event) => {
+  const group = event.target.closest('[data-role]');
+  if (group) updateAssignSummary(group);
+});
+
 function openSettings() {
   const selected = Object.fromEntries(Object.entries(state.assignees).map(([role, people]) => [role, new Set(people.map((person) => person.id))]));
   settingsForm.querySelector('[data-settings-roles]').innerHTML = Object.entries(state.roles).map(([role, info]) => ({ role, label: info?.label ?? info, hint: info?.hint ?? '' })).map(({ role, label, hint }) => `
-    <fieldset class="production-fieldset" data-role="${role}"><legend>${escapeHtml(label)}</legend>${hint ? `<p class="production-muted">${escapeHtml(hint)}</p>` : ''}<div class="production-people">
-      ${state.users.map((user) => `<label class="production-person"><input type="checkbox" value="${escapeHtml(user.id)}" ${selected[role]?.has(user.id) ? 'checked' : ''} /><span>${escapeHtml(user.name)}<small>${escapeHtml(user.email)}</small></span></label>`).join('')}
-    </div></fieldset>`).join('');
+    <details class="production-assign" data-role="${role}">
+      <summary><span class="production-assign-title">${escapeHtml(label)}</span><span class="production-assign-people" data-assign-summary></span></summary>
+      ${hint ? `<p class="production-muted">${escapeHtml(hint)}</p>` : ''}<div class="production-people">
+      ${state.users.map((user) => `<label class="production-person"><input type="checkbox" value="${escapeHtml(user.id)}" data-name="${escapeHtml(user.name)}" ${selected[role]?.has(user.id) ? 'checked' : ''} /><span>${escapeHtml(user.name)}<small>${escapeHtml(user.email)}</small></span></label>`).join('')}
+    </div></details>`).join('');
+  settingsForm.querySelectorAll('[data-role]').forEach(updateAssignSummary);
   settingsForm.querySelector('[data-settings-error]').textContent = '';
   settingsModal.hidden = false;
 }

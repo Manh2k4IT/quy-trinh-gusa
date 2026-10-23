@@ -171,3 +171,30 @@ body[data-theme="dark"] .production-proof { background: #101c2d; border-color: #
 
 .production-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; }
 .production-section-head .production-button { min-height: 38px; font-size: .88rem; }
+@media (max-width: 680px) {
+  .production-toolbar { flex-direction: column; align-items: stretch; }
+  .production-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .production-tabs button { padding: 0 .5rem; white-space: normal; line-height: 1.25; }
+  .production-search { flex: none; width: 100%; }
+}
+/* Chừa vùng thanh trạng thái (trên) và thanh điều hướng (dưới) trên điện thoại. */
+@media (max-width: 600px) {
+  .app-shell { height: 100dvh; min-height: 100dvh; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--surface); }
+  .workspace { height: auto; }
+  .sidebar { height: 100dvh; padding-top: env(safe-area-inset-top, 0px); }
+  .production-content { padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px)); }
+  .production-modal { padding-top: calc(.6rem + env(safe-area-inset-top, 0px)); padding-bottom: calc(.6rem + env(safe-area-inset-bottom, 0px)); }
+}
+
+.production-assign { border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.production-assign + .production-assign { margin-top: .6rem; }
+.production-assign summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .2rem .8rem; padding: .8rem 1rem; cursor: pointer; list-style: none; }
+.production-assign summary::-webkit-details-marker { display: none; }
+.production-assign summary::after { content: "▾"; grid-row: 1 / span 2; grid-column: 2; color: var(--muted); font-size: 1.1rem; transition: transform .15s ease; }
+.production-assign[open] summary::after { transform: rotate(180deg); }
+.production-assign-title { font-weight: 700; }
+.production-assign-people { grid-column: 1; color: #067647; font-size: .85rem; overflow-wrap: anywhere; }
+.production-assign-people.is-empty { color: #b42318; }
+.production-assign > .production-muted, .production-assign > .production-people { margin: 0 1rem .9rem; }
+.production-assign > .production-muted { margin-bottom: .6rem; }
+body[data-theme="dark"] .production-assign { background: #182536; border-color: #334155; }
