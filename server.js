@@ -1102,6 +1102,48 @@ async function sendProposalCreatedPush(proposal) {
   console.log(`Proposal-created push processed for ${devices.length} reviewer devices.`);
 }
 
+const proposalTypeLabels = { late: "đi trễ", "early-leave": "về sớm", "half-day": "nghỉ nửa ngày", leave: "nghỉ phép", "unauthorized-leave": "nghỉ không phép", payment: "thanh toán" };
+
+// Thông báo trên chuông: việc đang chờ chính người dùng và kết quả đề xuất của họ.
+function serveNotifications(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return sendJson(res, 200, { items: [] });
+  const items = [];
+  const proposals = getProposals();
+  if (isManagementUser(currentUser)) {
+    const pendingUsers = [...users.values()].filter((user) => user.status === "pending").length;
+    if (pendingUsers) items.push({ id: "pending-users", kind: "action", title: "Tài khoản mới chờ duyệt", text: `${pendingUsers} tài khoản đang chờ phê duyệt.`, url: "/user-management.html" });
+  }
+  const reviewQueue = isManagementUser(currentUser) ? proposals.filter(needsManagementReview) : currentUser.role === "accountant" ? proposals.filter(needsAccountingReview) : [];
+  reviewQueue.slice(0, 10).forEach((proposal) => items.push({
+    id: `review-${proposal.id}`,
+    kind: "action",
+    title: proposal.type === "payment" ? "Đề xuất thanh toán chờ duyệt" : "Đề xuất chờ duyệt",
+    text: `${proposal.userName || "Nhân viên"} gửi đề xuất ${proposalTypeLabels[proposal.type] || ""}.`,
+    url: `/proposal-report.html?proposalId=${encodeURIComponent(proposal.id)}${proposal.type === "payment" ? "&type=payment" : ""}`,
+  }));
+  productionOrders.pendingFor(currentUser).forEach((order) => items.push({
+    id: `production-${order.id}-${order.step}`,
+    kind: "action",
+    title: "Việc sản xuất chờ bạn",
+    text: `${order.code} · ${order.productCode}: ${order.step}`,
+    url: `/production.html?id=${order.id}`,
+  }));
+  const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  proposals
+    .filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser) && ["approved", "rejected"].includes(proposal.status) && Date.parse(proposal.reviewedAt || proposal.accountingConfirmedAt || 0) > since)
+    .sort((a, b) => Date.parse(b.reviewedAt || 0) - Date.parse(a.reviewedAt || 0))
+    .slice(0, 10)
+    .forEach((proposal) => items.push({
+      id: `decision-${proposal.id}-${proposal.status}`,
+      kind: "update",
+      title: proposal.status === "approved" ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối",
+      text: `Đề xuất ${proposalTypeLabels[proposal.type] || ""}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
+      url: proposal.type === "payment" ? "/payment-proposal.html" : "/proposals.html",
+    }));
+  sendJson(res, 200, { items });
+}
+
 function getProposalReviewUrl(proposal) {
   const query = new URLSearchParams({ proposalId: proposal.id });
   if (proposal.type === "payment") query.set("type", "payment");
@@ -1746,6 +1788,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/api/me") return serveCurrentUser(req, res);
     if (await productionOrders.handle(req, res)) return;
     if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
+    if (req.method === "GET" && req.url === "/api/notifications") return serveNotifications(req, res);
     if (req.method === "GET" && req.url === "/api/report-notifications") return serveReportNotifications(req, res);
     if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
     if (req.url === "/api/push/devices" && req.method === "DELETE") return await unregisterPushDevice(req, res);

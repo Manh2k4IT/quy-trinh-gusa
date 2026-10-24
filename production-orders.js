@@ -428,7 +428,12 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     return true;
   }
 
-  return { handle, dataFiles: ["production-orders.json", "production-settings.json"] };
+  // Hồ sơ đang chờ người dùng xử lý — dùng cho chuông thông báo.
+  function pendingFor(user) {
+    return getOrders().filter((order) => canAct(user, order)).map((order) => ({ id: order.id, code: order.code, productCode: order.proposal.productCode, updatedAt: order.updatedAt, step: roles[stageRole(order)].label }));
+  }
+
+  return { handle, pendingFor, dataFiles: ["production-orders.json", "production-settings.json"] };
 }
 
 module.exports = { createProductionOrders };

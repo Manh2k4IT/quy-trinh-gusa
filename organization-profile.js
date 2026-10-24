@@ -33,7 +33,7 @@ function ensureTopbarActions() {
   const actions = document.querySelector(".top-actions");
   if (!actions || actions.querySelector("[data-notification-trigger]")) return;
   const roleSwitch = actions.querySelector(".role-switch");
-  roleSwitch?.insertAdjacentHTML("afterend", '<button class="top-icon notification-icon" type="button" data-notification-trigger aria-label="Thông báo"><svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><b data-notification-count>3</b></button>');
+  roleSwitch?.insertAdjacentHTML("afterend", '<button class="top-icon notification-icon" type="button" data-notification-trigger aria-label="Thông báo"><svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><b data-notification-count hidden></b></button>');
   const theme = actions.querySelector("[data-theme-trigger]");
   theme?.insertAdjacentHTML("afterend", '<button class="top-icon" type="button" data-color-trigger aria-label="Đổi màu giao diện"><svg class="palette-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18h1.2a1.8 1.8 0 0 0 0-3.6h-.7a1.8 1.8 0 0 1 0-3.6H15a6 6 0 0 0 0-12H12Z" /><circle cx="7.5" cy="10" r="1" /><circle cx="10" cy="6.8" r="1" /><circle cx="14" cy="6.8" r="1" /></svg></button>');
 }
@@ -55,7 +55,7 @@ profileMenu.innerHTML = '<div class="profile-header"><div class="profile-avatar"
 const notificationMenu = document.createElement("div");
 notificationMenu.className = "notification-menu";
 notificationMenu.hidden = true;
-notificationMenu.innerHTML = '<strong>Thông báo</strong><div class="notification-list"><p><b>Phê duyệt tài khoản</b><span>Có tài khoản mới chờ xử lý</span></p><p><b>Cập nhật hệ thống</b><span>Quy trình vừa được cập nhật</span></p><p><b>Nhiệm vụ mới</b><span>Bạn có nhiệm vụ cần xem</span></p></div>';
+notificationMenu.innerHTML = '<strong>Thông báo</strong><div class="notification-list"><p class="notification-empty">Đang tải thông báo...</p></div>';
 const colorMenu = document.createElement("div");
 colorMenu.className = "color-menu";
 colorMenu.hidden = true;

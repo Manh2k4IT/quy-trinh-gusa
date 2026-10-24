@@ -4796,3 +4796,24 @@ body[data-theme="dark"] .notification-badge { border-color: #182536; }
   .menu-item { min-height: 44px; gap: 0.8rem; font-size: 0.94rem; font-weight: 600; }
   .menu-icon { width: 24px; height: 24px; flex-basis: 24px; font-size: 1.15rem; }
 }
+/* Nút thu gọn/mở menu: ô vuông bo góc, biểu tượng khung + mũi tên. */
+.sidebar-toggle { width: 36px; min-width: 36px; height: 36px; min-height: 36px; border: 0; border-radius: 10px; color: #64748b; background: transparent; transition: background-color .15s ease, color .15s ease; }
+.sidebar-toggle:hover { color: var(--navy); background: #e8eef6; }
+.sidebar-toggle:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.sidebar-toggle svg { width: 20px; height: 20px; stroke-width: 1.7; }
+.sidebar-toggle-arrow { transition: transform .2s ease; transform-box: fill-box; transform-origin: center; }
+.app-shell.is-collapsed .sidebar-toggle { transform: none; }
+.app-shell.is-collapsed .sidebar-toggle-arrow { transform: rotate(180deg); }
+body[data-theme="dark"] .sidebar-toggle { color: #94a3b8; }
+body[data-theme="dark"] .sidebar-toggle:hover { color: #e2e8f0; background: #24364d; }
+
+/* Chuông thông báo: mỗi dòng bấm được để mở việc cần xử lý. */
+.notification-list { max-height: min(60vh, 420px); overflow-y: auto; }
+.notification-link { display: block; border-radius: 10px; color: inherit; text-decoration: none; }
+.notification-link p { border-left: 3px solid transparent; transition: background-color .15s ease; }
+.notification-link.is-unread p { border-left-color: #e5484d; }
+.notification-link:hover p, .notification-link:focus-visible p { background: #e8eef6; }
+.notification-empty { margin: 0; padding: .7rem; color: var(--muted); text-align: center; }
+body[data-theme="dark"] .notification-link:hover p { background: #2b3d55; }
+
+a.top-icon { display: inline-grid; place-items: center; text-decoration: none; }

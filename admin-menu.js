@@ -45,6 +45,34 @@ sharedAppearanceStyles.rel = 'stylesheet';
 sharedAppearanceStyles.href = '/shared-appearance.css?v=20261007-1';
 document.head.append(sharedAppearanceStyles);
 applySharedAppearance();
+
+// Thanh trên cùng: thêm chuông thông báo, nút sáng/tối và bảng màu cho các trang chưa có.
+function ensureTopActions() {
+  const avatar = document.querySelector('.top-actions [data-top-avatar]');
+  if (!avatar || document.querySelector('[data-notification-trigger]')) return;
+  avatar.insertAdjacentHTML('beforebegin', '<button class="top-icon notification-icon" type="button" data-notification-trigger aria-label="Thông báo"><svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><b data-notification-count hidden></b></button>'
+    + '<button class="top-icon" type="button" data-shared-theme-trigger aria-label="Đổi giao diện sáng tối"><svg class="theme-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z" /></svg></button>'
+    + '<a class="top-icon" href="interface-settings.html" aria-label="Đổi màu giao diện"><svg class="palette-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0 0 18h1.2a1.8 1.8 0 0 0 0-3.6h-.7a1.8 1.8 0 0 1 0-3.6H15a6 6 0 0 0 0-12H12Z" /><circle cx="7.5" cy="10" r="1" /><circle cx="10" cy="6.8" r="1" /><circle cx="14" cy="6.8" r="1" /></svg></a>');
+  const menu = document.createElement('div');
+  menu.className = 'notification-menu';
+  menu.dataset.notificationMenu = '';
+  menu.hidden = true;
+  menu.innerHTML = '<strong>Thông báo</strong><div class="notification-list"><p class="notification-empty">Đang tải thông báo...</p></div>';
+  (document.querySelector('.workspace') || document.body).append(menu);
+  const bell = document.querySelector('[data-notification-trigger]');
+  bell.addEventListener('click', (event) => {
+    event.stopPropagation();
+    menu.hidden = !menu.hidden;
+  });
+  document.addEventListener('click', (event) => {
+    if (!menu.contains(event.target) && !event.target.closest('[data-notification-trigger]')) menu.hidden = true;
+  });
+  document.querySelector('[data-shared-theme-trigger]').addEventListener('click', () => {
+    try { localStorage.setItem('gusa-theme', document.body.dataset.theme === 'dark' ? 'light' : 'dark'); } catch {}
+    applySharedAppearance();
+  });
+}
+ensureTopActions();
 window.addEventListener('storage', (event) => {
   if (event.key === null || ['gusa-theme', 'gusa-palette', 'gusa-proposal-audio-enabled'].includes(event.key)) applySharedAppearance();
 });
@@ -266,8 +294,8 @@ function initializeSharedProposalNotifications() {
     clearTimeout(notificationTimer);
     notificationTimer = setTimeout(() => {
       if (notificationMenu) notificationMenu.hidden = true;
-      if (notificationCount) notificationCount.hidden = true;
       notificationButton?.classList.remove('is-notifying');
+      window.refreshNotifications?.();
     }, 5000);
     if (window.desktopSettings?.notify) {
       window.desktopSettings.notify({ title: 'Có đề xuất mới', body: formatProposal(newProposals[0]) });
@@ -294,7 +322,6 @@ function initializeSharedProposalNotifications() {
     localStorage.setItem('gusa-proposal-notification-ids', JSON.stringify([...knownIds]));
     showNotifications(newProposals);
   };
-  if (notificationCount) notificationCount.hidden = true;
   poll().catch(() => {});
   if ('EventSource' in window) {
     const proposalEvents = new EventSource('/api/proposals/events');
@@ -326,6 +353,45 @@ function initializeProposalApprovalNotifications() {
       }
     } catch {}
   });
+}
+
+// Chuông thông báo: việc đang chờ người dùng và kết quả đề xuất của họ.
+function initializeNotificationCenter(user) {
+  const button = document.querySelector('[data-notification-trigger]');
+  const menu = document.querySelector('[data-notification-menu]') || document.querySelector('.notification-menu');
+  const list = menu?.querySelector('.notification-list');
+  if (!button || !list || window.refreshNotifications) return;
+  const count = button.querySelector('[data-notification-count]');
+  const seenKey = `gusa-seen-notifications-${user?.id || user?.email || ''}`;
+  const readSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(seenKey) || '[]')); } catch { return new Set(); } };
+  const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+  let items = [];
+  const render = () => {
+    const seen = readSeen();
+    const unread = items.filter((item) => item.kind === 'action' || !seen.has(item.id));
+    list.innerHTML = items.length
+      ? items.map((item) => `<a class="notification-link${item.kind === 'action' || !seen.has(item.id) ? ' is-unread' : ''}" href="${escape(item.url)}"><p><b>${escape(item.title)}</b><span>${escape(item.text)}</span></p></a>`).join('')
+      : '<p class="notification-empty">Không có thông báo mới.</p>';
+    if (count) {
+      count.textContent = unread.length > 99 ? '99+' : String(unread.length);
+      count.hidden = !unread.length;
+    }
+  };
+  window.refreshNotifications = () => fetch('/api/notifications', { cache: 'no-store' })
+    .then((response) => response.ok ? response.json() : { items: [] })
+    .then((data) => { items = data.items || []; render(); })
+    .catch(() => {});
+  // Mở chuông là đã xem các thông báo kết quả (việc cần làm vẫn giữ số cho đến khi xử lý xong).
+  button.addEventListener('click', () => {
+    const seen = readSeen();
+    items.filter((item) => item.kind === 'update').forEach((item) => seen.add(item.id));
+    try { localStorage.setItem(seenKey, JSON.stringify([...seen].slice(-200))); } catch {}
+    setTimeout(render, 1500);
+  });
+  window.refreshNotifications();
+  ['production', 'proposal', 'proposal-status'].forEach((type) => window.proposalApprovalEvents?.addEventListener(type, () => window.refreshNotifications()));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) window.refreshNotifications(); });
+  setInterval(() => { if (!document.hidden) window.refreshNotifications(); }, 60000);
 }
 
 // Chấm đỏ: số hồ sơ sản xuất đang chờ người dùng xử lý.
@@ -479,6 +545,7 @@ if (sidebarScroll) {
       const isAccountant = user?.role === 'accountant';
       initializeProposalApprovalNotifications();
       initializeProductionBadge();
+      initializeNotificationCenter(user);
       initializeMobilePush();
       if (isAdmin || isAccountant) initializeSharedProposalNotifications();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;

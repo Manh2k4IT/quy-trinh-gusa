@@ -84,14 +84,17 @@ const topbar = document.querySelector('.topbar');
 const notificationButton = document.createElement('button');
 notificationButton.className = 'top-icon notification-icon proposal-notification-trigger';
 notificationButton.type = 'button';
-notificationButton.setAttribute('aria-label', 'Thông báo đề xuất mới');
-notificationButton.innerHTML = '<svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-3-3-9M10 21h4" /></svg><b data-proposal-notification-count hidden>0</b>';
+notificationButton.setAttribute('aria-label', 'Thông báo');
+// Dùng chung chuông thông báo của từng người (admin-menu.js).
+notificationButton.dataset.notificationTrigger = '';
+notificationButton.innerHTML = '<svg class="bell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-3-3-9M10 21h4" /></svg><b data-proposal-notification-count data-notification-count hidden>0</b>';
 topbar?.append(notificationButton);
 
 const notificationPanel = document.createElement('div');
 notificationPanel.className = 'notification-menu proposal-notification-menu';
 notificationPanel.hidden = true;
-notificationPanel.innerHTML = '<strong>Thông báo</strong><div class="notification-list" data-proposal-notification-list><p>Chưa có đề xuất mới.</p></div>';
+notificationPanel.dataset.notificationMenu = '';
+notificationPanel.innerHTML = '<strong>Thông báo</strong><div class="notification-list" data-proposal-notification-list><p class="notification-empty">Đang tải thông báo...</p></div>';
 document.querySelector('.workspace')?.append(notificationPanel);
 const notificationCount = notificationButton.querySelector('[data-proposal-notification-count]');
 const notificationList = notificationPanel.querySelector('[data-proposal-notification-list]');
@@ -115,8 +118,8 @@ async function showProposalNotification(newProposals) {
   clearTimeout(notificationTimer);
   notificationTimer = setTimeout(() => {
     notificationPanel.hidden = true;
-    notificationCount.hidden = true;
     notificationButton.classList.remove('is-notifying');
+    window.refreshNotifications?.();
   }, 5000);
 
   if (window.desktopSettings?.notify) {
@@ -129,10 +132,7 @@ async function showProposalNotification(newProposals) {
 
 notificationButton.addEventListener('click', () => {
   notificationPanel.hidden = !notificationPanel.hidden;
-  if (!notificationPanel.hidden) {
-    notificationCount.hidden = true;
-    clearTimeout(notificationTimer);
-  }
+  if (!notificationPanel.hidden) clearTimeout(notificationTimer);
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 });
 
