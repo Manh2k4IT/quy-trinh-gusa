@@ -4787,3 +4787,4 @@ body[data-theme="dark"] .member-filters select {
 .attendance-choice-card > .notification-badge { top: 1rem; right: 1rem; min-width: 26px; height: 26px; font-size: 0.85rem; }
 body[data-theme="dark"] .notification-badge { border-color: #182536; }
 .menu-icon > .notification-badge { top: -9px; right: auto; left: 62%; min-width: 12px; height: 15px; padding: 0 4px; font-size: 0.62rem; border-width: 1.5px; }
+.member-profile-heading .profile-detail-grid .profile-detail-wide .profile-description-list { display: grid; gap: 0.45rem; text-align: left; }

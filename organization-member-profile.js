@@ -26,6 +26,26 @@ const sidebarToggle = document.querySelector(".sidebar-toggle");
 const memberHeader = document.querySelector(".member-profile-heading");
 document.querySelector("[data-member-work-years]")?.previousElementSibling.replaceChildren(document.createTextNode("Thâm niên"));
 
+// Tách mô tả "- việc A; - việc B" (ngăn bằng dấu ;) hoặc nhiều dòng thành danh sách, mỗi việc một dòng.
+function renderDescription(element, text) {
+  const value = String(text || "").trim();
+  const items = (value.includes("\n") ? value.split(/\n+/) : value.split(";"))
+    .map((item) => item.trim().replace(/^[-•]\s*/, "").replace(/;\s*$/, "").trim())
+    .filter(Boolean);
+  if (items.length < 2) {
+    element.textContent = value || "Chưa cập nhật";
+    return;
+  }
+  const list = document.createElement("ul");
+  list.className = "profile-description-list";
+  items.forEach((item) => {
+    const row = document.createElement("li");
+    row.textContent = item;
+    list.append(row);
+  });
+  element.replaceChildren(list);
+}
+
 function formatTenure(member) {
   if (!member.startDate) return member.workYears ? `${member.workYears} năm` : "Chưa cập nhật ngày bắt đầu";
   const startDate = new Date(`${member.startDate}T00:00:00`);
@@ -189,7 +209,7 @@ function showMember() {
   const status = member.status || "working";
   statusBadge.className = `member-status member-status-${status}`;
   statusBadge.textContent = { working: "Đang làm việc", leave: "Nghỉ phép", former: "Đã nghỉ việc" }[status];
-  document.querySelector("[data-member-description]").textContent = member.description || "Chưa cập nhật";
+  renderDescription(document.querySelector("[data-member-description]"), member.description);
   memberView.hidden = false;
   memberForm.hidden = true;
   memberEdit.hidden = !isAdmin;
