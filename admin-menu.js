@@ -420,7 +420,7 @@ function initializeNotificationCenter(user) {
     document.dispatchEvent(new CustomEvent('gusa:notifications', { detail: { items } }));
   };
   // Mục menu nhận chấm đỏ theo trang mà thông báo dẫn tới (việc sản xuất đã có chấm riêng ở menu Quy Trình).
-  const menuTargets = { '/user-management.html': 'user-management.html', '/proposal-report.html': 'report-choice.html', '/recruitment.html': 'recruitment.html', '/proposals.html': 'proposal-choice.html', '/payment-proposal.html': 'proposal-choice.html' };
+  const menuTargets = { '/user-management.html': 'user-management.html', '/recruitment.html': 'recruitment.html', '/proposals.html': 'proposal-choice.html', '/payment-proposal.html': 'proposal-choice.html' };
   const renderMenuBadges = (unread) => {
     const totals = {};
     unread.forEach((item) => {
@@ -456,6 +456,49 @@ function initializeNotificationCenter(user) {
   ['production', 'proposal', 'proposal-status'].forEach((type) => window.proposalApprovalEvents?.addEventListener(type, () => window.refreshNotifications()));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) window.refreshNotifications(); });
   setInterval(() => { if (!document.hidden) window.refreshNotifications(); }, 60000);
+}
+
+// Chấm đỏ mục Báo cáo: tổng số mục mới/cập nhật chưa xem — cùng cách đếm với các thẻ trong trang Báo cáo.
+function initializeReportMenuBadge() {
+  if (window.refreshReportMenuBadge) return;
+  const reportKeys = ['online', 'late', 'overview', 'personnel', 'payment'];
+  const setBadge = (count) => {
+    document.querySelectorAll('.menu-item[href="report-choice.html"] .menu-icon').forEach((icon) => {
+      let badge = icon.querySelector(':scope > [data-report-menu-badge]');
+      if (!count) return badge?.remove();
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'notification-badge';
+        badge.dataset.reportMenuBadge = '';
+        icon.append(badge);
+      }
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.setAttribute('aria-label', `${count} mục báo cáo mới chưa xem`);
+    });
+  };
+  let summary = null;
+  const render = () => {
+    if (!summary) return;
+    let total = 0;
+    reportKeys.filter((key) => Array.isArray(summary.reports[key])).forEach((key) => {
+      let seen = {};
+      try { seen = JSON.parse(localStorage.getItem(`gusa-report-seen:${encodeURIComponent(summary.accountId)}:${key}`) || '{}') || {}; } catch {}
+      total += summary.reports[key].filter((item) => seen[item.id] !== item.version).length;
+    });
+    setBadge(total);
+  };
+  window.refreshReportMenuBadge = () => fetch('/api/report-notifications', { cache: 'no-store' })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((data) => { summary = data; render(); })
+    .catch(() => {});
+  window.refreshReportMenuBadge();
+  ['proposal', 'proposal-status'].forEach((type) => window.proposalApprovalEvents?.addEventListener(type, () => window.refreshReportMenuBadge()));
+  window.addEventListener('storage', (event) => { if (event.key === null || event.key.startsWith('gusa-report-seen:')) render(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) window.refreshReportMenuBadge(); });
+  setInterval(() => { if (!document.hidden) window.refreshReportMenuBadge(); }, 30000);
+  // Trang báo cáo đánh dấu đã xem trong cùng tab: cập nhật ngay.
+  const markSeen = window.GusaReportNotifications?.markSeen;
+  if (markSeen) window.GusaReportNotifications.markSeen = (snapshot) => { markSeen(snapshot); render(); };
 }
 
 // Chấm đỏ: số hồ sơ sản xuất đang chờ người dùng xử lý.
@@ -613,6 +656,7 @@ if (sidebarScroll) {
       initializeNotificationCenter(user);
       initializeMobilePush();
       if (isAdmin || isAccountant) initializeSharedProposalNotifications();
+      if (isAdmin || isAccountant) initializeReportMenuBadge();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');
