@@ -74,21 +74,42 @@ function ensureTopActions() {
 }
 ensureTopActions();
 
-// Dòng đường dẫn (Quy Trình / Trang) nằm riêng bên dưới thanh trên cùng.
+// Đường dẫn (Quy Trình / Trang): máy tính nằm trong thanh trên cùng, điện thoại xuống một dải riêng bên dưới.
+const mobileLayout = window.matchMedia('(max-width: 800px)');
 function moveBreadcrumbs() {
   const topbar = document.querySelector('.workspace > .topbar');
-  const crumbs = topbar?.querySelector(':scope > .breadcrumbs');
-  if (!crumbs) return;
-  let row = topbar.nextElementSibling?.classList.contains('page-breadcrumbs') ? topbar.nextElementSibling : null;
-  if (!row) {
-    row = document.createElement('nav');
-    row.className = 'page-breadcrumbs';
-    row.setAttribute('aria-label', 'Đường dẫn');
-    topbar.after(row);
+  const crumbs = document.querySelector('.workspace .breadcrumbs');
+  if (!topbar || !crumbs) return;
+  let marker = topbar.querySelector(':scope > [data-breadcrumbs-slot]');
+  if (!marker) {
+    // Đánh dấu vị trí gốc của đường dẫn trong thanh trên cùng để trả lại khi lên màn hình lớn.
+    marker = document.createElement('span');
+    marker.hidden = true;
+    marker.dataset.breadcrumbsSlot = '';
+    if (crumbs.parentElement === topbar) crumbs.before(marker);
+    else {
+      const toggle = topbar.querySelector('[data-mobile-menu-toggle]');
+      if (toggle) toggle.after(marker);
+      else topbar.prepend(marker);
+    }
   }
-  row.replaceChildren(crumbs);
+  let row = topbar.nextElementSibling?.classList.contains('page-breadcrumbs') ? topbar.nextElementSibling : null;
+  if (mobileLayout.matches) {
+    if (!row) {
+      row = document.createElement('nav');
+      row.className = 'page-breadcrumbs';
+      row.setAttribute('aria-label', 'Đường dẫn');
+      topbar.after(row);
+    }
+    row.hidden = false;
+    row.replaceChildren(crumbs);
+  } else {
+    marker.after(crumbs);
+    if (row) row.hidden = true;
+  }
 }
 moveBreadcrumbs();
+mobileLayout.addEventListener('change', moveBreadcrumbs);
 window.addEventListener('load', moveBreadcrumbs);
 
 // Bấm ảnh đại diện góc trên: mở khung thông tin tài khoản (cho các trang chưa có sẵn).
