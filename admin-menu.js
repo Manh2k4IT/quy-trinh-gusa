@@ -624,8 +624,6 @@ if (sidebarScroll) {
     <p class="menu-label" data-admin-menu-label>QUẢN TRỊ</p>
     <nav class="menu" aria-label="Menu quản trị" data-admin-menu>
       <a class="menu-item" href="user-management.html"><span class="menu-icon">⚙</span><span>Quản lý user</span></a>
-      <a class="menu-item" href="#"><span class="menu-icon">▥</span><span>Thùng rác</span></a>
-      <a class="menu-item" href="#"><span class="menu-icon">◉</span><span>Nhật ký lỗi</span></a>
     </nav>`;
 
   const currentPath = window.location.pathname.split('/').pop() || 'index.html';
