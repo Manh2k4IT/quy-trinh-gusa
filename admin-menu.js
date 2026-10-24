@@ -113,6 +113,53 @@ function upgradeTopIcons() {
 }
 upgradeTopIcons();
 window.addEventListener('load', upgradeTopIcons);
+
+// Trang có thanh trên cùng riêng (vd. Báo cáo đề xuất) tự tạo chuông sau khi trang tải:
+// bổ sung nút sáng/tối, bảng màu và ảnh đại diện cho đồng bộ với các trang khác.
+function completeTopBar() {
+  const topbar = document.querySelector('.topbar');
+  if (!topbar || topbar.querySelector('[data-top-avatar]')) return;
+  let actions = topbar.querySelector('.top-actions');
+  if (!actions) {
+    actions = document.createElement('div');
+    actions.className = 'top-actions';
+    topbar.append(actions);
+  }
+  const bell = topbar.querySelector('[data-notification-trigger]');
+  if (bell) actions.append(bell);
+  actions.insertAdjacentHTML('beforeend', '<button class="top-icon" type="button" data-shared-theme-trigger aria-label="Đổi giao diện sáng tối"><svg class="theme-icon" viewBox="0 0 24 24" aria-hidden="true"></svg></button>'
+    + '<a class="top-icon" href="interface-settings.html" aria-label="Đổi màu giao diện"><svg class="palette-icon" viewBox="0 0 24 24" aria-hidden="true"></svg></a>'
+    + '<button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button>');
+  actions.querySelector('[data-shared-theme-trigger]').addEventListener('click', () => {
+    try { localStorage.setItem('gusa-theme', document.body.dataset.theme === 'dark' ? 'light' : 'dark'); } catch {}
+    applySharedAppearance();
+  });
+  upgradeTopIcons();
+  ensureProfileMenu();
+  fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(({ user }) => {
+    if (!user) return;
+    const initial = (user.name || user.email || 'U').charAt(0).toUpperCase();
+    document.querySelectorAll('[data-top-avatar], [data-profile-avatar]').forEach((element) => {
+      if (!user.picture) {
+        element.textContent = initial;
+        return;
+      }
+      const image = document.createElement('img');
+      image.src = user.picture;
+      image.referrerPolicy = 'no-referrer';
+      image.alt = `Ảnh đại diện Gmail của ${user.name || user.email}`;
+      image.onerror = () => { element.textContent = initial; };
+      element.replaceChildren(image);
+    });
+    const name = document.querySelector('.profile-menu [data-profile-name]');
+    if (name) name.textContent = user.name || user.email || 'Tài khoản Google';
+    const email = document.querySelector('.profile-menu [data-profile-email]');
+    if (email) email.textContent = user.email || '';
+    const role = document.querySelector('.profile-menu [data-profile-role]');
+    if (role) role.textContent = document.querySelector('[data-user-role]')?.textContent || role.textContent;
+  }).catch(() => {});
+}
+window.addEventListener('load', completeTopBar);
 window.addEventListener('storage', (event) => {
   if (event.key === null || ['gusa-theme', 'gusa-palette', 'gusa-proposal-audio-enabled'].includes(event.key)) applySharedAppearance();
 });
