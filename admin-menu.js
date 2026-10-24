@@ -74,6 +74,23 @@ function ensureTopActions() {
 }
 ensureTopActions();
 
+// Dòng đường dẫn (Quy Trình / Trang) nằm riêng bên dưới thanh trên cùng.
+function moveBreadcrumbs() {
+  const topbar = document.querySelector('.workspace > .topbar');
+  const crumbs = topbar?.querySelector(':scope > .breadcrumbs');
+  if (!crumbs) return;
+  let row = topbar.nextElementSibling?.classList.contains('page-breadcrumbs') ? topbar.nextElementSibling : null;
+  if (!row) {
+    row = document.createElement('nav');
+    row.className = 'page-breadcrumbs';
+    row.setAttribute('aria-label', 'Đường dẫn');
+    topbar.after(row);
+  }
+  row.replaceChildren(crumbs);
+}
+moveBreadcrumbs();
+window.addEventListener('load', moveBreadcrumbs);
+
 // Bấm ảnh đại diện góc trên: mở khung thông tin tài khoản (cho các trang chưa có sẵn).
 function ensureProfileMenu() {
   const avatar = document.querySelector('.topbar [data-top-avatar]');
@@ -453,11 +470,27 @@ function initializeNotificationCenter(user) {
   const readSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(seenKey) || '[]')); } catch { return new Set(); } };
   const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
   let items = [];
+  // "5 phút trước", "Hôm qua 14:20", "23/10 09:15".
+  const timeAgo = (value) => {
+    const time = Date.parse(value || '');
+    if (!time) return '';
+    const minutes = Math.floor((Date.now() - time) / 60000);
+    if (minutes < 1) return 'Vừa xong';
+    if (minutes < 60) return `${minutes} phút trước`;
+    if (minutes < 360) return `${Math.floor(minutes / 60)} giờ trước`;
+    const date = new Date(time);
+    const clock = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const dayKey = (d) => d.toLocaleDateString('en-CA');
+    const yesterday = new Date(Date.now() - 86400000);
+    if (dayKey(date) === dayKey(new Date())) return `Hôm nay ${clock}`;
+    if (dayKey(date) === dayKey(yesterday)) return `Hôm qua ${clock}`;
+    return `${date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} ${clock}`;
+  };
   const render = () => {
     const seen = readSeen();
     const unread = items.filter((item) => item.kind === 'action' || !seen.has(item.id));
     list.innerHTML = items.length
-      ? items.map((item) => `<a class="notification-link${item.kind === 'action' || !seen.has(item.id) ? ' is-unread' : ''}" href="${escape(item.url)}"><p><b>${escape(item.title)}</b><span>${escape(item.text)}</span></p></a>`).join('')
+      ? items.map((item) => `<a class="notification-link${item.kind === 'action' || !seen.has(item.id) ? ' is-unread' : ''}" href="${escape(item.url)}"><p><b>${escape(item.title)}</b><span>${escape(item.text)}</span>${item.time ? `<time class="notification-time" datetime="${escape(item.time)}">${escape(timeAgo(item.time))}</time>` : ''}</p></a>`).join('')
       : '<p class="notification-empty">Không có thông báo mới.</p>';
     if (count) {
       count.textContent = unread.length > 99 ? '99+' : String(unread.length);
@@ -755,9 +788,12 @@ if (sidebarScroll) {
   if (appShell && !appShell.dataset.sharedMenuBound) {
     appShell.dataset.sharedMenuBound = 'true';
     if (localStorage.getItem('gusa-sidebar-collapsed') === 'true') appShell.classList.add('is-collapsed');
+    const syncToggleLabel = () => sidebarToggle?.setAttribute('aria-label', appShell.classList.contains('is-collapsed') ? 'Mở rộng menu' : 'Thu gọn menu');
+    syncToggleLabel();
     sidebarToggle?.addEventListener('click', () => {
       const collapsed = appShell.classList.toggle('is-collapsed');
       localStorage.setItem('gusa-sidebar-collapsed', String(collapsed));
+      syncToggleLabel();
     });
     const setMobileMenu = (open) => {
       appShell.classList.toggle('is-mobile-menu-open', open);

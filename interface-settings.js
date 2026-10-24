@@ -62,10 +62,6 @@ function setMobileMenu(open) {
 mobileMenuToggle.addEventListener("click", () => setMobileMenu(!appShell.classList.contains("is-mobile-menu-open")));
 mobileMenuBackdrop.addEventListener("click", () => setMobileMenu(false));
 
-document.querySelector("[data-sidebar-toggle]").addEventListener("click", () => {
-  const collapsed = appShell.classList.toggle("is-collapsed");
-  localStorage.setItem("gusa-sidebar-collapsed", String(collapsed));
-});
 if (localStorage.getItem("gusa-sidebar-collapsed") === "true") appShell.classList.add("is-collapsed");
 
 function syncThemeToggle() {

@@ -4853,14 +4853,24 @@ body[data-theme="dark"] .topbar .notification-icon b { border-color: #182536; }
   .topbar .top-icon { width: 36px; height: 36px; border-radius: 10px; }
   .topbar .top-icon svg { width: 20px; height: 20px; }
 }
-/* Điện thoại: đường dẫn (Quy Trình / Trang) xuống một dòng riêng dưới hàng nút. */
+/* Tên "Gusa - Quy Trình" ở đầu menu luôn nằm trên một dòng. */
+.sidebar-brand > span { min-width: 0; overflow: hidden; font-size: 0.9rem; letter-spacing: -0.01em; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-brand { gap: 0.45rem; }
+.sidebar-brand .sidebar-toggle { flex: none; margin-left: auto; }
+
+/* Dải đường dẫn riêng dưới thanh trên cùng. */
+.page-breadcrumbs { display: flex; flex: 0 0 auto; align-items: center; min-width: 0; padding: 0.55rem 1.4rem; border-bottom: 1px solid var(--line); background: #fff; }
+.page-breadcrumbs .breadcrumbs { min-width: 0; overflow: hidden; gap: 0.45rem; font-size: 0.8rem; }
+.page-breadcrumbs .breadcrumbs span:not(.back-arrow), .page-breadcrumbs .breadcrumbs strong, .page-breadcrumbs .breadcrumbs .crumb-separator, .page-breadcrumbs .breadcrumbs a { display: inline; }
+.page-breadcrumbs .breadcrumbs strong { overflow: hidden; text-overflow: ellipsis; }
+.page-breadcrumbs .breadcrumbs a { color: inherit; text-decoration: none; }
+.page-breadcrumbs .breadcrumbs a:hover { color: var(--navy); }
+.workspace > .topbar > .top-actions { margin-left: auto; }
+body[data-theme="dark"] .page-breadcrumbs { border-color: #334155; background: #182536; }
 @media (max-width: 800px) {
-  .workspace > .topbar { flex: 0 0 auto; flex-wrap: wrap; height: auto; max-height: none; min-height: 56px; row-gap: 0; padding-top: 0.45rem; padding-bottom: 0.4rem; }
-  .workspace > .topbar > .breadcrumbs { order: 99; flex: 0 0 100%; min-width: 0; margin: 0.15rem 0 0; overflow: hidden; font-size: 0.78rem; gap: 0.4rem; }
-  .workspace > .topbar > .breadcrumbs span:not(.back-arrow), .workspace > .topbar > .breadcrumbs strong, .workspace > .topbar > .breadcrumbs .crumb-separator, .workspace > .topbar > .breadcrumbs a { display: inline; }
-  .workspace > .topbar > .breadcrumbs strong { overflow: hidden; text-overflow: ellipsis; }
-  .workspace > .topbar > .top-actions { margin-left: auto; }
+  .page-breadcrumbs { padding: 0.45rem 0.85rem; }
+  .page-breadcrumbs .breadcrumbs { font-size: 0.78rem; }
 }
-@media (max-width: 800px) {
-  body .notification-menu, body .profile-menu, body .color-menu { top: calc(96px + env(safe-area-inset-top, 0px)); }
-}
+
+.notification-time { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.3rem; color: #98a2b3; font-size: 0.72rem; font-weight: 600; }
+.notification-time::before { content: ""; width: 12px; height: 12px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E") center / contain no-repeat; }

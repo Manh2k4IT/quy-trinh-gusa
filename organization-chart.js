@@ -112,11 +112,6 @@ if (mobileMenuBackdrop) {
 
 if (localStorage.getItem("gusa-sidebar-collapsed") === "true") appShell.classList.add("is-collapsed");
 
-document.querySelector("[data-sidebar-toggle]").addEventListener("click", () => {
-  const collapsed = appShell.classList.toggle("is-collapsed");
-  localStorage.setItem("gusa-sidebar-collapsed", String(collapsed));
-});
-
 document.querySelector("[data-theme-trigger]").addEventListener("click", () => {
   toggleTheme();
   notificationMenu.hidden = true;

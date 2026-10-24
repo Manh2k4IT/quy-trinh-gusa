@@ -260,6 +260,7 @@ ul{margin:0;padding-left:22px}li{margin:4px 0}li::marker{color:#174b8e}.card p{m
 
   // Số hồ sơ mới chưa xử lý — dùng cho chuông thông báo.
   const newApplicationsFor = (user) => (canViewApplications(user) ? getApplications().filter((item) => item.status === "new").length : 0);
+  const latestNewApplicationAt = (user) => (canViewApplications(user) ? getApplications().filter((item) => item.status === "new").map((item) => item.createdAt).sort().pop() || null : null);
 
   // Trang công khai: GET hiển thị, POST /tuyen-dung/:id/ung-tuyen nhận hồ sơ.
   async function handlePublic(req, res) {
@@ -372,7 +373,7 @@ ul{margin:0;padding-left:22px}li{margin:4px 0}li::marker{color:#174b8e}.card p{m
     return true;
   }
 
-  return { handle, handlePublic, newApplicationsFor, dataFiles: ["recruitment.json", "recruitment-applications.json"] };
+  return { handle, handlePublic, newApplicationsFor, latestNewApplicationAt, dataFiles: ["recruitment.json", "recruitment-applications.json"] };
 }
 
 module.exports = { createRecruitment };

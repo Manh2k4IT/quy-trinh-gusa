@@ -197,7 +197,6 @@ if (reportMode === 'late' || reportMode === 'online') {
 function setMobileMenu(open) { appShell.classList.toggle('is-mobile-menu-open', open); mobileMenuBackdrop.hidden = !open; mobileMenuToggle.setAttribute('aria-expanded', String(open)); }
 mobileMenuToggle.addEventListener('click', () => setMobileMenu(!appShell.classList.contains('is-mobile-menu-open')));
 mobileMenuBackdrop.addEventListener('click', () => setMobileMenu(false));
-document.querySelector('[data-sidebar-toggle]').addEventListener('click', () => { const collapsed = appShell.classList.toggle('is-collapsed'); localStorage.setItem('gusa-sidebar-collapsed', String(collapsed)); });
 if (localStorage.getItem('gusa-sidebar-collapsed') === 'true') appShell.classList.add('is-collapsed');
 document.body.dataset.theme = localStorage.getItem('gusa-theme') || 'light';
 const palette = JSON.parse(localStorage.getItem('gusa-palette') || 'null'); document.documentElement.style.setProperty('--navy', palette?.primary || '#174b8e'); document.documentElement.style.setProperty('--blue-100', palette?.surface || '#eaf2fa');

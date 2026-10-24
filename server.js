@@ -365,6 +365,7 @@ async function completeGoogleAuth(req, res) {
     picture: profile.picture || invitedUser?.picture || existingUser?.picture || "",
     role: isFixedAdmin ? "admin" : (invitedUser?.role || (users.size === 0 ? "admin" : "employee")),
     status: isFixedAdmin ? "active" : (invitedUser?.status || (users.size === 0 ? "active" : "pending")),
+    createdAt: existingUser?.createdAt || invitedUser?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
   if (!invitedUser && !isFixedAdmin && stateData.mode === "login") {
@@ -458,6 +459,7 @@ async function completeMobileAuth(req, res) {
     picture: profile.picture || invitedUser?.picture || existingUser?.picture || "",
     role: isFixedAdmin ? "admin" : (invitedUser?.role || (users.size === 0 ? "admin" : "employee")),
     status: isFixedAdmin ? "active" : (invitedUser?.status || (users.size === 0 ? "active" : "pending")),
+    createdAt: existingUser?.createdAt || invitedUser?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
   users.set(profile.sub, nextUser);
@@ -1112,21 +1114,25 @@ function serveNotifications(req, res) {
   const items = [];
   const proposals = getProposals();
   if (isManagementUser(currentUser)) {
-    const pendingUsers = [...users.values()].filter((user) => user.status === "pending").length;
-    if (pendingUsers) items.push({ id: "pending-users", kind: "action", count: pendingUsers, title: "Tài khoản mới chờ duyệt", text: `${pendingUsers} tài khoản đang chờ phê duyệt.`, url: "/user-management.html" });
+    const pendingList = [...users.values()].filter((user) => user.status === "pending");
+    const pendingUsers = pendingList.length;
+    const latestPending = pendingList.map((user) => user.createdAt || user.updatedAt || "").sort().pop();
+    if (pendingUsers) items.push({ id: "pending-users", kind: "action", count: pendingUsers, time: latestPending || null, title: "Tài khoản mới chờ duyệt", text: `${pendingUsers} tài khoản đang chờ phê duyệt.`, url: "/user-management.html" });
   }
   const reviewQueue = isManagementUser(currentUser) ? proposals.filter(needsManagementReview) : currentUser.role === "accountant" ? proposals.filter(needsAccountingReview) : [];
   reviewQueue.slice(0, 10).forEach((proposal) => items.push({
     id: `review-${proposal.id}`,
+    time: proposal.updatedAt || proposal.createdAt || null,
     kind: "action",
     title: proposal.type === "payment" ? "Đề xuất thanh toán chờ duyệt" : "Đề xuất chờ duyệt",
     text: `${proposal.userName || "Nhân viên"} gửi đề xuất ${proposalTypeLabels[proposal.type] || ""}.`,
     url: `/proposal-report.html?proposalId=${encodeURIComponent(proposal.id)}${proposal.type === "payment" ? "&type=payment" : ""}`,
   }));
   const newApplications = recruitment.newApplicationsFor(currentUser);
-  if (newApplications) items.push({ id: "new-applications", kind: "action", count: newApplications, title: "Ứng viên mới", text: `${newApplications} hồ sơ ứng tuyển chưa xử lý.`, url: "/recruitment.html?view=applications" });
+  if (newApplications) items.push({ id: "new-applications", kind: "action", count: newApplications, time: recruitment.latestNewApplicationAt(currentUser), title: "Ứng viên mới", text: `${newApplications} hồ sơ ứng tuyển chưa xử lý.`, url: "/recruitment.html?view=applications" });
   productionOrders.pendingFor(currentUser).forEach((order) => items.push({
     id: `production-${order.id}-${order.step}`,
+    time: order.updatedAt || null,
     kind: "action",
     title: "Việc sản xuất chờ bạn",
     text: `${order.code} · ${order.productCode}: ${order.step}`,
@@ -1139,11 +1145,13 @@ function serveNotifications(req, res) {
     .slice(0, 10)
     .forEach((proposal) => items.push({
       id: `decision-${proposal.id}-${proposal.status}`,
+      time: proposal.reviewedAt || proposal.accountingConfirmedAt || null,
       kind: "update",
       title: proposal.status === "approved" ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối",
       text: `Đề xuất ${proposalTypeLabels[proposal.type] || ""}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
       url: proposal.type === "payment" ? "/payment-proposal.html" : "/proposals.html",
     }));
+  items.sort((a, b) => Date.parse(b.time || 0) - Date.parse(a.time || 0));
   sendJson(res, 200, { items });
 }
 

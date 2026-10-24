@@ -151,12 +151,6 @@ if (localStorage.getItem("gusa-sidebar-collapsed") === "true") {
   appShell.classList.add("is-collapsed");
 }
 
-sidebarToggle.addEventListener("click", () => {
-  const collapsed = appShell.classList.toggle("is-collapsed");
-  sidebarToggle.setAttribute("aria-label", collapsed ? "Mở rộng menu" : "Thu gọn menu");
-  localStorage.setItem("gusa-sidebar-collapsed", String(collapsed));
-});
-
 if (notificationCount && Number(notificationCount.textContent) <= 0) {
   notificationCount.hidden = true;
 }
