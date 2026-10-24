@@ -4817,3 +4817,19 @@ body[data-theme="dark"] .sidebar-toggle:hover { color: #e2e8f0; background: #243
 body[data-theme="dark"] .notification-link:hover p { background: #2b3d55; }
 
 a.top-icon { display: inline-grid; place-items: center; text-decoration: none; }
+/* Mục menu đang chọn: nền đậm hơn theo màu giao diện + vạch nhấn bên trái. */
+.sidebar .menu-item { position: relative; }
+.sidebar .menu-item:hover { color: var(--navy); background: color-mix(in srgb, var(--navy) 7%, transparent); }
+.sidebar .menu-item.is-active { color: var(--navy); font-weight: 700; background: color-mix(in srgb, var(--navy) 20%, #fff); }
+.sidebar .menu-item.is-active::before { content: ""; position: absolute; top: 11px; bottom: 11px; left: 7px; width: 4px; border-radius: 4px; background: var(--navy); }
+.sidebar .menu-item.is-active .menu-icon { color: var(--navy); }
+body[data-theme="dark"] .sidebar .menu-item:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
+body[data-theme="dark"] .sidebar .menu-item.is-active { color: #fff; background: color-mix(in srgb, var(--navy) 55%, #182536); }
+body[data-theme="dark"] .sidebar .menu-item.is-active::before { background: #8bb8ff; }
+body[data-theme="dark"] .sidebar .menu-item.is-active .menu-icon { color: #fff; }
+/* Mục menu dạng dải vuông tràn hết chiều ngang (máy tính). */
+@media (min-width: 761px) {
+  .sidebar .menu-item { margin: 0 -0.5rem; padding-left: 1.25rem; border-radius: 0; }
+  .app-shell.is-collapsed .sidebar .menu-item { padding-left: 0; }
+  .sidebar .menu-item.is-active::before { top: 0; bottom: 0; left: 0; width: 4px; border-radius: 0; }
+}
