@@ -81,7 +81,7 @@ body[data-theme="dark"] .recruit-form input, body[data-theme="dark"] .recruit-fo
 @media (max-width: 680px) {
   .recruit-content { padding: 1rem 1rem calc(2rem + env(safe-area-inset-bottom, 0px)); }
   .recruit-hero { border-radius: 18px; }
-  .recruit-admin-actions, .recruit-admin-actions .recruit-button { width: 100%; }
+  .recruit-admin-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; width: 100%; }
   .recruit-toolbar { flex-direction: column; align-items: stretch; }
   .recruit-categories { min-width: 0; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: .2rem; scrollbar-width: none; }
   .recruit-categories button { flex: none; }
@@ -125,3 +125,20 @@ body[data-theme="dark"] .recruit-applicant-message { background: #101c2d; }
 /* Giữ chỗ cho số trên nút "Danh sách ứng tuyển" để các nút không bị xô khi số thay đổi. */
 .recruit-hero .recruit-count[hidden] { display: inline-block !important; visibility: hidden; }
 .recruit-hero .recruit-count { box-sizing: border-box; min-width: 30px; font-variant-numeric: tabular-nums; }
+/* Điện thoại: khung đầu trang gọn, các nút xếp lưới 2 cột. */
+@media (max-width: 680px) {
+  .recruit-hero { gap: .8rem; padding: 1.1rem; }
+  .recruit-hero h1 { margin: .2rem 0 .3rem; font-size: 1.45rem; }
+  .recruit-hero p { font-size: .88rem; line-height: 1.5; }
+  .recruit-hero > .recruit-admin-actions, .recruit-hero > [data-admin-actions] { margin: 0; }
+  .recruit-hero .recruit-button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: .35rem; padding: .35rem .5rem; border-radius: 10px; font-size: .82rem; line-height: 1.2; text-align: center; white-space: normal; }
+  .recruit-hero .recruit-count { min-width: 22px; font-size: .72rem; }
+}
+.recruit-label-short { display: none; }
+@media (max-width: 680px) {
+  .recruit-label-long { display: none; }
+  .recruit-label-short { display: inline; }
+}
+@media (max-width: 680px) {
+  .recruit-hero .recruit-count[hidden] { display: none !important; }
+}
