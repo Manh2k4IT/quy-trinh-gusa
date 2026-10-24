@@ -4833,3 +4833,23 @@ body[data-theme="dark"] .sidebar .menu-item.is-active .menu-icon { color: #fff; 
   .app-shell.is-collapsed .sidebar .menu-item { padding-left: 0; }
   .sidebar .menu-item.is-active::before { top: 0; bottom: 0; left: 0; width: 4px; border-radius: 0; }
 }
+
+/* Thanh trên cùng: nút biểu tượng vuông bo góc, nền nhạt, biểu tượng to rõ. */
+.topbar .top-actions { gap: 0.5rem; }
+.topbar .top-icon { display: inline-grid; width: 40px; height: 40px; padding: 0; place-items: center; border: 0; border-radius: 12px; color: #334155; background: #f1f5f9; transition: background-color .15s ease, color .15s ease; }
+.topbar .top-icon:hover { color: var(--navy); background: color-mix(in srgb, var(--navy) 12%, #fff); }
+.topbar .top-icon:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.topbar .top-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.topbar .palette-icon circle { fill: currentColor; stroke: none; }
+.topbar .theme-icon .icon-sun { display: none; }
+body[data-theme="dark"] .topbar .theme-icon .icon-sun { display: inline; }
+body[data-theme="dark"] .topbar .theme-icon .icon-moon { display: none; }
+.topbar .notification-icon b { top: -5px; right: -6px; width: auto; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; font-size: 0.7rem; box-sizing: border-box; }
+body[data-theme="dark"] .topbar .top-icon { color: #e2e8f0; background: #24364d; }
+body[data-theme="dark"] .topbar .top-icon:hover { background: #2f4663; }
+body[data-theme="dark"] .topbar .notification-icon b { border-color: #182536; }
+@media (max-width: 760px) {
+  .topbar .top-actions { gap: 0.35rem; }
+  .topbar .top-icon { width: 36px; height: 36px; border-radius: 10px; }
+  .topbar .top-icon svg { width: 20px; height: 20px; }
+}

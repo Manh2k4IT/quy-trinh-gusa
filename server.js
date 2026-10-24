@@ -15,6 +15,7 @@ const { getApprovalConfirmation } = require("./approval-confirmation");
 const { createZaloClient } = require("./zalo-oa");
 const { createAttachmentStore } = require("./proposal-attachments");
 const { createProductionOrders } = require("./production-orders");
+const { createRecruitment } = require("./recruitment");
 
 loadEnvFile();
 
@@ -491,9 +492,9 @@ function serveStatic(req, res) {
   const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
   const filePath = path.resolve(process.cwd(), relativePath);
   if (!filePath.startsWith(path.resolve(process.cwd()))) return send(res, 403, "Forbidden");
-  if (["attendance-network.json", "attendance-network.json.tmp", ...productionOrders.dataFiles].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
+  if (["attendance-network.json", "attendance-network.json.tmp", ...productionOrders.dataFiles, ...recruitment.dataFiles].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
 
-  if (path.relative(process.cwd(), filePath).split(path.sep)[0] === "production-files") return send(res, 403, "Forbidden");
+  if (["production-files", "recruitment-files"].includes(path.relative(process.cwd(), filePath).split(path.sep)[0])) return send(res, 403, "Forbidden");
   const streamedExtension = path.extname(filePath).toLowerCase();
   const needsRewrite = streamedExtension === ".html" || requestPath === "/.well-known/assetlinks.json" || requestPath === "/firebase-messaging-sw.js";
   if (!needsRewrite) {
@@ -578,7 +579,7 @@ async function updateUserRole(req, res, userId) {
   }
   const user = users.get(userId);
   if (!user) return send(res, 404, "Không tìm thấy tài khoản");
-  if (!["employee", "accountant", "warehouse", "manager", "production", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trò không hợp lệ");
+  if (!["employee", "accountant", "warehouse", "manager", "production", "hr", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trò không hợp lệ");
   if (user.id === currentUser.id || normalizeEmail(user.email) === fixedAdminEmail) {
     return send(res, 400, "Không thể đổi vai trò của tài khoản này.");
   }
@@ -638,7 +639,7 @@ async function inviteUser(req, res) {
     name: email.split("@")[0],
     email,
     picture: "",
-    role: ["accountant", "warehouse", "manager", "production", "admin", "ceo"].includes(payload.role) ? payload.role : "employee",
+    role: ["accountant", "warehouse", "manager", "production", "hr", "admin", "ceo"].includes(payload.role) ? payload.role : "employee",
     status: "active",
     invited: true,
     updatedAt: new Date().toISOString(),
@@ -1112,7 +1113,7 @@ function serveNotifications(req, res) {
   const proposals = getProposals();
   if (isManagementUser(currentUser)) {
     const pendingUsers = [...users.values()].filter((user) => user.status === "pending").length;
-    if (pendingUsers) items.push({ id: "pending-users", kind: "action", title: "Tài khoản mới chờ duyệt", text: `${pendingUsers} tài khoản đang chờ phê duyệt.`, url: "/user-management.html" });
+    if (pendingUsers) items.push({ id: "pending-users", kind: "action", count: pendingUsers, title: "Tài khoản mới chờ duyệt", text: `${pendingUsers} tài khoản đang chờ phê duyệt.`, url: "/user-management.html" });
   }
   const reviewQueue = isManagementUser(currentUser) ? proposals.filter(needsManagementReview) : currentUser.role === "accountant" ? proposals.filter(needsAccountingReview) : [];
   reviewQueue.slice(0, 10).forEach((proposal) => items.push({
@@ -1122,6 +1123,8 @@ function serveNotifications(req, res) {
     text: `${proposal.userName || "Nhân viên"} gửi đề xuất ${proposalTypeLabels[proposal.type] || ""}.`,
     url: `/proposal-report.html?proposalId=${encodeURIComponent(proposal.id)}${proposal.type === "payment" ? "&type=payment" : ""}`,
   }));
+  const newApplications = recruitment.newApplicationsFor(currentUser);
+  if (newApplications) items.push({ id: "new-applications", kind: "action", count: newApplications, title: "Ứng viên mới", text: `${newApplications} hồ sơ ứng tuyển chưa xử lý.`, url: "/recruitment.html?view=applications" });
   productionOrders.pendingFor(currentUser).forEach((order) => items.push({
     id: `production-${order.id}-${order.step}`,
     kind: "action",
@@ -1261,6 +1264,8 @@ Xem trên Gusa: ${url}`));
   results.filter((result) => result.status === "rejected").forEach((result) => console.error("User notification failed:", result.reason?.code || result.reason?.message));
 }
 
+
+const recruitment = createRecruitment({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getClientIp: (req) => getRequestIp(req, attendanceTrustedProxyHops), notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
 const productionOrders = createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey: getAttendanceUserKey, sendJson, send, notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
 
 async function sendZaloApprovedToGroup(proposal) {
@@ -1787,6 +1792,8 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
     if (await productionOrders.handle(req, res)) return;
+    if (await recruitment.handle(req, res)) return;
+    if (await recruitment.handlePublic(req, res)) return;
     if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
     if (req.method === "GET" && req.url === "/api/notifications") return serveNotifications(req, res);
     if (req.method === "GET" && req.url === "/api/report-notifications") return serveReportNotifications(req, res);
@@ -1870,7 +1877,7 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
-    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html"].includes(req.url.split("?")[0])) {
+    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html", "/recruitment.html"].includes(req.url.split("?")[0])) {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }

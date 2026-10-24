@@ -12,7 +12,7 @@ async function loadGoogleAvatar() {
   const data = await response.json();
   if (!data.user) return;
   const isAdmin = data.user.role === "admin" || data.user.role === "ceo";
-  const roleLabel = data.user.role === "admin" ? "Quản trị viên" : data.user.role === "ceo" ? "CEO" : data.user.role === "accountant" ? "Kế toán" : data.user.role === "warehouse" ? "Vận hành kho" : data.user.role === "manager" ? "Quản lý cấp 1" : data.user.role === "production" ? "Sản xuất" : "Nhân viên";
+  const roleLabel = data.user.role === "admin" ? "Quản trị viên" : data.user.role === "ceo" ? "CEO" : data.user.role === "accountant" ? "Kế toán" : data.user.role === "warehouse" ? "Vận hành kho" : data.user.role === "manager" ? "Quản lý cấp 1" : data.user.role === "production" ? "Sản xuất" : data.user.role === "hr" ? "Nhân sự" : "Nhân viên";
   document.querySelectorAll('a[href="attendance.html?view=days"]').forEach((link) => {
     link.hidden = isAdmin;
   });
@@ -25,7 +25,7 @@ async function loadGoogleAvatar() {
   document.querySelectorAll(".role-chip").forEach((button) => {
     const originalRole = button.dataset.role || button.textContent.trim();
     button.dataset.role = originalRole;
-    const roleChipLabel = data.user.role === "ceo" ? "CEO" : data.user.role === "admin" ? "Quản trị" : data.user.role === "accountant" ? "Kế toán" : data.user.role === "warehouse" ? "Vận hành kho" : data.user.role === "manager" ? "Quản lý cấp 1" : data.user.role === "production" ? "Sản xuất" : "Nhân viên";
+    const roleChipLabel = data.user.role === "ceo" ? "CEO" : data.user.role === "admin" ? "Quản trị" : data.user.role === "accountant" ? "Kế toán" : data.user.role === "warehouse" ? "Vận hành kho" : data.user.role === "manager" ? "Quản lý cấp 1" : data.user.role === "production" ? "Sản xuất" : data.user.role === "hr" ? "Nhân sự" : "Nhân viên";
     const expectedRole = ["ceo", "admin"].includes(data.user.role) ? roleChipLabel : "Nhân viên";
     const isCurrentRole = originalRole === expectedRole;
     button.textContent = isCurrentRole ? roleChipLabel : originalRole;
@@ -299,7 +299,7 @@ async function loadUserManagement() {
     userCell.append(identity);
 
     const role = document.createElement("td");
-    const roleLabels = { employee: "Nhân viên", accountant: "Kế toán", warehouse: "Vận hành kho", manager: "Quản lý cấp 1", production: "Sản xuất", ceo: "CEO", admin: "Quản trị viên" };
+    const roleLabels = { employee: "Nhân viên", accountant: "Kế toán", warehouse: "Vận hành kho", manager: "Quản lý cấp 1", production: "Sản xuất", hr: "Nhân sự", ceo: "CEO", admin: "Quản trị viên" };
     const touchesManagement = !canAssignManagement && ["admin", "ceo"].includes(user.role);
     if (user.roleLocked || touchesManagement) {
       role.textContent = roleLabels[user.role] || "Nhân viên";
@@ -307,7 +307,7 @@ async function loadUserManagement() {
       const select = document.createElement("select");
       select.className = "user-role-select";
       select.setAttribute("aria-label", `Vai trò của ${user.email}`);
-      const staffRoles = ["employee", "accountant", "warehouse", "manager", "production"];
+      const staffRoles = ["employee", "accountant", "warehouse", "manager", "production", "hr"];
       const options = canAssignManagement ? [...staffRoles, "ceo", "admin"] : staffRoles;
       options.forEach((value) => {
         const option = document.createElement("option");

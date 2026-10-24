@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tuyển dụng - Quy Trình</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="management.css?v=20261024-1" />
+    <link rel="stylesheet" href="recruitment.css?v=20261024-1" />
+  </head>
+  <body>
+    <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand"><div class="mini-logo"><img src="logo1.jpg" alt="" /></div><span>Quy Trình</span><button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4.5" width="16" height="15" rx="3" /><path d="M9.5 4.5v15" /><path class="sidebar-toggle-arrow" d="m15.5 10-2 2 2 2" /></svg></button></div>
+        <div class="sidebar-scroll"></div>
+        <div class="sidebar-account"><div class="avatar" data-user-avatar>B</div><div><strong data-user-name>Đang tải...</strong><small data-user-role></small></div><a class="sidebar-logout" href="/auth/logout">Đăng xuất</a></div>
+      </aside>
+      <main class="workspace">
+        <header class="topbar"><button class="mobile-menu-toggle" type="button" data-mobile-menu-toggle aria-label="Mở menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button><div class="breadcrumbs"><span>Quy Trình</span><span class="crumb-separator">/</span><strong>Tuyển dụng</strong></div><div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div></header>
+        <section class="recruit-content">
+          <div class="recruit-hero">
+            <div>
+              <span class="recruit-eyebrow">GUSA VIỆT NAM</span>
+              <h1>Cơ hội nghề nghiệp</h1>
+              <p>Chọn lĩnh vực bạn quan tâm để xem các vị trí đang tuyển và yêu cầu công việc.</p>
+            </div>
+            <div class="recruit-admin-actions">
+              <button class="recruit-button is-ghost" type="button" data-copy-link="/tuyen-dung">Sao chép link tất cả vị trí</button>
+              <button class="recruit-button is-light" type="button" data-open-applications hidden>Danh sách ứng tuyển<span class="recruit-count" data-applications-count hidden></span></button>
+            </div>
+            <div class="recruit-admin-actions" data-admin-actions hidden>
+              <button class="recruit-button is-secondary" type="button" data-manage-categories>Quản lý danh mục</button>
+              <button class="recruit-button" type="button" data-new-job>+ Thêm vị trí</button>
+            </div>
+          </div>
+          <div class="recruit-toolbar">
+            <div class="recruit-categories" data-categories role="tablist" aria-label="Danh mục tuyển dụng"></div>
+            <input class="recruit-search" type="search" placeholder="Tìm vị trí, nơi làm việc..." data-search />
+          </div>
+          <p class="recruit-status" data-status role="status">Đang tải...</p>
+          <div class="recruit-grid" data-jobs></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="recruit-modal" data-detail-modal hidden>
+      <article class="recruit-modal-card is-wide" role="dialog" aria-modal="true" aria-labelledby="recruit-detail-title">
+        <button class="recruit-modal-close" type="button" data-close-modal aria-label="Đóng">×</button>
+        <div data-detail></div>
+      </article>
+    </div>
+
+    <div class="recruit-modal" data-job-modal hidden>
+      <div class="recruit-modal-card" role="dialog" aria-modal="true" aria-labelledby="recruit-job-title">
+        <button class="recruit-modal-close" type="button" data-close-modal aria-label="Đóng">×</button>
+        <h2 id="recruit-job-title" data-job-form-title>Thêm vị trí tuyển dụng</h2>
+        <form class="recruit-form" data-job-form>
+          <input type="hidden" name="id" />
+          <div class="recruit-form-grid">
+            <label class="is-full">Tên vị trí<input name="title" maxlength="150" required placeholder="VD: Nhân viên kế toán kho" /></label>
+            <label>Danh mục<select name="categoryId" required data-category-select></select></label>
+            <label>Trạng thái<select name="status"><option value="open">Đang tuyển</option><option value="closed">Đã đủ người</option></select></label>
+            <label>Mức lương<input name="salary" maxlength="100" placeholder="VD: 8 – 10 triệu hoặc Thỏa thuận" /></label>
+            <label>Số lượng<input name="quantity" maxlength="30" placeholder="VD: 2 người" /></label>
+            <label>Nơi làm việc<input name="location" maxlength="200" placeholder="VD: Kho Bến Thành, Q.1" /></label>
+            <label>Hình thức<input name="workType" maxlength="60" placeholder="VD: Toàn thời gian" /></label>
+            <label>Hạn nộp hồ sơ<input name="deadline" type="date" /></label>
+          </div>
+          <p class="recruit-hint">Mỗi ý nhập một dòng (Enter để xuống dòng) — trang sẽ hiện thành gạch đầu dòng.</p>
+          <label>Mô tả công việc<textarea name="description" rows="5" maxlength="4000"></textarea></label>
+          <label>Yêu cầu ứng viên<textarea name="requirements" rows="5" maxlength="4000"></textarea></label>
+          <label>Quyền lợi<textarea name="benefits" rows="4" maxlength="4000"></textarea></label>
+          <label>Thông tin liên hệ / cách ứng tuyển<textarea name="contact" rows="3" maxlength="1000" placeholder="VD: Gửi CV qua Zalo 09xx xxx xxx (chị Hồng)"></textarea></label>
+          <p class="recruit-error" data-job-error role="alert"></p>
+          <div class="recruit-form-actions"><button class="recruit-button is-secondary" type="button" data-close-modal>Hủy</button><button class="recruit-button" type="submit">Lưu vị trí</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="recruit-modal" data-applications-modal hidden>
+      <div class="recruit-modal-card is-wide" role="dialog" aria-modal="true" aria-labelledby="recruit-applications-title">
+        <button class="recruit-modal-close" type="button" data-close-modal aria-label="Đóng">×</button>
+        <h2 id="recruit-applications-title">Danh sách ứng tuyển</h2>
+        <p class="recruit-hint">Hồ sơ người ứng tuyển gửi từ trang tuyển dụng công khai. Chỉ Admin, CEO và Nhân sự xem được.</p>
+        <div class="recruit-application-filters">
+          <select data-application-job aria-label="Lọc theo vị trí"></select>
+          <select data-application-status aria-label="Lọc theo trạng thái"></select>
+        </div>
+        <div class="recruit-applications" data-applications></div>
+      </div>
+    </div>
+
+    <div class="recruit-modal" data-category-modal hidden>
+      <div class="recruit-modal-card" role="dialog" aria-modal="true" aria-labelledby="recruit-category-title">
+        <button class="recruit-modal-close" type="button" data-close-modal aria-label="Đóng">×</button>
+        <h2 id="recruit-category-title">Quản lý danh mục</h2>
+        <p class="recruit-hint">Ví dụ: Kế toán, Bán hàng, Kho vận, Sản xuất, Marketing.</p>
+        <ul class="recruit-category-list" data-category-list></ul>
+        <form class="recruit-category-add" data-category-form>
+          <input name="name" maxlength="80" placeholder="Tên danh mục mới" required />
+          <button class="recruit-button" type="submit">Thêm</button>
+        </form>
+        <p class="recruit-error" data-category-error role="alert"></p>
+      </div>
+    </div>
+
+    <script src="recruitment-page.js?v=20261024-1"></script>
+    <script src="admin-menu.js?v=20261024-1"></script>
+  </body>
+</html>

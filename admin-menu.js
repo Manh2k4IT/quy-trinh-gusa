@@ -73,6 +73,46 @@ function ensureTopActions() {
   });
 }
 ensureTopActions();
+
+// Bấm ảnh đại diện góc trên: mở khung thông tin tài khoản (cho các trang chưa có sẵn).
+function ensureProfileMenu() {
+  const avatar = document.querySelector('.topbar [data-top-avatar]');
+  if (!avatar || document.querySelector('.profile-menu')) return;
+  const menu = document.createElement('div');
+  menu.className = 'profile-menu';
+  menu.hidden = true;
+  menu.innerHTML = '<div class="profile-header"><div class="profile-avatar" data-profile-avatar>B</div><div><strong data-profile-name>Tài khoản Google</strong><small data-profile-email></small></div></div><div class="profile-role" data-profile-role>Nhân viên</div><a class="profile-logout" href="/auth/logout">Đăng xuất</a>';
+  (document.querySelector('.workspace') || document.body).append(menu);
+  avatar.addEventListener('click', (event) => {
+    event.stopPropagation();
+    menu.hidden = !menu.hidden;
+    document.querySelectorAll('[data-notification-menu], .notification-menu').forEach((element) => { element.hidden = true; });
+  });
+  document.addEventListener('click', (event) => {
+    if (!menu.contains(event.target) && !event.target.closest('[data-top-avatar]')) menu.hidden = true;
+  });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') menu.hidden = true; });
+}
+ensureProfileMenu();
+
+// Biểu tượng thanh trên cùng (chuông, sáng/tối, bảng màu): bộ nét đều, to và rõ hơn.
+const topIconPaths = {
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />',
+  theme: '<g class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></g><g class="icon-sun"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></g>',
+  palette: '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.56-2.5 5.56-5.55C21.97 6.01 17.46 2 12 2Z" /><circle cx="13.5" cy="6.5" r="1.2" /><circle cx="17.5" cy="10.5" r="1.2" /><circle cx="8.5" cy="7.5" r="1.2" /><circle cx="6.5" cy="12.5" r="1.2" />',
+};
+function upgradeTopIcons() {
+  [['.bell-icon', 'bell'], ['.theme-icon', 'theme'], ['.palette-icon', 'palette']].forEach(([selector, name]) => {
+    document.querySelectorAll(`.topbar ${selector}`).forEach((svg) => {
+      if (svg.dataset.iconSet === name) return;
+      svg.dataset.iconSet = name;
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.innerHTML = topIconPaths[name];
+    });
+  });
+}
+upgradeTopIcons();
+window.addEventListener('load', upgradeTopIcons);
 window.addEventListener('storage', (event) => {
   if (event.key === null || ['gusa-theme', 'gusa-palette', 'gusa-proposal-audio-enabled'].includes(event.key)) applySharedAppearance();
 });
@@ -376,6 +416,30 @@ function initializeNotificationCenter(user) {
       count.textContent = unread.length > 99 ? '99+' : String(unread.length);
       count.hidden = !unread.length;
     }
+    renderMenuBadges(unread);
+    document.dispatchEvent(new CustomEvent('gusa:notifications', { detail: { items } }));
+  };
+  // Mục menu nhận chấm đỏ theo trang mà thông báo dẫn tới (việc sản xuất đã có chấm riêng ở menu Quy Trình).
+  const menuTargets = { '/user-management.html': 'user-management.html', '/proposal-report.html': 'report-choice.html', '/recruitment.html': 'recruitment.html', '/proposals.html': 'proposal-choice.html', '/payment-proposal.html': 'proposal-choice.html' };
+  const renderMenuBadges = (unread) => {
+    const totals = {};
+    unread.forEach((item) => {
+      const href = menuTargets[new URL(item.url, location.origin).pathname];
+      if (href) totals[href] = (totals[href] || 0) + (item.count || 1);
+    });
+    new Set(Object.values(menuTargets)).forEach((href) => {
+      document.querySelectorAll(`.menu-item[href="${href}"] .menu-icon`).forEach((icon) => {
+        let badge = icon.querySelector(':scope > [data-menu-badge]');
+        if (!totals[href]) return badge?.remove();
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'notification-badge';
+          badge.dataset.menuBadge = '';
+          icon.append(badge);
+        }
+        badge.textContent = totals[href] > 99 ? '99+' : String(totals[href]);
+      });
+    });
   };
   window.refreshNotifications = () => fetch('/api/notifications', { cache: 'no-store' })
     .then((response) => response.ok ? response.json() : { items: [] })
@@ -450,7 +514,7 @@ if (sidebarScroll) {
       <a class="menu-item" href="organization-chart.html"><span class="menu-icon">▤</span><span>Sơ đồ tổ chức</span></a>
       <a class="menu-item" href="process-choice.html"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
       <a class="menu-item" href="#"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
-      <a class="menu-item" href="#"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
+      <a class="menu-item" href="recruitment.html"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
       <a class="menu-item" href="#"><span class="menu-icon">▥</span><span>Báo cáo doanh số</span></a>
     </nav>
     <p class="menu-label">CHẤM CÔNG</p>
@@ -506,9 +570,9 @@ if (sidebarScroll) {
           element.textContent = user.name || user.email || 'Tài khoản Google';
         });
         document.querySelectorAll('[data-user-role], [data-profile-role]').forEach((element) => {
-          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : 'Nhân viên';
+          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên';
         });
-        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : 'Nhân viên';
+        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên';
         document.querySelectorAll('.role-chip').forEach((button) => {
           const originalRole = button.dataset.role || button.textContent.trim();
           button.dataset.role = originalRole;
@@ -535,6 +599,7 @@ if (sidebarScroll) {
             element.replaceChildren(image);
           });
         }
+        if (!user.picture) document.querySelectorAll('[data-profile-avatar]').forEach((element) => { element.textContent = (user.name || user.email || 'U').charAt(0).toUpperCase(); });
         const profileName = document.querySelector('[data-profile-name]');
         const profileEmail = document.querySelector('[data-profile-email]');
         if (profileName) profileName.textContent = user.name || 'Tài khoản Google';
