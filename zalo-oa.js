@@ -51,6 +51,8 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
 
   // Refresh tokens are single-use: keep the latest pair in memory so a lost/unwritable file doesn't fall back to a spent env token.
   let memoryTokens = null;
+  // Đánh dấu khi refresh token bị Zalo từ chối để nhắc Admin/CEO cấp quyền lại.
+  let needsReauth = false;
 
   function readTokens() {
     try {
@@ -76,6 +78,7 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
 
   function saveTokens(tokens) {
     memoryTokens = tokens;
+    needsReauth = false;
     try {
       const filePath = getTokenFile();
       const tempPath = `${filePath}.tmp`;
@@ -111,6 +114,7 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
         const latest = readTokens();
         if (latest.refreshToken && latest.refreshToken !== stored.refreshToken) return refreshAccessToken(true);
       }
+      if (errorCode === -14014) needsReauth = true;
       const hint = errorCode === -14014 ? " Refresh token đã hết hạn hoặc bị thu hồi: cấp quyền lại Zalo OA, rồi xóa zalo-oa-tokens.json cũ nếu dùng ZALO_REFRESH_TOKEN mới." : "";
       throw new Error(`Không thể làm mới token Zalo OA (mã ${errorCode}).${hint}`);
     }
@@ -120,6 +124,7 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
       expiresAt: Date.now() + Number(payload.expires_in) * 1000 - 5 * 60 * 1000,
     };
     saveTokens(tokens);
+    logger.log?.(`Zalo OA: đã làm mới token, hiệu lực đến ${new Date(tokens.expiresAt).toISOString()}.`);
     return tokens;
   }
 
@@ -269,7 +274,15 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     return userIdMap[String(gusaUserId || "")] || "";
   }
 
-  return { exchangeAuthorizationCode, getUserId, isConfigured, listGroups, sendDirectMessage, sendGroupImage, sendGroupMessage };
+  function getAuthorizationUrl(redirectUri) {
+    if (!env.ZALO_APP_ID) return null;
+    return `https://oauth.zaloapp.com/v4/oa/permission?${new URLSearchParams({ app_id: env.ZALO_APP_ID, redirect_uri: redirectUri })}`;
+  }
+
+  const getStatus = () => ({ configured: isConfigured(), needsReauth });
+  const waitForPendingRefresh = () => (refreshPromise ? refreshPromise.then(() => {}, () => {}) : Promise.resolve());
+
+  return { exchangeAuthorizationCode, getAuthorizationUrl, getStatus, waitForPendingRefresh, getUserId, isConfigured, listGroups, sendDirectMessage, sendGroupImage, sendGroupMessage };
 }
 
 module.exports = { createZaloClient, loadUserIdMap };

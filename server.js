@@ -1113,6 +1113,9 @@ function serveNotifications(req, res) {
   if (!currentUser || currentUser.status !== "active") return sendJson(res, 200, { items: [] });
   const items = [];
   const proposals = getProposals();
+  if (isManagementUser(currentUser) && zaloClient.getStatus().needsReauth) {
+    items.push({ id: "zalo-reauth", kind: "action", title: "Zalo OA mất kết nối", text: "Thông báo Zalo đang tạm dừng. Bấm để cấp quyền lại Zalo OA.", url: "/zalo/connect", time: new Date().toISOString() });
+  }
   if (isManagementUser(currentUser)) {
     const pendingList = [...users.values()].filter((user) => user.status === "pending");
     const pendingUsers = pendingList.length;
@@ -1774,6 +1777,18 @@ async function updateOrganizationChart(req, res) {
   sendJson(res, 200, { nodes: cleanNodes, freeLines: cleanFreeLines });
 }
 
+// Mở trang cấp quyền Zalo OA (Admin/CEO) — dùng khi refresh token hết hạn (mã -14014).
+function startZaloAuth(req, res) {
+  const user = getCurrentUser(req);
+  if (!user) return redirect(res, `/auth/google?returnTo=${encodeURIComponent("/zalo/connect")}`);
+  if (!isManagementUser(user) || user.status !== "active") return send(res, 403, "Chỉ Admin/CEO được kết nối lại Zalo OA.");
+  const proto = String(req.headers["x-forwarded-proto"] || "").split(",")[0] || "http";
+  const callback = process.env.ZALO_REDIRECT_URI || `${proto}://${req.headers.host}/zalo/oauth/callback`;
+  const url = zaloClient.getAuthorizationUrl(callback);
+  if (!url) return send(res, 400, "Chưa cấu hình ZALO_APP_ID trên server.");
+  return redirect(res, url);
+}
+
 async function completeZaloAuth(req, res) {
   const user = getCurrentUser(req);
   if (!isManagementUser(user) || user.status !== "active") {
@@ -1796,6 +1811,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
     if (req.method === "GET" && req.url.startsWith("/zalo/oauth/callback")) return await completeZaloAuth(req, res);
+    if (req.method === "GET" && req.url.split("?")[0] === "/zalo/connect") return startZaloAuth(req, res);
     if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
     if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
@@ -1895,6 +1911,19 @@ const server = http.createServer(async (req, res) => {
     send(res, 500, "Loi may chu.");
   }
 });
+
+// Tắt an toàn: Render gửi SIGTERM khi deploy/khởi động lại. Token Zalo chỉ dùng một lần,
+// nên phải chờ lượt làm mới token đang chạy lưu xong token mới rồi mới thoát (tối đa 10 giây).
+let shuttingDown = false;
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.on(signal, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    server.close();
+    const timeout = new Promise((resolve) => setTimeout(resolve, 10000).unref());
+    Promise.race([zaloClient.waitForPendingRefresh(), timeout]).finally(() => process.exit(0));
+  });
+}
 
 server.listen(port, () => {
   console.log(`Gusa Quy Trinh: http://localhost:${port}`);
