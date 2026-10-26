@@ -279,7 +279,12 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     return `https://oauth.zaloapp.com/v4/oa/permission?${new URLSearchParams({ app_id: env.ZALO_APP_ID, redirect_uri: redirectUri })}`;
   }
 
-  const getStatus = () => ({ configured: isConfigured(), needsReauth });
+  function getStatus() {
+    let tokens = null;
+    let tokenError = false;
+    try { tokens = isConfigured() ? readTokens() : null; } catch { tokenError = true; }
+    return { configured: isConfigured(), needsReauth, tokenError, hasToken: Boolean(tokens?.refreshToken), expiresAt: tokens?.expiresAt || null };
+  }
   const waitForPendingRefresh = () => (refreshPromise ? refreshPromise.then(() => {}, () => {}) : Promise.resolve());
 
   return { exchangeAuthorizationCode, getAuthorizationUrl, getStatus, waitForPendingRefresh, getUserId, isConfigured, listGroups, sendDirectMessage, sendGroupImage, sendGroupMessage };

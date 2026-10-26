@@ -197,3 +197,29 @@ window.addEventListener("storage", (event) => {
   if (event.key === null || event.key === "gusa-proposal-audio-enabled") updateAudioPermissionStatus();
 });
 if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voiceschanged", updateAudioPermissionStatus);
+
+// Mục "Kết nối Zalo OA" (chỉ Admin/CEO — API trả 403 cho người khác nên mục vẫn ẩn).
+(async () => {
+  const section = document.querySelector("[data-zalo-setting]");
+  if (!section) return;
+  try {
+    const response = await fetch("/api/zalo/status", { cache: "no-store" });
+    if (!response.ok) return;
+    const zalo = await response.json();
+    const status = section.querySelector("[data-zalo-status]");
+    const detail = section.querySelector("[data-zalo-detail]");
+    const connected = zalo.configured && zalo.hasToken && !zalo.needsReauth && !zalo.tokenError;
+    section.hidden = false;
+    status.textContent = !zalo.configured ? "Chưa cấu hình" : connected ? "Đang kết nối" : "Mất kết nối";
+    status.dataset.state = !zalo.configured ? "off" : connected ? "ok" : "error";
+    if (!zalo.configured) detail.textContent = "Server chưa có đủ cấu hình ZALO_* (mã ứng dụng, khóa bí mật, nhóm nhận thông báo).";
+    else if (zalo.tokenError) detail.textContent = "Không đọc được token Zalo đã lưu. Bấm \"Cấp quyền lại Zalo OA\" để kết nối lại.";
+    else if (!connected) detail.textContent = "Thông báo Zalo đang tạm dừng. Bấm \"Cấp quyền lại Zalo OA\", đăng nhập Zalo quản lý OA và chọn Cho phép.";
+    else detail.textContent = zalo.expiresAt ? `Token hiện tại hiệu lực đến ${new Date(zalo.expiresAt).toLocaleString("vi-VN")}, hệ thống tự làm mới.` : "Hệ thống tự làm mới token khi cần.";
+    if (new URLSearchParams(location.search).get("zalo") === "connected") {
+      detail.textContent = "Đã kết nối lại Zalo OA thành công. " + detail.textContent;
+      section.scrollIntoView({ block: "center" });
+      history.replaceState(null, "", location.pathname);
+    }
+  } catch {}
+})();

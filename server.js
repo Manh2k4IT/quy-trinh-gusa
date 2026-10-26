@@ -1802,8 +1802,7 @@ async function completeZaloAuth(req, res) {
     console.warn(error.message);
     return sendJson(res, 502, { message: error.message });
   }
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-  res.end("<!doctype html><meta charset=utf-8><title>Zalo OA</title><p>Đã kết nối Zalo OA. Bạn có thể đóng trang này.</p>");
+  return redirect(res, "/interface-settings.html?zalo=connected#zalo-oa");
 }
 
 const server = http.createServer(async (req, res) => {
@@ -1812,6 +1811,11 @@ const server = http.createServer(async (req, res) => {
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
     if (req.method === "GET" && req.url.startsWith("/zalo/oauth/callback")) return await completeZaloAuth(req, res);
     if (req.method === "GET" && req.url.split("?")[0] === "/zalo/connect") return startZaloAuth(req, res);
+    if (req.method === "GET" && req.url === "/api/zalo/status") {
+      const currentUser = getCurrentUser(req);
+      if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
+      return sendJson(res, 200, zaloClient.getStatus());
+    }
     if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
     if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
