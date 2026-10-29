@@ -51,7 +51,7 @@ const sessionsPath = dataPath("sessions.json");
 const users = new Map();
 const sessions = new Map();
 const proposalEventClients = new Set();
-const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true" || process.env.NODE_ENV === "development" || Number(process.env.PORT || 5500) === 5500;
+const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true";
 const sessionMaxAgeMilliseconds = 10 * 365 * 24 * 60 * 60 * 1000;
 const attendanceNetworkPath = path.join(dataDirectory, "attendance-network.json");
 const attendanceTrustedProxyHops = Number(process.env.ATTENDANCE_TRUST_PROXY_HOPS?.trim() || (process.env.RENDER === "true" ? 2 : 0));
@@ -118,6 +118,35 @@ const mimeTypes = {
   ".svg": "image/svg+xml",
   ".webp": "image/webp",
 };
+
+// Only browser assets are served statically; server modules, configs, docs and dotfiles stay private.
+const publicStaticDirectories = new Set(["", "app-icons", ".well-known", "mobile/www"]);
+const publicStaticJsonFiles = new Set(["organization-chart.json", "assetlinks.json"]);
+const serverOnlyScripts = new Set([
+  "server.js",
+  "zalo-oa.js",
+  "migrate-attachments.js",
+  "approval-confirmation.js",
+  "attendance-network.js",
+  "payment-document-pdf.js",
+  "production-orders.js",
+  "proposal-attachments.js",
+  "proposal-document-image.js",
+  "proposal-document-pdf.js",
+  "proposal-image-worker.js",
+  "recruitment.js",
+  "report-notification-data.js",
+]);
+
+function isPublicStaticPath(relativePath) {
+  const segments = relativePath.split(/[\\/]/).filter(Boolean);
+  const fileName = (segments.pop() || "").toLowerCase();
+  if (!fileName || fileName.startsWith(".") || !publicStaticDirectories.has(segments.join("/"))) return false;
+  const extension = path.extname(fileName);
+  if (extension === ".json") return publicStaticJsonFiles.has(fileName);
+  if (extension === ".js") return segments.length > 0 || !serverOnlyScripts.has(fileName);
+  return Object.hasOwn(mimeTypes, extension);
+}
 
 function loadEnvFile() {
   const envPath = path.join(process.cwd(), ".env");
@@ -497,6 +526,7 @@ function serveStatic(req, res) {
   if (["attendance-network.json", "attendance-network.json.tmp", ...productionOrders.dataFiles, ...recruitment.dataFiles].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
 
   if (["production-files", "recruitment-files"].includes(path.relative(process.cwd(), filePath).split(path.sep)[0])) return send(res, 403, "Forbidden");
+  if (!isPublicStaticPath(path.relative(process.cwd(), filePath))) return send(res, 404, "Not found");
   const streamedExtension = path.extname(filePath).toLowerCase();
   const needsRewrite = streamedExtension === ".html" || requestPath === "/.well-known/assetlinks.json" || requestPath === "/firebase-messaging-sw.js";
   if (!needsRewrite) {
