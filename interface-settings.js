@@ -202,20 +202,44 @@ if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voices
 (async () => {
   const section = document.querySelector("[data-zalo-setting]");
   if (!section) return;
+  const status = section.querySelector("[data-zalo-status]");
+  const detail = section.querySelector("[data-zalo-detail]");
+  const checkButton = section.querySelector("[data-zalo-check]");
+  const formatTime = (time) => new Date(time).toLocaleString("vi-VN");
+  const render = (zalo) => {
+    const authorized = zalo.configured && zalo.hasToken && !zalo.needsReauth && !zalo.tokenError;
+    const failing = authorized && Boolean(zalo.lastError);
+    const connected = authorized && !failing;
+    status.textContent = !zalo.configured ? "Chưa cấu hình" : failing ? "Gửi lỗi" : connected ? "Đang kết nối" : "Mất kết nối";
+    status.dataset.state = !zalo.configured ? "off" : connected ? "ok" : "error";
+    checkButton.hidden = !zalo.configured;
+    if (!zalo.configured) detail.textContent = "Server chưa có đủ cấu hình ZALO_* (mã ứng dụng, khóa bí mật, nhóm nhận thông báo).";
+    else if (zalo.tokenError) detail.textContent = "Không đọc được token Zalo đã lưu. Bấm \"Cấp quyền lại Zalo OA\" để kết nối lại.";
+    else if (!authorized) detail.textContent = "Thông báo Zalo đang tạm dừng. Bấm \"Cấp quyền lại Zalo OA\", đăng nhập Zalo quản lý OA và chọn Cho phép.";
+    else if (failing) detail.textContent = `Lần gửi lúc ${formatTime(zalo.lastError.at)} thất bại: ${zalo.lastError.message} Bấm "Kiểm tra kết nối" để thử lại.`;
+    else if (zalo.expiresAt && zalo.expiresAt < Date.now()) detail.textContent = `Token đã hết hạn lúc ${formatTime(zalo.expiresAt)}; hệ thống sẽ làm mới ở lần gửi tiếp theo. Bấm "Kiểm tra kết nối" để làm mới ngay.`;
+    else detail.textContent = zalo.expiresAt ? `Token hiện tại hiệu lực đến ${formatTime(zalo.expiresAt)}, hệ thống tự làm mới.` : "Hệ thống tự làm mới token khi cần.";
+    if (connected && zalo.lastSuccessAt) detail.textContent += ` Gửi thành công gần nhất: ${formatTime(zalo.lastSuccessAt)}.`;
+  };
+  checkButton.addEventListener("click", async () => {
+    checkButton.disabled = true;
+    checkButton.textContent = "Đang kiểm tra...";
+    try {
+      const response = await fetch("/api/zalo/check", { method: "POST" });
+      if (!response.ok) throw new Error();
+      render(await response.json());
+    } catch {
+      detail.textContent = "Không kiểm tra được kết nối Zalo. Vui lòng thử lại.";
+    } finally {
+      checkButton.disabled = false;
+      checkButton.textContent = "Kiểm tra kết nối";
+    }
+  });
   try {
     const response = await fetch("/api/zalo/status", { cache: "no-store" });
     if (!response.ok) return;
-    const zalo = await response.json();
-    const status = section.querySelector("[data-zalo-status]");
-    const detail = section.querySelector("[data-zalo-detail]");
-    const connected = zalo.configured && zalo.hasToken && !zalo.needsReauth && !zalo.tokenError;
     section.hidden = false;
-    status.textContent = !zalo.configured ? "Chưa cấu hình" : connected ? "Đang kết nối" : "Mất kết nối";
-    status.dataset.state = !zalo.configured ? "off" : connected ? "ok" : "error";
-    if (!zalo.configured) detail.textContent = "Server chưa có đủ cấu hình ZALO_* (mã ứng dụng, khóa bí mật, nhóm nhận thông báo).";
-    else if (zalo.tokenError) detail.textContent = "Không đọc được token Zalo đã lưu. Bấm \"Cấp quyền lại Zalo OA\" để kết nối lại.";
-    else if (!connected) detail.textContent = "Thông báo Zalo đang tạm dừng. Bấm \"Cấp quyền lại Zalo OA\", đăng nhập Zalo quản lý OA và chọn Cho phép.";
-    else detail.textContent = zalo.expiresAt ? `Token hiện tại hiệu lực đến ${new Date(zalo.expiresAt).toLocaleString("vi-VN")}, hệ thống tự làm mới.` : "Hệ thống tự làm mới token khi cần.";
+    render(await response.json());
     if (new URLSearchParams(location.search).get("zalo") === "connected") {
       detail.textContent = "Đã kết nối lại Zalo OA thành công. " + detail.textContent;
       section.scrollIntoView({ block: "center" });

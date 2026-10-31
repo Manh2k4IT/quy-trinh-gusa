@@ -291,7 +291,10 @@ function render() {
       : canApprove
         ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>`
         : '';
-    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}" data-proposal-id="${proposal.id}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${decisionActions}</div></article>`;
+    const zaloResend = canManage && ['pending', 'approved'].includes(proposal.status)
+      ? `<button class="report-detail-button" type="button" data-zalo-resend="${proposal.id}">Gửi lại Zalo</button>`
+      : '';
+    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}" data-proposal-id="${proposal.id}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${zaloResend}${decisionActions}</div></article>`;
   }).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
   if (visible.length) {
     const reportItems = list.querySelectorAll('.report-item');
@@ -444,7 +447,27 @@ accountantRejectForm.addEventListener('submit', async (event) => {
   }
 });
 
+async function resendZalo(button) {
+  button.disabled = true;
+  button.textContent = 'Đang gửi...';
+  try {
+    const response = await fetch(`/api/proposals/${encodeURIComponent(button.dataset.zaloResend)}/zalo-resend`, { method: 'POST' });
+    if (!response.ok) throw new Error(await response.text() || 'Không gửi lại được thông báo Zalo.');
+    actionFeedback.textContent = 'Đã gửi lại thông báo lên Zalo.';
+    actionFeedback.classList.remove('is-error');
+  } catch (error) {
+    actionFeedback.textContent = error.message || 'Không gửi lại được thông báo Zalo.';
+    actionFeedback.classList.add('is-error');
+  } finally {
+    actionFeedback.hidden = false;
+    button.disabled = false;
+    button.textContent = 'Gửi lại Zalo';
+  }
+}
+
 list.addEventListener('click', (event) => {
+  const zaloResend = event.target.closest('[data-zalo-resend]');
+  if (zaloResend) { resendZalo(zaloResend); return; }
   const details = event.target.closest('[data-detail]');
   const approve = event.target.closest('[data-approve]');
   const reject = event.target.closest('[data-reject]');

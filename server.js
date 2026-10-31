@@ -1278,9 +1278,11 @@ async function sendZaloReviewNotification(proposal, { managementApproval = false
   }
   for (const zaloUserId of recipientIds) notifications.push(zaloClient.sendDirectMessage(zaloUserId, text));
   const results = await Promise.allSettled(notifications);
-  results.filter((result) => result.status === "rejected").forEach((result) => {
+  const failures = results.filter((result) => result.status === "rejected");
+  failures.forEach((result) => {
     console.error("Zalo proposal-review notification failed:", result.reason.message);
   });
+  return failures.length === 0;
 }
 
 async function sendUserNotification(recipients, { title, body, path: targetPath }) {
@@ -1319,9 +1321,32 @@ async function sendZaloApprovedToGroup(proposal) {
     }
     else console.warn("Zalo approved group skipped: ZALO_APPROVED_GROUP_ID is not configured.");
     console.log(`Zalo approved group: done (rss ${Math.round(process.memoryUsage().rss / 1048576)}MB).`);
+    return true;
   } catch (error) {
     console.error("Zalo approved-proposal group notification failed:", error.message);
+    return false;
   }
+}
+
+// Lets Admin/CEO resend a proposal's Zalo group message after a failed delivery.
+async function resendProposalZalo(req, res, proposalId) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được gửi lại thông báo Zalo.");
+  const proposal = getProposals().find((item) => item.id === proposalId);
+  if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
+  if (!zaloClient.isConfigured()) return send(res, 503, "Zalo OA chưa được cấu hình trên máy chủ.");
+  let sent;
+  if (proposal.status === "pending") {
+    const managementApproval = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "accounting";
+    sent = await sendZaloReviewNotification(proposal, { managementApproval });
+  } else if (proposal.status === "approved") {
+    sent = await sendZaloApprovedToGroup(proposal);
+  } else {
+    return send(res, 409, "Chỉ gửi lại được đề xuất đang chờ duyệt hoặc đã duyệt.");
+  }
+  if (!sent) return send(res, 502, `Gửi Zalo thất bại: ${zaloClient.getStatus().lastError?.message || "không rõ nguyên nhân"}`);
+  console.log(`Zalo notification resent for proposal ${proposal.id} by ${currentUser.email}.`);
+  sendJson(res, 200, { sent: true });
 }
 
 async function sendZaloProposalOutcome(proposal, { managementApproval = false } = {}) {
@@ -1846,6 +1871,16 @@ const server = http.createServer(async (req, res) => {
       if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
       return sendJson(res, 200, zaloClient.getStatus());
     }
+    if (req.method === "POST" && req.url === "/api/zalo/check") {
+      const currentUser = getCurrentUser(req);
+      if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
+      try {
+        await zaloClient.checkConnection();
+      } catch (error) {
+        console.error("Zalo connection check failed:", error.message);
+      }
+      return sendJson(res, 200, zaloClient.getStatus());
+    }
     if (req.url === "/auth/mobile" && req.method === "POST") return await completeMobileAuth(req, res);
     if (req.url === "/auth/logout") return logout(req, res);
     if (req.url === "/api/me") return serveCurrentUser(req, res);
@@ -1870,6 +1905,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && /^\/api\/proposals\/[^/]+\/attachment\/(?:payment|late)(?:\?|$)/.test(req.url)) return await serveProposalAttachment(req, res);
     if (req.method === "POST" && req.url === "/api/proposals") return await createProposal(req, res);
     if (req.method === "POST" && req.url === "/api/proposals/status") return await updateProposalStatus(req, res);
+    if (req.method === "POST" && req.url.startsWith("/api/proposals/") && req.url.endsWith("/zalo-resend")) {
+      return await resendProposalZalo(req, res, decodeURIComponent(req.url.slice("/api/proposals/".length, -"/zalo-resend".length)));
+    }
     if (req.method === "POST" && req.url.startsWith("/api/proposals/") && req.url.endsWith("/cancel")) {
       const proposalId = decodeURIComponent(req.url.slice("/api/proposals/".length, -"/cancel".length));
       return await cancelProposal(req, res, proposalId);

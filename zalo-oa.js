@@ -25,6 +25,8 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
   const approvedGroupId = String(env.ZALO_APPROVED_GROUP_ID || "").trim();
   const encryptionKey = String(env.ZALO_TOKEN_ENCRYPTION_KEY || "");
   let refreshPromise;
+  let lastError = null;
+  let lastSuccessAt = null;
   let missingConfigWarned = false;
   let missingGroupWarned = false;
 
@@ -147,6 +149,41 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     if (stored.accessToken && stored.expiresAt > Date.now()) return stored.accessToken;
     if (!refreshPromise) refreshPromise = refreshAccessToken().finally(() => { refreshPromise = null; });
     return (await refreshPromise).accessToken;
+  }
+
+  // Node only says "fetch failed" for network errors; keep the underlying cause so admins can act on it.
+  function describeError(error) {
+    if (error?.message !== "fetch failed") return error;
+    const cause = error.cause?.code || error.cause?.message || "lỗi mạng";
+    return new Error(`Không kết nối được tới máy chủ Zalo (${cause}).`);
+  }
+
+  // Remembers the outcome of every call that talks to Zalo so the settings page shows real delivery health.
+  function tracked(action) {
+    return async (...args) => {
+      try {
+        const result = await action(...args);
+        if (result) {
+          lastError = null;
+          lastSuccessAt = Date.now();
+        }
+        return result;
+      } catch (error) {
+        const described = describeError(error);
+        lastError = { message: described.message, at: Date.now() };
+        throw described;
+      }
+    };
+  }
+
+  // Refreshes an expired token, then reads the OA profile to prove Zalo accepts it.
+  async function checkConnection() {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return false;
+    const response = await fetchImpl(`${ZALO_OA_API}/v2.0/oa/getoa`, { headers: { access_token: accessToken } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.error !== 0) throw new Error(`Zalo OA từ chối token hiện tại (mã ${payload.error || response.status}).`);
+    return true;
   }
 
   async function sendMessage(recipient, text) {
@@ -283,11 +320,23 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     let tokens = null;
     let tokenError = false;
     try { tokens = isConfigured() ? readTokens() : null; } catch { tokenError = true; }
-    return { configured: isConfigured(), needsReauth, tokenError, hasToken: Boolean(tokens?.refreshToken), expiresAt: tokens?.expiresAt || null };
+    return { configured: isConfigured(), needsReauth, tokenError, hasToken: Boolean(tokens?.refreshToken), expiresAt: tokens?.expiresAt || null, lastError, lastSuccessAt };
   }
   const waitForPendingRefresh = () => (refreshPromise ? refreshPromise.then(() => {}, () => {}) : Promise.resolve());
 
-  return { exchangeAuthorizationCode, getAuthorizationUrl, getStatus, waitForPendingRefresh, getUserId, isConfigured, listGroups, sendDirectMessage, sendGroupImage, sendGroupMessage };
+  return {
+    checkConnection: tracked(checkConnection),
+    exchangeAuthorizationCode,
+    getAuthorizationUrl,
+    getStatus,
+    waitForPendingRefresh,
+    getUserId,
+    isConfigured,
+    listGroups,
+    sendDirectMessage: tracked(sendDirectMessage),
+    sendGroupImage: tracked(sendGroupImage),
+    sendGroupMessage: tracked(sendGroupMessage),
+  };
 }
 
 module.exports = { createZaloClient, loadUserIdMap };

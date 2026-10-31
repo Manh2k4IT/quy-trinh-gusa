@@ -126,3 +126,33 @@ test("surfaces API failures without exposing credentials in the error", async ()
     fs.rmSync(dataDirectory, { recursive: true });
   }
 });
+
+test("records network failures with their cause and clears them after a successful check", async () => {
+  const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-zalo-test-"));
+  let networkDown = true;
+  const requests = [];
+  const fetchImpl = async (url) => {
+    requests.push(url);
+    if (networkDown) throw new TypeError("fetch failed", { cause: Object.assign(new Error("connect"), { code: "ETIMEDOUT" }) });
+    if (url === "https://oauth.zaloapp.com/v4/access_token") return Response.json({ access_token: "access-token", refresh_token: "refresh-token-rotated", expires_in: 3600 });
+    return Response.json({ error: 0, data: { oa_id: "oa" } });
+  };
+
+  try {
+    const client = createZaloClient({ env: baseEnv, dataDirectory, fetchImpl, logger: { warn() {}, error() {}, log() {} } });
+    await assert.rejects(client.sendGroupMessage("Đề xuất mới"), /Không kết nối được tới máy chủ Zalo \(ETIMEDOUT\)/);
+    const failed = client.getStatus();
+    assert.match(failed.lastError.message, /ETIMEDOUT/);
+    assert.equal(failed.lastSuccessAt, null);
+
+    networkDown = false;
+    assert.equal(await client.checkConnection(), true);
+    assert.equal(requests.at(-1), "https://openapi.zalo.me/v2.0/oa/getoa");
+    const recovered = client.getStatus();
+    assert.equal(recovered.lastError, null);
+    assert.equal(typeof recovered.lastSuccessAt, "number");
+    assert.equal(recovered.expiresAt > Date.now(), true);
+  } finally {
+    fs.rmSync(dataDirectory, { recursive: true });
+  }
+});
