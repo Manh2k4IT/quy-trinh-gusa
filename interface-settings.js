@@ -235,11 +235,51 @@ if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voices
       checkButton.textContent = "Kiểm tra kết nối";
     }
   });
+  const resendPanel = section.querySelector("[data-zalo-resend]");
+  const resendSelect = section.querySelector("[data-zalo-resend-select]");
+  const resendButton = section.querySelector("[data-zalo-resend-submit]");
+  const resendFeedback = section.querySelector("[data-zalo-resend-feedback]");
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
+  const statusLabel = (item) => item.status === "approved" ? "Đã duyệt" : item.paymentStage === "accounting" ? "Chờ kế toán" : "Chờ duyệt";
+  const loadResendCandidates = async () => {
+    const response = await fetch("/api/zalo/resend-candidates", { cache: "no-store" });
+    if (!response.ok) throw new Error();
+    const { candidates } = await response.json();
+    resendSelect.replaceChildren(...(candidates.length ? candidates.map((item) => new Option([
+      item.zaloFailed ? "⚠ Gửi lỗi" : "",
+      typeLabels[item.type] || item.type,
+      item.userName,
+      item.amount ? `${Number(item.amount).toLocaleString("vi-VN")}đ` : "",
+      formatTime(item.createdAt),
+      statusLabel(item),
+    ].filter(Boolean).join(" · "), item.id)) : [new Option("Không có đề xuất nào trong 30 ngày gần đây", "")]));
+    resendButton.disabled = !candidates.length;
+  };
+  resendButton.addEventListener("click", async () => {
+    if (!resendSelect.value) return;
+    resendButton.disabled = true;
+    resendButton.textContent = "Đang gửi...";
+    try {
+      const response = await fetch(`/api/proposals/${encodeURIComponent(resendSelect.value)}/zalo-resend`, { method: "POST" });
+      if (!response.ok) throw new Error(await response.text() || "Không gửi lại được thông báo Zalo.");
+      resendFeedback.textContent = "Đã gửi lại thông báo lên Zalo.";
+      resendFeedback.dataset.state = "ok";
+      await loadResendCandidates();
+    } catch (error) {
+      resendFeedback.textContent = error.message || "Không gửi lại được thông báo Zalo.";
+      resendFeedback.dataset.state = "error";
+    } finally {
+      resendButton.disabled = !resendSelect.value;
+      resendButton.textContent = "Gửi lại";
+    }
+  });
   try {
     const response = await fetch("/api/zalo/status", { cache: "no-store" });
     if (!response.ok) return;
     section.hidden = false;
-    render(await response.json());
+    const zalo = await response.json();
+    render(zalo);
+    if (zalo.configured) loadResendCandidates().then(() => { resendPanel.hidden = false; }, () => {});
     if (new URLSearchParams(location.search).get("zalo") === "connected") {
       detail.textContent = "Đã kết nối lại Zalo OA thành công. " + detail.textContent;
       section.scrollIntoView({ block: "center" });

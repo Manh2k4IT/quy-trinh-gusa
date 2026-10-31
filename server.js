@@ -1282,7 +1282,39 @@ async function sendZaloReviewNotification(proposal, { managementApproval = false
   failures.forEach((result) => {
     console.error("Zalo proposal-review notification failed:", result.reason.message);
   });
+  markZaloDelivery(proposal.id, failures.length === 0);
   return failures.length === 0;
+}
+
+// Remembers failed Zalo deliveries so Admin/CEO can find and resend them from Settings.
+function markZaloDelivery(proposalId, delivered) {
+  const proposals = getProposals();
+  const proposal = proposals.find((item) => item.id === proposalId);
+  if (!proposal || Boolean(proposal.zaloFailedAt) === !delivered) return;
+  if (delivered) delete proposal.zaloFailedAt;
+  else proposal.zaloFailedAt = new Date().toISOString();
+  fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
+}
+
+function serveZaloResendCandidates(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const candidates = getProposals()
+    .filter((proposal) => ["pending", "approved"].includes(proposal.status) && Date.parse(proposal.createdAt) >= since)
+    .sort((a, b) => Boolean(b.zaloFailedAt) - Boolean(a.zaloFailedAt) || Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, 60)
+    .map((proposal) => ({
+      id: proposal.id,
+      type: proposal.type,
+      userName: proposal.userName,
+      amount: proposal.amount,
+      createdAt: proposal.createdAt,
+      status: proposal.status,
+      paymentStage: proposal.type === "payment" ? getPaymentStage(proposal) : undefined,
+      zaloFailed: Boolean(proposal.zaloFailedAt),
+    }));
+  sendJson(res, 200, { candidates });
 }
 
 async function sendUserNotification(recipients, { title, body, path: targetPath }) {
@@ -1321,9 +1353,11 @@ async function sendZaloApprovedToGroup(proposal) {
     }
     else console.warn("Zalo approved group skipped: ZALO_APPROVED_GROUP_ID is not configured.");
     console.log(`Zalo approved group: done (rss ${Math.round(process.memoryUsage().rss / 1048576)}MB).`);
+    markZaloDelivery(proposal.id, true);
     return true;
   } catch (error) {
     console.error("Zalo approved-proposal group notification failed:", error.message);
+    markZaloDelivery(proposal.id, false);
     return false;
   }
 }
@@ -1871,6 +1905,7 @@ const server = http.createServer(async (req, res) => {
       if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
       return sendJson(res, 200, zaloClient.getStatus());
     }
+    if (req.method === "GET" && req.url === "/api/zalo/resend-candidates") return serveZaloResendCandidates(req, res);
     if (req.method === "POST" && req.url === "/api/zalo/check") {
       const currentUser = getCurrentUser(req);
       if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");

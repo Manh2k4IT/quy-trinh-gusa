@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="management.css?v=20261031-1" />
+    <link rel="stylesheet" href="management.css?v=20261031-2" />
     <link rel="stylesheet" href="interface-settings.css?v=20261007-1" />
   </head>
   <body>
@@ -67,12 +67,17 @@
               <div><span class="interface-setting-icon" aria-hidden="true">✉</span><div><h2>Kết nối Zalo OA</h2><p>Gửi thông báo đề xuất vào nhóm Zalo và tin nhắn riêng. Khi mất kết nối, bấm cấp quyền lại bằng tài khoản Zalo quản lý OA. Chỉ Admin/CEO thấy mục này.</p></div></div>
               <div class="interface-setting-control"><span class="zalo-oa-status" data-zalo-status>Đang kiểm tra...</span><a class="zalo-oa-button" href="/zalo/connect" data-zalo-connect>Cấp quyền lại Zalo OA</a><button class="zalo-oa-check" type="button" data-zalo-check>Kiểm tra kết nối</button></div>
               <p data-zalo-detail role="status"></p>
+              <div class="zalo-resend" data-zalo-resend hidden>
+                <label for="zalo-resend-select">Gửi lại một đề xuất lên Zalo</label>
+                <div class="zalo-resend-row"><select id="zalo-resend-select" data-zalo-resend-select></select><button class="zalo-oa-button" type="button" data-zalo-resend-submit>Gửi lại</button></div>
+                <p data-zalo-resend-feedback role="status"></p>
+              </div>
             </section>
           </div>
         </section>
       </main>
     </div>
-    <script src="interface-settings.js?v=20261031-1"></script>
+    <script src="interface-settings.js?v=20261031-2"></script>
     <script src="admin-menu.js?v=20261023-1"></script>
   </body>
 </html>

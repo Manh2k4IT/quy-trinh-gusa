@@ -4883,4 +4883,14 @@ body[data-theme="dark"] .page-breadcrumbs { border-color: #334155; background: #
 .zalo-oa-check { display: inline-flex; min-height: 40px; align-items: center; padding: 0 1rem; border: 1px solid #0068ff; border-radius: 10px; color: #0068ff; background: #fff; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; }
 .zalo-oa-check:hover { background: #eef4ff; }
 .zalo-oa-check:disabled { opacity: .6; cursor: wait; }
+.zalo-resend { display: grid; gap: .45rem; margin-top: .4rem; padding-top: .9rem; border-top: 1px solid #eaecf0; }
+.zalo-resend label { color: #344054; font-size: .85rem; font-weight: 700; }
+.zalo-resend-row { display: grid; gap: .6rem; justify-items: start; }
+.zalo-resend select { width: 100%; min-width: 0; min-height: 40px; padding: 0 .7rem; border: 1px solid #d0d5dd; border-radius: 10px; background: #fff; color: #101828; font: inherit; font-size: .85rem; }
+.zalo-resend .zalo-oa-button { border: 0; font-family: inherit; cursor: pointer; }
+.zalo-resend .zalo-oa-button:disabled { opacity: .6; cursor: wait; }
+.zalo-resend p[data-state="ok"] { color: #067647; }
+.zalo-resend p[data-state="error"] { color: #b42318; }
+body[data-theme="dark"] .zalo-resend label { color: #edf0f4; }
+body[data-theme="dark"] .zalo-resend select { background: #1f2937; border-color: #374151; color: #edf0f4; }
 .zalo-oa-setting .interface-setting-control { flex-wrap: wrap; gap: .6rem; }
