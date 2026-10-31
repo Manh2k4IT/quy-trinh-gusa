@@ -4,7 +4,8 @@ const crypto = require("node:crypto");
 
 const ZALO_OA_API = "https://openapi.zalo.me";
 const MAX_IMAGE_BYTES = 1024 * 1024;
-const ZALO_OAUTH_API = "https://oauth.zaloapp.com/v4/access_token";
+// OA tokens (authorization code and refresh) use the /oa/ endpoint; /v4/access_token is for personal Zalo apps and rejects OA refresh tokens.
+const ZALO_OAUTH_API = "https://oauth.zaloapp.com/v4/oa/access_token";
 
 function loadUserIdMap(value) {
   if (!value) return {};
@@ -268,7 +269,7 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     if (!env.ZALO_APP_ID || !env.ZALO_APP_SECRET || encryptionKey.length < 32) {
       throw new Error("Thiếu ZALO_APP_ID, ZALO_APP_SECRET hoặc ZALO_TOKEN_ENCRYPTION_KEY.");
     }
-    const response = await fetchImpl("https://oauth.zaloapp.com/v4/oa/access_token", {
+    const response = await fetchImpl(ZALO_OAUTH_API, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", secret_key: env.ZALO_APP_SECRET },
       body: new URLSearchParams({ app_id: env.ZALO_APP_ID, grant_type: "authorization_code", code: String(code) }),

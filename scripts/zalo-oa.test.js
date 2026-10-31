@@ -26,7 +26,7 @@ test("refreshes and encrypts rotated OA tokens, then sends group and direct link
   const logger = { warn() {}, error() {} };
   const fetchImpl = async (url, options) => {
     requests.push({ url, options });
-    if (url === "https://oauth.zaloapp.com/v4/access_token") {
+    if (url === "https://oauth.zaloapp.com/v4/oa/access_token") {
       assert.equal(options.headers.secret_key, baseEnv.ZALO_APP_SECRET);
       const form = new URLSearchParams(options.body);
       assert.equal(form.get("grant_type"), "refresh_token");
@@ -75,7 +75,7 @@ test("uploads an image then sends it to the GMF group", async () => {
   const requests = [];
   const fetchImpl = async (url, options) => {
     requests.push({ url, options });
-    if (url === "https://oauth.zaloapp.com/v4/access_token") return Response.json({ access_token: "token", refresh_token: "rotated", expires_in: 3600 });
+    if (url === "https://oauth.zaloapp.com/v4/oa/access_token") return Response.json({ access_token: "token", refresh_token: "rotated", expires_in: 3600 });
     if (url.endsWith("/v2.0/oa/upload/image")) return Response.json({ error: 0, data: { attachment_id: "att-1" } });
     return Response.json({ error: 0, data: { message_id: "m1" } });
   };
@@ -96,7 +96,7 @@ test("sends payment messages to the payment group when configured", async () => 
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-zalo-payment-test-"));
   const bodies = [];
   const fetchImpl = async (url, options) => {
-    if (url === "https://oauth.zaloapp.com/v4/access_token") return Response.json({ access_token: "t", refresh_token: "r", expires_in: 3600 });
+    if (url === "https://oauth.zaloapp.com/v4/oa/access_token") return Response.json({ access_token: "t", refresh_token: "r", expires_in: 3600 });
     bodies.push(JSON.parse(options.body));
     return Response.json({ error: 0 });
   };
@@ -112,7 +112,7 @@ test("sends payment messages to the payment group when configured", async () => 
 
 test("surfaces API failures without exposing credentials in the error", async () => {
   const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-zalo-failure-test-"));
-  const fetchImpl = async (url) => url === "https://oauth.zaloapp.com/v4/access_token"
+  const fetchImpl = async (url) => url === "https://oauth.zaloapp.com/v4/oa/access_token"
     ? Response.json({ access_token: "token", refresh_token: "rotated", expires_in: 3600 })
     : Response.json({ error: -216, message: "sensitive service message" });
   try {
@@ -134,7 +134,7 @@ test("records network failures with their cause and clears them after a successf
   const fetchImpl = async (url) => {
     requests.push(url);
     if (networkDown) throw new TypeError("fetch failed", { cause: Object.assign(new Error("connect"), { code: "ETIMEDOUT" }) });
-    if (url === "https://oauth.zaloapp.com/v4/access_token") return Response.json({ access_token: "access-token", refresh_token: "refresh-token-rotated", expires_in: 3600 });
+    if (url === "https://oauth.zaloapp.com/v4/oa/access_token") return Response.json({ access_token: "access-token", refresh_token: "refresh-token-rotated", expires_in: 3600 });
     return Response.json({ error: 0, data: { oa_id: "oa" } });
   };
 
