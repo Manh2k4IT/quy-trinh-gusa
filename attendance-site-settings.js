@@ -1,19 +1,8 @@
 (async function () {
-  const panel = document.querySelector('[data-attendance-site]');
+  const panel = document.querySelector('[data-attendance-sites]');
   if (!panel) return;
-  const form = panel.querySelector('[data-attendance-site-form]');
-  const radius = panel.querySelector('[data-attendance-site-radius]');
-  const save = panel.querySelector('[data-attendance-site-save]');
-  const coordinates = panel.querySelector('[data-attendance-site-coordinates]');
-  const saveTyped = panel.querySelector('[data-attendance-site-save-typed]');
-  const current = panel.querySelector('[data-attendance-site-current]');
-  const status = panel.querySelector('[data-attendance-site-status]');
-  const setBusy = (busy) => {
-    radius.disabled = busy;
-    save.disabled = busy;
-    coordinates.disabled = busy;
-    saveTyped.disabled = busy;
-  };
+  const blocks = [...panel.querySelectorAll('[data-attendance-site]')];
+
   // Google Maps "Plus Codes" (Open Location Code). Short codes such as "QMCX+V6M Bến Thành" are
   // completed from a Ho Chi Minh City reference point, which is valid within ~40 km of it.
   const plusCodeAlphabet = '23456789CFGHJMPQRVWX';
@@ -79,35 +68,86 @@
     const longitude = Number(match[2]);
     return Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null;
   };
-  const savePoint = async ({ latitude, longitude }) => {
-    const response = await fetch('/api/attendance-sites', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ benThanh: { latitude, longitude, radiusMeters: Number(radius.value) } }),
-    });
-    const settings = await response.json();
-    if (!response.ok) throw new Error(settings.message || 'Không lưu được vị trí chấm công.');
-    apply(settings);
-  };
-  const apply = ({ benThanh }) => {
-    current.replaceChildren();
-    if (!benThanh) {
-      current.textContent = 'Chưa có — nhân viên chưa chấm công Bến Thành được.';
-      return;
-    }
-    radius.value = benThanh.radiusMeters;
-    const link = document.createElement('a');
-    link.href = `https://www.google.com/maps?q=${benThanh.latitude},${benThanh.longitude}`;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    link.textContent = `${benThanh.latitude.toFixed(6)}, ${benThanh.longitude.toFixed(6)}`;
-    current.append(link, ` · bán kính ${benThanh.radiusMeters} m`);
-  };
   const getPosition = () => new Promise((resolve, reject) => {
     const geolocation = window.desktopSettings?.getCurrentPosition ? window.desktopSettings : navigator.geolocation;
     if (!geolocation) return reject(new Error('Thiết bị không hỗ trợ lấy vị trí.'));
     geolocation.getCurrentPosition(resolve, () => reject(new Error('Không lấy được vị trí. Hãy bật vị trí (GPS), cho phép truy cập rồi thử lại.')), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   });
+
+  const setupBlock = (block) => {
+    const site = block.dataset.attendanceSite;
+    const label = block.dataset.siteLabel;
+    const emptyText = block.dataset.siteEmpty;
+    const radius = block.querySelector('[data-site-radius]');
+    const coordinates = block.querySelector('[data-site-coordinates]');
+    const saveTyped = block.querySelector('[data-site-save-typed]');
+    const saveCurrent = block.querySelector('[data-site-save-current]');
+    const current = block.querySelector('[data-site-current]');
+    const status = block.querySelector('[data-site-status]');
+    const setBusy = (busy) => {
+      [radius, coordinates, saveTyped, saveCurrent].forEach((control) => { control.disabled = busy; });
+    };
+    const apply = (point) => {
+      current.replaceChildren();
+      if (!point) {
+        current.textContent = emptyText;
+        return;
+      }
+      radius.value = point.radiusMeters;
+      const link = document.createElement('a');
+      link.href = `https://www.google.com/maps?q=${point.latitude},${point.longitude}`;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = `${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`;
+      current.append(link, ` · bán kính ${point.radiusMeters} m`);
+    };
+    const savePoint = async ({ latitude, longitude }) => {
+      const response = await fetch('/api/attendance-sites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site, point: { latitude, longitude, radiusMeters: Number(radius.value) } }),
+      });
+      const settings = await response.json();
+      if (!response.ok) throw new Error(settings.message || 'Không lưu được vị trí chấm công.');
+      apply(settings.sites[site]);
+    };
+    const run = async (busyText, action) => {
+      setBusy(true);
+      status.textContent = busyText;
+      try {
+        status.textContent = await action();
+      } catch (error) {
+        console.error(`Không lưu được vị trí chấm công ${label}:`, error);
+        status.textContent = error.message;
+      } finally {
+        setBusy(false);
+      }
+    };
+    saveTyped.addEventListener('click', () => {
+      const point = parseCoordinates(coordinates.value);
+      if (!point) {
+        status.textContent = 'Không đọc được tọa độ. Hãy dán tọa độ dạng "10.772500, 106.698000", Plus Code (ví dụ QMCX+V6M) hoặc link Google Maps.';
+        coordinates.focus();
+        return;
+      }
+      run('Đang lưu vị trí đã nhập...', async () => {
+        await savePoint(point);
+        coordinates.value = '';
+        return `Đã lưu điểm ${label} theo tọa độ đã nhập. Bấm vào tọa độ ở trên để kiểm tra lại trên Google Maps.`;
+      });
+    });
+    saveCurrent.addEventListener('click', () => run('Đang lấy vị trí hiện tại...', async () => {
+      const position = await getPosition();
+      if (position.coords.accuracy > 100 && !confirm(`Vị trí hiện tại chỉ chính xác khoảng ${Math.round(position.coords.accuracy)} m. Vẫn lưu làm điểm ${label}?`)) {
+        return 'Đã hủy. Hãy ra gần cửa hoặc bật Wi-Fi/GPS để vị trí chính xác hơn rồi thử lại.';
+      }
+      await savePoint(position.coords);
+      return `Đã lưu điểm ${label} (sai số khoảng ${Math.round(position.coords.accuracy)} m).`;
+    }));
+    return { apply, setBusy, status };
+  };
+
+  const controllers = Object.fromEntries(blocks.map((block) => [block.dataset.attendanceSite, setupBlock(block)]));
   try {
     const me = await fetch('/api/me', { cache: 'no-store' });
     if (!me.ok) throw new Error('Không tải được thông tin tài khoản.');
@@ -117,50 +157,12 @@
     const response = await fetch('/api/attendance-sites', { cache: 'no-store' });
     const settings = await response.json();
     if (!response.ok) throw new Error(settings.message || 'Không tải được vị trí chấm công.');
-    apply(settings);
-    setBusy(false);
+    for (const [site, controller] of Object.entries(controllers)) {
+      controller.apply(settings.sites[site]);
+      controller.setBusy(false);
+    }
   } catch (error) {
     console.error('Không tải được vị trí chấm công:', error);
-    status.textContent = error.message;
-    return;
+    Object.values(controllers).forEach((controller) => { controller.status.textContent = error.message; });
   }
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    setBusy(true);
-    status.textContent = 'Đang lấy vị trí hiện tại...';
-    try {
-      const position = await getPosition();
-      if (position.coords.accuracy > 100 && !confirm(`Vị trí hiện tại chỉ chính xác khoảng ${Math.round(position.coords.accuracy)} m. Vẫn lưu làm điểm Bến Thành?`)) {
-        status.textContent = 'Đã hủy. Hãy ra gần cửa hoặc bật Wi-Fi/GPS để vị trí chính xác hơn rồi thử lại.';
-        return;
-      }
-      await savePoint(position.coords);
-      status.textContent = `Đã lưu điểm Bến Thành (sai số khoảng ${Math.round(position.coords.accuracy)} m).`;
-    } catch (error) {
-      console.error('Không lưu được vị trí chấm công:', error);
-      status.textContent = error.message;
-    } finally {
-      setBusy(false);
-    }
-  });
-  saveTyped.addEventListener('click', async () => {
-    const point = parseCoordinates(coordinates.value);
-    if (!point) {
-      status.textContent = 'Không đọc được tọa độ. Hãy dán tọa độ dạng "10.772500, 106.698000", Plus Code (ví dụ QMCX+V6M) hoặc link Google Maps.';
-      coordinates.focus();
-      return;
-    }
-    setBusy(true);
-    status.textContent = 'Đang lưu vị trí đã nhập...';
-    try {
-      await savePoint(point);
-      coordinates.value = '';
-      status.textContent = 'Đã lưu điểm Bến Thành theo tọa độ đã nhập. Bấm vào tọa độ ở trên để kiểm tra lại trên Google Maps.';
-    } catch (error) {
-      console.error('Không lưu được vị trí chấm công:', error);
-      status.textContent = error.message;
-    } finally {
-      setBusy(false);
-    }
-  });
 })();

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20260929-2" />
-    <link rel="stylesheet" href="attendance-choice.css?v=20261102-3" />
+    <link rel="stylesheet" href="attendance-choice.css?v=20261102-4" />
   </head>
   <body class="attendance-choice-screen">
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -31,7 +31,7 @@
               <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M8 40h32M13 40V17l11-9 11 9v23M19 40V28h10v12M18 19h.1M30 19h.1" /></svg></span>
               <span class="attendance-choice-title">Chấm công tại công ty</span>
               <span class="attendance-choice-location"><span aria-hidden="true">📍</span> Khu vực Quận 4</span>
-              <span class="attendance-choice-description">Check-in và check-out khi bạn làm việc tại công ty.</span>
+              <span class="attendance-choice-description">Giờ làm 08:30–17:30. Xác minh bằng vị trí GPS, không cần Wi-Fi.</span>
               <span class="attendance-choice-action">Tiếp tục <span aria-hidden="true">→</span></span>
             </a>
             <a class="attendance-choice-card attendance-choice-ben-thanh" href="attendance.html?site=ben-thanh">
@@ -48,44 +48,41 @@
               <span class="attendance-choice-action">Tiếp tục <span aria-hidden="true">→</span></span>
             </a>
           </div>
-          <section class="attendance-network-settings" data-attendance-network hidden aria-labelledby="attendance-network-title">
-            <h2 id="attendance-network-title">Mạng công ty được phép chấm công</h2>
-            <p>Chỉ Admin/CEO quản lý. Nhập IP Internet công cộng của mạng công ty (Wi-Fi hoặc mạng dây), không nhập IP nội bộ như 192.168.1.1.</p>
-            <p>Với IPv6, thêm dải mạng /64 để cho phép các thiết bị cùng mạng, ví dụ 2402:800:6370:b5c8::/64. Nút bên dưới lấy dải /64 cho IPv6 hoặc IP đơn cho IPv4. IP đơn đã lưu vẫn chỉ cho phép đúng địa chỉ đó.</p>
-            <p>Chỉ giới hạn check-in và check-out tại công ty; chấm công online không bị ảnh hưởng. Để trống danh sách thì chưa giới hạn mạng.</p>
-            <p>IP kết nối hiện tại: <strong data-attendance-current-ip>Đang tải...</strong></p>
-            <form data-attendance-network-form>
-              <label for="attendance-network-ips">Danh sách IP/dải IPv6 /64 được phép — mỗi dòng một mục (tối đa 100)</label>
-              <textarea id="attendance-network-ips" name="allowedIps" rows="5" spellcheck="false" data-attendance-network-ips disabled></textarea>
+          <section class="attendance-network-settings" data-attendance-sites hidden aria-labelledby="attendance-sites-title">
+            <h2 id="attendance-sites-title">Vị trí chấm công</h2>
+            <p>Chỉ Admin/CEO quản lý. Nhân viên chỉ check-in và check-out được khi ở trong bán kính quanh điểm của khu vực đã chọn, không cần Wi-Fi. Có 2 cách lưu: dán tọa độ, Plus Code hoặc link Google Maps của công ty, hoặc đứng tại công ty và lưu vị trí hiện tại.</p>
+            <div class="attendance-site-block" data-attendance-site="q4" data-site-label="Quận 4" data-site-empty="Chưa có — đang tạm áp dụng mạng Wi-Fi cũ cho đến khi lưu điểm.">
+              <h3>📍 Khu vực Quận 4</h3>
+              <p>Điểm đang lưu: <strong data-site-current>Đang tải...</strong></p>
+              <label for="attendance-site-q4-radius">Bán kính cho phép (mét, từ 30 đến 1000)</label>
+              <input id="attendance-site-q4-radius" type="number" min="30" max="1000" step="10" value="150" data-site-radius disabled />
+              <label for="attendance-site-q4-coordinates">Vị trí công ty: tọa độ, Plus Code hoặc link Google Maps</label>
+              <input id="attendance-site-q4-coordinates" type="text" placeholder="Ví dụ: 10.758000, 106.705000" autocomplete="off" spellcheck="false" data-site-coordinates disabled />
               <div class="attendance-network-actions">
-                <button type="button" data-attendance-add-current-ip disabled>Thêm mạng đang kết nối</button>
-                <button type="submit" data-attendance-save-network disabled>Lưu danh sách IP</button>
+                <button type="button" data-site-save-typed disabled>Lưu vị trí đã nhập</button>
+                <button type="button" data-site-save-current disabled>Lưu vị trí hiện tại làm điểm Quận 4</button>
               </div>
-            </form>
-            <p data-attendance-network-status role="status"></p>
-          </section>
-          <section class="attendance-network-settings" data-attendance-site hidden aria-labelledby="attendance-site-title">
-            <h2 id="attendance-site-title">Vị trí chấm công Bến Thành</h2>
-            <p>Chỉ Admin/CEO quản lý. Nhân viên chỉ check-in và check-out Bến Thành được khi ở trong bán kính quanh điểm này. Có 2 cách lưu: dán tọa độ hoặc link Google Maps của cửa hàng, hoặc đứng tại cửa hàng và lưu vị trí hiện tại.</p>
-            <p>Điểm đang lưu: <strong data-attendance-site-current>Đang tải...</strong></p>
-            <form data-attendance-site-form>
-              <label for="attendance-site-radius">Bán kính cho phép (mét, từ 30 đến 1000)</label>
-              <input id="attendance-site-radius" type="number" min="30" max="1000" step="10" value="150" data-attendance-site-radius disabled />
-              <label for="attendance-site-coordinates">Vị trí cửa hàng: tọa độ, Plus Code hoặc link Google Maps</label>
-              <input id="attendance-site-coordinates" type="text" placeholder="Ví dụ: 10.772500, 106.698000" autocomplete="off" spellcheck="false" data-attendance-site-coordinates disabled />
-              <small class="attendance-site-hint">Trên Google Maps, bấm vào cửa hàng rồi sao chép tọa độ, Plus Code (ví dụ QMCX+V6M) hoặc link chia sẻ và dán vào đây.</small>
+              <p data-site-status role="status"></p>
+            </div>
+            <div class="attendance-site-block" data-attendance-site="ben-thanh" data-site-label="Bến Thành" data-site-empty="Chưa có — nhân viên chưa chấm công Bến Thành được.">
+              <h3>📍 Khu vực Bến Thành</h3>
+              <p>Điểm đang lưu: <strong data-site-current>Đang tải...</strong></p>
+              <label for="attendance-site-bt-radius">Bán kính cho phép (mét, từ 30 đến 1000)</label>
+              <input id="attendance-site-bt-radius" type="number" min="30" max="1000" step="10" value="150" data-site-radius disabled />
+              <label for="attendance-site-bt-coordinates">Vị trí cửa hàng: tọa độ, Plus Code hoặc link Google Maps</label>
+              <input id="attendance-site-bt-coordinates" type="text" placeholder="Ví dụ: QMCX+V6M Bến Thành" autocomplete="off" spellcheck="false" data-site-coordinates disabled />
               <div class="attendance-network-actions">
-                <button type="button" data-attendance-site-save-typed disabled>Lưu vị trí đã nhập</button>
-                <button type="submit" data-attendance-site-save disabled>Lưu vị trí hiện tại làm điểm Bến Thành</button>
+                <button type="button" data-site-save-typed disabled>Lưu vị trí đã nhập</button>
+                <button type="button" data-site-save-current disabled>Lưu vị trí hiện tại làm điểm Bến Thành</button>
               </div>
-            </form>
-            <p data-attendance-site-status role="status"></p>
+              <p data-site-status role="status"></p>
+            </div>
+            <small class="attendance-site-hint">Mẹo: trên Google Maps, bấm vào công ty rồi sao chép tọa độ, Plus Code (ví dụ QMCX+V6M) hoặc link chia sẻ và dán vào ô tương ứng.</small>
           </section>
         </section>
       </main>
     </div>
     <script src="admin-menu.js?v=20261023-1"></script>
-    <script src="attendance-network-settings.js?v=20261016-2"></script>
-    <script src="attendance-site-settings.js?v=20261102-3"></script>
+    <script src="attendance-site-settings.js?v=20261102-4"></script>
   </body>
 </html>

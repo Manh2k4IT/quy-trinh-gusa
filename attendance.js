@@ -18,6 +18,8 @@ const isOnlineAttendance = new URLSearchParams(window.location.search).get('view
 const attendanceSite = !isOnlineAttendance && new URLSearchParams(window.location.search).get('site') === 'ben-thanh' ? 'ben-thanh' : 'q4';
 const { getAttendanceShift, formatShiftTime } = window.GusaAttendanceSchedule;
 let onlineProof = null;
+// True while a check-in/out request runs, so the once-a-second status refresh cannot re-enable the buttons.
+let attendanceBusy = false;
 let updateOnlineCheckIn = () => {};
 
 const attendanceMenuItem = document.querySelector('.menu-item[href="attendance.html"]');
@@ -127,13 +129,18 @@ if (isOnlineAttendance) {
   if (attendanceTypeChoice) attendanceTypeChoice.hidden = true;
 }
 
+if (attendanceSite === 'q4' && !isOnlineAttendance && !isWorkdayOverview) {
+  document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Chấm công tại Quận 4'));
+  document.querySelector('.attendance-heading p')?.replaceChildren(document.createTextNode('Giờ làm 08:30–17:30. Bật vị trí (GPS) khi check-in và check-out tại công ty.'));
+  document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Chấm công Quận 4'));
+}
 if (attendanceSite === 'ben-thanh') {
   document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Chấm công tại Bến Thành'));
   document.querySelector('.attendance-heading p')?.replaceChildren(document.createTextNode('Giờ làm 09:00–17:00. Bật vị trí (GPS) khi check-in và check-out tại cửa hàng Bến Thành.'));
   document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Chấm công Bến Thành'));
 }
 
-// Bến Thành has no office Wi-Fi, so check-in and check-out there send the device position instead.
+// Office check-in and check-out are verified by the device position instead of office Wi-Fi.
 function getAttendanceLocation() {
   const geolocation = window.desktopSettings?.getCurrentPosition ? window.desktopSettings : navigator.geolocation;
   if (!geolocation) return Promise.reject(new Error('Thiết bị không hỗ trợ chia sẻ vị trí.'));
@@ -199,6 +206,10 @@ function setStatus(record) {
     });
   }
 
+  // Only the next useful action is shown: Check-in before the shift, Check-out during it, nothing after.
+  checkIn.hidden = Boolean(today?.checkIn);
+  checkOut.hidden = Boolean(today?.checkOut);
+
   if (!today?.checkIn) {
     status.textContent = 'Chưa vào ca';
     if (isOnlineAttendance) {
@@ -210,6 +221,7 @@ function setStatus(record) {
     }
     checkOut.disabled = true;
     updateOnlineCheckIn();
+    if (attendanceBusy) checkIn.disabled = true;
     return;
   }
 
@@ -217,7 +229,7 @@ function setStatus(record) {
     status.classList.add('is-working');
     status.textContent = today.late ? `Đi muộn, đang làm việc từ ${formatTime(today.checkIn)}` : `Đang làm việc từ ${formatTime(today.checkIn)}`;
     checkIn.disabled = true;
-    checkOut.disabled = !checkoutAvailable;
+    checkOut.disabled = attendanceBusy || !checkoutAvailable;
     if (!checkoutAvailable) status.textContent += ` - Check-out mở lúc ${formatShiftTime(shift.checkOutFrom)}`;
     return;
   }
@@ -351,7 +363,52 @@ function renderRecords() {
   `;
 }
 async function loadAttendance() { const response = await fetch(`/api/attendance?month=${monthSelect.value}`, { cache: 'no-store' }); if (!response.ok) throw new Error('Không thể tải dữ liệu chấm công.'); records = (await response.json()).records || {}; setStatus(records); renderRecords(); }
-async function submitAttendance(action) { checkIn.disabled = true; checkOut.disabled = true; message.textContent = 'Đang cập nhật...'; try { const selectedType = document.querySelector('input[name="attendanceType"]:checked')?.value || 'full-day'; const needsLocation = action === 'check-in' ? attendanceSite === 'ben-thanh' : records?.[todayKey()]?.site === 'ben-thanh'; let location; if (needsLocation) { message.textContent = 'Đang lấy vị trí...'; location = await getAttendanceLocation(); message.textContent = 'Đang cập nhật...'; } const response = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, mode: isOnlineAttendance ? 'online' : 'office', site: attendanceSite, attendanceType: selectedType, onlineProof, location }) }); const responseText = await response.text(); let data = {}; try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; } if (!response.ok) throw new Error(data.message || 'Không thể cập nhật chấm công.'); message.textContent = action === 'check-in' ? 'Đã check-in thành công.' : 'Đã check-out thành công.'; await loadAttendance(); } catch (error) { message.textContent = error.message; setStatus(records); } }
+// Confirms the result in a popup so people know the tap worked and stop tapping again.
+function showAttendanceDialog({ success, title, lines }) {
+  document.querySelector('.attendance-dialog-backdrop')?.remove();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'attendance-dialog-backdrop';
+  const dialog = document.createElement('div');
+  dialog.className = `attendance-dialog ${success ? 'is-success' : 'is-error'}`;
+  dialog.setAttribute('role', 'alertdialog');
+  dialog.setAttribute('aria-modal', 'true');
+  const icon = document.createElement('span');
+  icon.className = 'attendance-dialog-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = success ? '✓' : '!';
+  const heading = document.createElement('h2');
+  heading.textContent = title;
+  dialog.append(icon, heading, ...lines.filter(Boolean).map((line) => Object.assign(document.createElement('p'), { textContent: line })));
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = 'Đã hiểu';
+  const dismiss = () => backdrop.remove();
+  close.addEventListener('click', dismiss);
+  backdrop.addEventListener('click', (event) => { if (event.target === backdrop) dismiss(); });
+  dialog.append(close);
+  backdrop.append(dialog);
+  document.body.append(backdrop);
+  close.focus();
+}
+
+function describeAttendanceResult(action, record) {
+  const siteLabel = record.workMode === 'online' ? 'Làm online' : `Khu vực ${window.GusaAttendanceSchedule.ATTENDANCE_SITES[record.site || 'q4'].label}`;
+  if (action === 'check-out') {
+    return { success: true, title: 'Check-out thành công', lines: [`Lúc ${formatTime(record.checkOut)} · ${siteLabel}`, 'Bạn đã hoàn thành ca làm hôm nay.'] };
+  }
+  const shift = getAttendanceShift(record.site, record.attendanceType);
+  return {
+    success: true,
+    title: 'Check-in thành công',
+    lines: [
+      `Lúc ${formatTime(record.checkIn)} · ${siteLabel}`,
+      record.late ? `Đi muộn ${record.lateMinutes} phút.` : 'Đúng giờ.',
+      `Nhớ quay lại check-out từ ${formatShiftTime(shift.checkOutFrom)}.`,
+    ],
+  };
+}
+
+async function submitAttendance(action) { if (attendanceBusy) return; attendanceBusy = true; checkIn.disabled = true; checkOut.disabled = true; message.textContent = 'Đang cập nhật...'; try { const selectedType = document.querySelector('input[name="attendanceType"]:checked')?.value || 'full-day'; const today = records?.[todayKey()]; const officeSite = action === 'check-in' ? (isOnlineAttendance ? null : attendanceSite) : (today?.workMode === 'online' ? null : today?.site || 'q4'); let location; if (officeSite) { message.textContent = 'Đang lấy vị trí...'; try { location = await getAttendanceLocation(); } catch (error) { if (officeSite !== 'q4') throw error; } message.textContent = 'Đang cập nhật...'; } const response = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, mode: isOnlineAttendance ? 'online' : 'office', site: attendanceSite, attendanceType: selectedType, onlineProof, location }) }); const responseText = await response.text(); let data = {}; try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; } if (!response.ok) throw new Error(data.message || 'Không thể cập nhật chấm công.'); message.textContent = action === 'check-in' ? 'Đã check-in thành công.' : 'Đã check-out thành công.'; if (data.record) showAttendanceDialog(describeAttendanceResult(action, data.record)); attendanceBusy = false; await loadAttendance(); } catch (error) { attendanceBusy = false; message.textContent = error.message; showAttendanceDialog({ success: false, title: action === 'check-in' ? 'Chưa check-in được' : 'Chưa check-out được', lines: [error.message] }); setStatus(records); } }
 const today = new Date(); for (let offset = 0; offset < 12; offset += 1) { const date = new Date(today.getFullYear(), today.getMonth() - offset, 1); const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; monthSelect.append(new Option(date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }), value)); }
 monthSelect.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 monthSelect.addEventListener('change', loadAttendance); attendanceTypeChoice?.addEventListener('change', () => setStatus(records)); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => submitAttendance('check-out')); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);

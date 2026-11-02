@@ -35,11 +35,12 @@
 .attendance-status.is-working { color: #16804a; background: #e2f6e9; }
 .attendance-status.is-completed { color: var(--navy); background: var(--blue-100); }
 .attendance-actions { display: flex; gap: .65rem; margin-top: .15rem; }
-.attendance-type-choice { display: grid; gap: .45rem; margin: .15rem 0; border: 1px solid #d3e1ea; border-radius: 14px; padding: .75rem .9rem; color: #536176; background: rgba(255, 255, 255, .7); font-size: .9rem; }
+.attendance-type-choice { display: grid; gap: .5rem; margin: .15rem 0; border: 1px solid #d3e1ea; border-radius: 14px; padding: .75rem .9rem; color: #354154; background: rgba(255, 255, 255, .7); font-size: 1rem; }
 .attendance-type-choice legend { padding: 0 .25rem; color: #354154; font-size: .88rem; font-weight: 700; }
-.attendance-type-choice label { display: flex; align-items: center; gap: .45rem; cursor: pointer; }
-.attendance-type-choice label small { color: var(--muted); font-size: .68rem; }
-.attendance-type-choice input { accent-color: var(--navy); }
+.attendance-type-choice label { display: flex; min-height: 48px; align-items: center; gap: .7rem; padding: .55rem .9rem; border: 1.5px solid #d3e1ea; border-radius: 12px; background: #fff; font-weight: 600; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.attendance-type-choice label:has(input:checked) { border-color: var(--navy); background: #eef4ff; color: var(--navy); }
+.attendance-type-choice label:has(input:disabled) { cursor: default; opacity: .75; }
+.attendance-type-choice input { width: 22px; height: 22px; margin: 0; flex-shrink: 0; accent-color: var(--navy); }
 .attendance-type-choice[hidden] { display: none; }
 .attendance-primary, .attendance-secondary, .attendance-outline-button { display: inline-flex; min-height: 58px; align-items: center; justify-content: center; gap: .6rem; padding: 0 .85rem; border-radius: 14px; cursor: pointer; font: inherit; font-size: .96rem; font-weight: 700; }
 .attendance-primary, .attendance-secondary { flex: 1; }
@@ -47,6 +48,18 @@
 .attendance-secondary, .attendance-outline-button { border: 1px solid #cad8e7; color: #74849a; background: rgba(255, 255, 255, .82); }
 .attendance-actions svg { width: 24px; height: 24px; flex: 0 0 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .attendance-secondary:disabled { cursor: not-allowed; opacity: .45; }
+.attendance-primary:disabled { cursor: not-allowed; opacity: .4; box-shadow: none; filter: grayscale(.6); }
+.attendance-primary[hidden], .attendance-secondary[hidden] { display: none; }
+.attendance-dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgba(16, 24, 40, .45); }
+.attendance-dialog { display: grid; width: min(100%, 380px); justify-items: center; gap: .55rem; padding: 1.6rem 1.4rem 1.3rem; border-radius: 20px; text-align: center; background: #fff; box-shadow: 0 24px 60px rgba(16, 24, 40, .25); }
+.attendance-dialog h2 { margin: .2rem 0 0; font-size: 1.25rem; }
+.attendance-dialog p { margin: 0; color: #475467; line-height: 1.5; }
+.attendance-dialog-icon { display: grid; width: 58px; height: 58px; place-items: center; border-radius: 50%; font-size: 1.9rem; font-weight: 800; }
+.attendance-dialog.is-success .attendance-dialog-icon { color: #067647; background: #dcfae6; }
+.attendance-dialog.is-error .attendance-dialog-icon { color: #b42318; background: #fee4e2; }
+.attendance-dialog button { width: 100%; min-height: 48px; margin-top: .6rem; border: 0; border-radius: 12px; color: #fff; background: var(--navy, #174b8e); font: inherit; font-weight: 700; cursor: pointer; }
+body[data-theme="dark"] .attendance-dialog { background: #1f2937; color: #edf0f4; }
+body[data-theme="dark"] .attendance-dialog p { color: #cbd5e1; }
 .attendance-message { min-height: 0; margin: 0; color: var(--muted); font-size: .7rem; }
 .attendance-message:empty { display: none; }
 .attendance-online-proof { display: grid; gap: .5rem; margin-top: .55rem; padding: .75rem; border: 1px solid #dce5f0; border-radius: 10px; background: #f8fafd; }
@@ -415,6 +428,8 @@ body[data-theme="dark"] .attendance-online-proof { border-color: #454c57; backgr
 body[data-theme="dark"] .attendance-heading h1, body[data-theme="dark"] .attendance-live-copy > strong, body[data-theme="dark"] .attendance-stats strong, body[data-theme="dark"] .attendance-section-heading h2, body[data-theme="dark"] .attendance-table-wrap table { color: #edf0f4; }
 body[data-theme="dark"] .attendance-heading p.attendance-motto { color: #d7bdac; }
 body[data-theme="dark"] .attendance-type-choice { border-color: #4b535f; background: rgba(37, 42, 49, .8); }
+body[data-theme="dark"] .attendance-type-choice label { border-color: #4b535f; background: #252a31; color: #edf0f4; }
+body[data-theme="dark"] .attendance-type-choice label:has(input:checked) { border-color: #8bb8ff; background: #273c58; color: #edf0f4; }
 body[data-theme="dark"] .attendance-type-choice legend { color: #edf0f4; }
 body[data-theme="dark"] .attendance-month { border-color: #454c57; color: #edf0f4; background: #2d323a; }
 body[data-theme="dark"] .attendance-month select { color: #edf0f4; }
@@ -490,10 +505,9 @@ body[data-theme="dark"] .attendance-table-wrap th { background: #252a31; }
 	.attendance-clock-face b { top: 7px; height: 5px; }
 	.attendance-clock-leaf { right: 0; height: 20px; }
 	.attendance-clock-leaf.leaf-two { right: 10px; top: 34px; height: 17px; }
-	.attendance-type-choice { gap: .1rem; margin: 0; padding: .32rem .6rem; border-radius: 11px; font-size: .72rem; line-height: 1.25; }
+	.attendance-type-choice { gap: .45rem; margin: 0; padding: .6rem .65rem; border-radius: 12px; font-size: .95rem; line-height: 1.25; }
 	.attendance-type-choice legend { font-size: .72rem; }
-	.attendance-type-choice label { min-height: 18px; }
-	.attendance-type-choice label small { font-size: .58rem; }
+	.attendance-type-choice label { min-height: 46px; }
 	.attendance-status { margin-top: .05rem; padding: .25rem .65rem; font-size: .68rem; }
 	.attendance-status::before { width: 15px; height: 15px; font-size: .65rem; }
 	.attendance-actions { gap: .45rem; }

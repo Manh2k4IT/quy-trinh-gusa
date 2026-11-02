@@ -38,6 +38,9 @@ body[data-theme="dark"] .attendance-choice-card[href="payment-proposal.html"] .a
 .attendance-network-settings input[type="number"] { width: min(100%, 200px); padding: .7rem .8rem; border: 1px solid #b7c6d8; border-radius: 10px; font: inherit; }
 .attendance-network-settings input[type="text"] { width: 100%; padding: .7rem .8rem; border: 1px solid #b7c6d8; border-radius: 10px; font: inherit; }
 .attendance-network-settings input + label { margin-top: 1rem; }
+.attendance-site-block { margin-top: 1.2rem; padding-top: 1.2rem; border-top: 1px solid #e1e8e4; }
+.attendance-site-block h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
+.attendance-site-block [data-site-status]:empty { display: none; }
 .attendance-site-hint { display: block; margin-top: .4rem; color: #667085; font-size: .85rem; line-height: 1.5; }
 .attendance-network-settings textarea { width: 100%; padding: .8rem; border: 1px solid #b7c6d8; border-radius: 10px; font: inherit; resize: vertical; }
 .attendance-network-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: .8rem; }
