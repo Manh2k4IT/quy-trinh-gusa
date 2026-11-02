@@ -30,7 +30,7 @@ const paymentFlowTabs = document.createElement('div');
 paymentFlowTabs.className = 'payment-flow-tabs';
 paymentFlowTabs.setAttribute('role', 'tablist');
 paymentFlowTabs.setAttribute('aria-label', 'Nguồn đề xuất thanh toán');
-paymentFlowTabs.innerHTML = '<button type="button" class="is-active" data-payment-flow-filter="ceo" role="tab" aria-selected="true">Đã duyệt từ CEO/Admin</button><button type="button" data-payment-flow-filter="accountant" role="tab" aria-selected="false">Đề xuất trực tiếp</button>';
+paymentFlowTabs.innerHTML = '<button type="button" class="is-active" data-payment-flow-filter="ceo" role="tab" aria-selected="true">Gửi qua CEO/Admin</button><button type="button" data-payment-flow-filter="accountant" role="tab" aria-selected="false">Đề xuất trực tiếp</button>';
 paymentFlowTabs.hidden = true;
 document.querySelector('.report-toolbar')?.prepend(paymentFlowTabs);
 let selectedPaymentFlow = 'ceo';
@@ -314,8 +314,16 @@ function render() {
     visible.forEach((proposal, index) => {
       if (proposal.type !== 'payment') return;
       const source = document.createElement('span');
-      source.className = `report-payment-source is-${proposal.paymentFlow || 'ceo'}`;
-      source.textContent = proposal.paymentFlow === 'accountant' ? 'Đề xuất trực tiếp' : 'Đã duyệt từ CEO/Admin';
+      // The badge tells where a CEO-flow payment stands, so a rejected one never reads as approved.
+      const flow = proposal.paymentFlow || 'ceo';
+      const stage = proposal.paymentStage || (flow === 'accountant' ? 'accounting' : 'management');
+      const [state, label] = flow === 'accountant' ? ['accountant', 'Đề xuất trực tiếp']
+        : proposal.status === 'rejected' ? ['rejected', 'CEO/Admin đã từ chối']
+        : proposal.status === 'canceled' ? ['canceled', 'Đã hủy']
+        : proposal.status === 'pending' && stage === 'management' ? ['waiting', 'Chờ CEO/Admin duyệt']
+        : ['ceo', 'Đã duyệt từ CEO/Admin'];
+      source.className = `report-payment-source is-${state}`;
+      source.textContent = label;
       reportItems[index]?.querySelector('.report-type')?.after(source);
     });
   }

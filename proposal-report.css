@@ -17,6 +17,9 @@
 .report-type { color: #6d3fc0; font-size: .7rem; font-weight: 800; text-transform: uppercase; }
 .report-payment-source { display: inline-block; margin-left: .45rem; border-radius: 5px; padding: .18rem .4rem; color: #1557a6; background: #eaf3fb; font-size: .65rem; font-weight: 800; vertical-align: .08rem; }
 .report-payment-source.is-accountant { color: #8a5a00; background: #fff3d8; }
+.report-payment-source.is-rejected { color: #b42318; background: #fee4e2; }
+.report-payment-source.is-waiting { color: #475467; background: #f2f4f7; }
+.report-payment-source.is-canceled { color: #667085; background: #f2f4f7; }
 .report-item h2 { margin: .2rem 0 .4rem; color: #173f78; font-size: .95rem; }
 .report-item p { margin: .2rem 0; color: #617187; font-size: .75rem; }
 .report-proof { display: block; width: 100px; height: 70px; margin-top: .6rem; border-radius: 7px; object-fit: cover; }
