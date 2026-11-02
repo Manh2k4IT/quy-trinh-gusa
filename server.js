@@ -1728,6 +1728,26 @@ async function updateAttendance(req, res) {
   sendJson(res, 200, { record });
 }
 
+// Admin/CEO can clear a wrongful late mark; the day still counts as worked.
+async function waiveAttendanceLate(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được bỏ đi trễ.");
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  const payload = JSON.parse(body || "{}");
+  const userId = String(payload.userId || "");
+  const date = String(payload.date || "");
+  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return send(res, 400, "Dữ liệu không hợp lệ.");
+  const attendance = getAttendance();
+  const record = attendance[userId]?.[date];
+  if (!record?.late) return send(res, 404, "Không tìm thấy lần đi trễ này.");
+  record.lateWaived = { minutes: record.lateMinutes ?? null, by: getAttendanceUserKey(currentUser), at: new Date().toISOString() };
+  record.late = false;
+  delete record.lateMinutes;
+  fs.writeFileSync(attendancePath, JSON.stringify(attendance, null, 2));
+  sendJson(res, 200, { record });
+}
+
 async function updateAttendanceOverviewStatus(req, res) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
@@ -2036,6 +2056,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/api/push/devices" && req.method === "DELETE") return await unregisterPushDevice(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/attendance-overview")) return serveAttendanceOverview(req, res);
     if (req.method === "POST" && req.url === "/api/attendance-overview/status") return await updateAttendanceOverviewStatus(req, res);
+    if (req.method === "POST" && req.url === "/api/attendance-overview/late-waive") return await waiveAttendanceLate(req, res);
     if (req.method === "GET" && req.url === "/api/attendance-network") return serveAttendanceNetwork(req, res);
     if (req.method === "POST" && req.url === "/api/attendance-network") return await updateAttendanceNetwork(req, res);
     if (req.method === "GET" && req.url === "/api/attendance-sites") return serveAttendanceSites(req, res);

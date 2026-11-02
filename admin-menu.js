@@ -758,8 +758,6 @@ if (sidebarScroll) {
       if (isAdmin || isAccountant) initializeReportMenuBadge();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
-      const employeeAttendanceOverview = sidebarScroll.querySelector('a[href="attendance.html?view=days"]');
-      if (employeeAttendanceOverview) employeeAttendanceOverview.hidden = isAdmin;
       sidebarScroll.querySelector('[data-report-menu]').hidden = !(isAdmin || isAccountant);
       document.querySelectorAll('[data-report-access]').forEach((card) => {
         card.hidden = card.dataset.reportAccess === 'payment' ? !(isAdmin || isAccountant) : !isAdmin;

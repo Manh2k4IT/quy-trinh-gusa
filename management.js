@@ -13,9 +13,6 @@ async function loadGoogleAvatar() {
   if (!data.user) return;
   const isAdmin = data.user.role === "admin" || data.user.role === "ceo";
   const roleLabel = data.user.role === "admin" ? "Quản trị viên" : data.user.role === "ceo" ? "CEO" : data.user.role === "accountant" ? "Kế toán" : data.user.role === "warehouse" ? "Vận hành kho" : data.user.role === "manager" ? "Quản lý cấp 1" : data.user.role === "production" ? "Sản xuất" : data.user.role === "hr" ? "Nhân sự" : "Nhân viên";
-  document.querySelectorAll('a[href="attendance.html?view=days"]').forEach((link) => {
-    link.hidden = isAdmin;
-  });
   document.querySelectorAll('a[href="attendance-overview.html"], a[href="attendance-overview.html?report=online"], a[href="attendance-overview.html?report=late"]').forEach((link) => {
     link.hidden = !isAdmin;
   });

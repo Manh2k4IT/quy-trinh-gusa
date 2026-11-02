@@ -308,3 +308,22 @@ test('Quận 4 switches from office Wi-Fi to GPS once its point is saved', async
   await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { site: 'q4', point: null } });
   await setIps([]);
 });
+
+test('Admin/CEO can clear a late mark while the day still counts as worked', async () => {
+  resetRecords();
+  setClock('09:00');
+  const checkIn = await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-in', mode: 'office' } });
+  assert.equal((await checkIn.json()).record.lateMinutes, 30);
+  const waive = (role, payload = { userId: 'employee', date: day }) => request('/api/attendance-overview/late-waive', role, { method: 'POST', payload });
+
+  for (const role of ['employee', 'accountant', 'inactive', null]) assert.equal((await waive(role)).status, 403);
+  assert.equal((await waive('ceo', { userId: 'nobody', date: day })).status, 400);
+  const response = await waive('ceo');
+  assert.equal(response.status, 200);
+  const { record } = await response.json();
+  assert.equal(record.late, false);
+  assert.equal(record.lateMinutes, undefined);
+  assert.equal(record.lateWaived.minutes, 30);
+  assert.equal(typeof record.checkIn, 'string');
+  assert.equal((await waive('admin')).status, 404);
+});

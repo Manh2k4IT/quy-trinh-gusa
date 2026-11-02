@@ -1,7 +1,6 @@
 const appShell = document.querySelector('.app-shell');
 fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(({ user }) => {
 	if (user?.role !== 'ceo') return;
-	document.querySelectorAll('a[href="attendance.html?view=days"]').forEach((link) => { link.hidden = true; });
 	document.querySelectorAll('a[href="attendance-overview.html"], a[href="attendance-overview.html?report=online"], a[href="attendance-overview.html?report=late"]').forEach((link) => { link.hidden = false; });
 }).catch(() => {});
 const mobileMenuToggle = document.querySelector('[data-mobile-menu-toggle]');
@@ -108,6 +107,10 @@ function getLateMinutes(record) {
 	return Math.max(1, checkIn.getHours() * 60 + checkIn.getMinutes() - threshold);
 }
 
+function escapeReportText(value) {
+	return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
 function renderLateReport() {
 	const selectedDate = monthSelect.value;
 	const selectedDateLabel = monthSelect.selectedOptions[0]?.textContent || selectedDate;
@@ -118,19 +121,50 @@ function renderLateReport() {
 		if (lateReportStatusFilter === 'rejected') return reviewStatus === 'rejected';
 		if (lateReportStatusFilter === 'unreviewed') return !['approved', 'rejected'].includes(reviewStatus);
 		return true;
-	});
-	const entriesMarkup = filteredLateEntries
-		.sort((a, b) => `${a.record.date}${a.record.checkIn}`.localeCompare(`${b.record.date}${b.record.checkIn}`))
-		.map(({ user, record }) => {
-			const workMode = record.workMode === 'online' || record.onlineProof ? 'Làm online' : 'Làm tại công ty';
-			const attendanceTypeLabel = { 'full-day': 'Cả ngày', 'half-day-morning': 'Nửa buổi sáng', 'half-day-afternoon': 'Nửa buổi chiều' }[record.attendanceType] || 'Cả ngày';
-			const lateMinutes = getLateMinutes(record);
-			const reviewStatus = lateProposalReviewStatuses.get(`${user.id}:${record.date}`);
-			const reviewBadge = reviewStatus === 'approved' ? '<em class="late-proposal-approved">Đã duyệt đi trễ</em>' : reviewStatus === 'rejected' ? '<em class="late-proposal-rejected">Từ chối đi trễ</em>' : '';
-			return `<article class="attendance-report-entry"><span class="late-report-avatar">${getReportAvatar(user)}</span><span class="attendance-report-details"><b>${user.name}</b><small class="late-report-date"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17"/></svg>${record.date} · ${formatTime(record.checkIn)}</small><span class="late-report-labels"><em class="attendance-work-mode ${workMode === 'Làm online' ? 'is-online' : 'is-office'}"><i></i>${workMode}</em><em class="attendance-shift-badge">${attendanceTypeLabel}</em>${reviewBadge}</span></span><span class="late-report-minutes" aria-label="Trễ ${lateMinutes} phút"><b>${lateMinutes}</b><small>phút trễ</small></span></article>`;
-		}).join('');
-	lateReport.innerHTML = `<div class="late-report-filters"><label>Trạng thái<select data-late-report-status><option value="all" ${lateReportStatusFilter === 'all' ? 'selected' : ''}>Tất cả trạng thái</option><option value="approved" ${lateReportStatusFilter === 'approved' ? 'selected' : ''}>Đã duyệt đi trễ</option><option value="unreviewed" ${lateReportStatusFilter === 'unreviewed' ? 'selected' : ''}>Đi trễ chưa duyệt</option><option value="rejected" ${lateReportStatusFilter === 'rejected' ? 'selected' : ''}>Từ chối đi trễ</option></select></label></div><div class="late-report-month-panel"><h3 class="late-report-month-heading">Báo cáo đi trễ · ${selectedDateLabel}</h3>${entriesMarkup ? `<div class="attendance-late-report-list">${entriesMarkup}</div>` : '<p class="late-report-empty">Không có nhân sự đi trễ trong ngày này theo bộ lọc.</p>'}</div>`;
+	}).sort((a, b) => `${a.record.date}${a.record.checkIn}`.localeCompare(`${b.record.date}${b.record.checkIn}`));
+	const minutesOf = filteredLateEntries.map(({ record }) => getLateMinutes(record));
+	const totalMinutes = minutesOf.reduce((sum, minutes) => sum + minutes, 0);
+	const worstIndex = minutesOf.indexOf(Math.max(...minutesOf));
+	const worst = filteredLateEntries[worstIndex];
+	const statusOptions = [['all', 'Tất cả trạng thái'], ['unreviewed', 'Đi trễ chưa duyệt'], ['approved', 'Đã duyệt đi trễ'], ['rejected', 'Từ chối đi trễ']]
+		.map(([value, label]) => `<option value="${value}" ${lateReportStatusFilter === value ? 'selected' : ''}>${label}</option>`).join('');
+	const rows = filteredLateEntries.map(({ user, record }, index) => {
+		const lateMinutes = minutesOf[index];
+		const place = record.workMode === 'online' || record.onlineProof ? 'Làm online' : `Khu vực ${record.site === 'ben-thanh' ? 'Bến Thành' : 'Quận 4'}`;
+		const shift = { 'full-day': 'Cả ngày', 'half-day-morning': 'Nửa ngày sáng', 'half-day-afternoon': 'Nửa ngày chiều' }[record.attendanceType] || 'Cả ngày';
+		const reviewStatus = lateProposalReviewStatuses.get(`${user.id}:${record.date}`);
+		const reviewBadge = reviewStatus === 'approved' ? '<em class="lr-tag is-approved">Đã duyệt đơn đi trễ</em>' : reviewStatus === 'rejected' ? '<em class="lr-tag is-rejected">Từ chối đơn đi trễ</em>' : '';
+		const level = lateMinutes > 60 ? 'is-high' : lateMinutes > 15 ? 'is-medium' : 'is-low';
+		return `<article class="lr-row"><span class="lr-avatar">${getReportAvatar(user)}</span><div class="lr-info"><b>${escapeReportText(user.name)}</b><span class="lr-meta">Check-in ${formatTime(record.checkIn)} · ${place} · ${shift}</span>${reviewBadge ? `<span class="lr-tags">${reviewBadge}</span>` : ''}</div><span class="lr-minutes ${level}" aria-label="Trễ ${lateMinutes} phút"><b>${lateMinutes}</b><small>phút trễ</small></span><button class="lr-waive" type="button" data-late-waive data-user-id="${escapeReportText(user.id)}" data-date="${record.date}" data-user-name="${escapeReportText(user.name)}">Bỏ đi trễ</button></article>`;
+	}).join('');
+	lateReport.innerHTML = `<div class="lr"><div class="lr-head"><div><span class="lr-eyebrow">Báo cáo đi trễ</span><h3>${escapeReportText(selectedDateLabel)}</h3></div><label class="lr-filter"><span>Trạng thái</span><select data-late-report-status>${statusOptions}</select></label></div>`
+		+ `<div class="lr-stats"><div class="lr-stat"><span>Số người đi trễ</span><b>${filteredLateEntries.length}</b></div><div class="lr-stat"><span>Tổng phút trễ</span><b>${totalMinutes}</b></div><div class="lr-stat is-worst"><span>Trễ nhiều nhất</span><b>${worst ? `${minutesOf[worstIndex]} phút` : '—'}</b>${worst ? `<small>${escapeReportText(worst.user.name)}</small>` : ''}</div></div>`
+		+ (rows ? `<div class="lr-list">${rows}</div>` : '<div class="lr-empty"><span aria-hidden="true">✓</span><b>Không có ai đi trễ</b><small>Không có nhân sự đi trễ trong ngày này theo bộ lọc.</small></div>')
+		+ '<p class="lr-feedback" data-late-feedback role="status" hidden></p></div>';
 }
+
+// "Bỏ đi trễ" clears a wrongful late mark; the day still counts as worked.
+lateReport.addEventListener('click', async (event) => {
+	const button = event.target.closest('[data-late-waive]');
+	if (!button) return;
+	if (!confirm(`Bỏ đi trễ ngày ${button.dataset.date} cho ${button.dataset.userName}? Ngày công vẫn giữ nguyên.`)) return;
+	button.disabled = true;
+	button.textContent = 'Đang bỏ...';
+	try {
+		const response = await fetch('/api/attendance-overview/late-waive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: button.dataset.userId, date: button.dataset.date }) });
+		if (!response.ok) throw new Error(await response.text() || 'Không bỏ được đi trễ.');
+		await load();
+		const feedback = lateReport.querySelector('[data-late-feedback]');
+		if (feedback) {
+			feedback.textContent = `Đã bỏ đi trễ ngày ${button.dataset.date} cho ${button.dataset.userName}.`;
+			feedback.hidden = false;
+		}
+	} catch (error) {
+		button.disabled = false;
+		button.textContent = 'Bỏ đi trễ';
+		alert(error.message);
+	}
+});
 
 lateReport.addEventListener('change', (event) => {
 	if (!event.target.matches('[data-late-report-status]')) return;
@@ -377,4 +411,4 @@ if (reportMode === 'late') {
 function rerenderOverview() { const selected = statusFilter.value; const selectedDate = new Date(`${monthSelect.value}-01T00:00:00`); const year = selectedDate.getFullYear(); const month = selectedDate.getMonth(); const days = new Date(year, month + 1, 0).getDate(); const filteredUsers = selected === 'all' ? users : users.filter((user) => Array.from({ length: days }, (_, index) => { const date = new Date(year, month, index + 1); if (date > new Date() || date.getDay() === 0 || date.getDay() === 6) return false; const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`; const record = user.records?.[key]; const state = record?.status === 'leave' || record?.status === 'online' || record?.status === 'unauthorized-leave' ? record.status : ['half-day-morning', 'half-day-afternoon'].includes(record?.attendanceType) ? 'half-day' : record?.checkIn ? 'present' : 'absent'; return state === selected; }).some(Boolean)); statusFilter.value = 'all'; updateStatusKpis(); render(filteredUsers); statusFilter.value = selected; decorateAttendanceDots(); applySpecialAttendanceStatuses(); addStatusCountColumns(); bindStatusEditing(); }
 monthSelect.addEventListener('change', async () => { await load(); if (!lateReport.hidden) { if (reportMode === 'online') renderOnlineReport(); else renderLateReport(); } }); search.addEventListener('input', rerenderOverview); statusFilter.addEventListener('change', rerenderOverview);
 if (reportMode === 'online') setInterval(load, 5000);
-fetch('/api/me', { cache: 'no-store' }).then((r) => r.json()).then(({ user }) => { const isAdmin = user?.role === 'admin' || user?.role === 'ceo'; document.querySelectorAll('a[href="attendance.html?view=days"]').forEach((link) => { link.hidden = isAdmin; }); document.querySelectorAll('a[href="attendance-overview.html?report=online"], a[href="attendance-overview.html?report=late"], a[href="attendance-overview.html"]').forEach((link) => { link.hidden = !isAdmin; }); if (!user || !isAdmin) throw new Error('Bạn không có quyền xem tổng quan nhân sự.'); document.querySelectorAll('[data-user-name]').forEach((e) => { e.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((e) => { e.textContent = user.role === 'ceo' ? 'CEO' : 'Quản trị viên'; }); return load(); }).catch((error) => { list.innerHTML = `<tbody><tr><td>${error.message}</td></tr></tbody>`; });
+fetch('/api/me', { cache: 'no-store' }).then((r) => r.json()).then(({ user }) => { const isAdmin = user?.role === 'admin' || user?.role === 'ceo'; document.querySelectorAll('a[href="attendance-overview.html?report=online"], a[href="attendance-overview.html?report=late"], a[href="attendance-overview.html"]').forEach((link) => { link.hidden = !isAdmin; }); if (!user || !isAdmin) throw new Error('Bạn không có quyền xem tổng quan nhân sự.'); document.querySelectorAll('[data-user-name]').forEach((e) => { e.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((e) => { e.textContent = user.role === 'ceo' ? 'CEO' : 'Quản trị viên'; }); return load(); }).catch((error) => { list.innerHTML = `<tbody><tr><td>${error.message}</td></tr></tbody>`; });

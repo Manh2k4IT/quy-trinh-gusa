@@ -173,7 +173,6 @@ function setAdminVisibility(isAdmin, role = 'employee') {
   attendanceOverviewMenuItem.hidden = !isAdmin;
   onlineStaffMenuItem.hidden = !isAdmin;
   lateReportMenuItem.hidden = !isAdmin;
-  workdayOverviewMenuItem.hidden = isAdmin;
   document.querySelectorAll('.role-chip').forEach((button) => {
     const originalRole = button.dataset.role || button.textContent.trim();
     button.dataset.role = originalRole;
