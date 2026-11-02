@@ -177,6 +177,17 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     };
   }
 
+  // Renews the token shortly before it expires, so it never lapses on days without proposals.
+  async function refreshIfExpiring(windowMs) {
+    if (!isConfigured()) return false;
+    const stored = readTokens();
+    if (!stored.refreshToken || needsReauth) return false;
+    if (stored.accessToken && stored.expiresAt - Date.now() > windowMs) return false;
+    if (!refreshPromise) refreshPromise = refreshAccessToken().finally(() => { refreshPromise = null; });
+    await refreshPromise;
+    return true;
+  }
+
   // Refreshes an expired token, then reads the OA profile to prove Zalo accepts it.
   async function checkConnection() {
     const accessToken = await getAccessToken();
@@ -334,6 +345,7 @@ function createZaloClient({ env = process.env, dataDirectory, fetchImpl = fetch,
     getUserId,
     isConfigured,
     listGroups,
+    refreshIfExpiring: tracked(refreshIfExpiring),
     sendDirectMessage: tracked(sendDirectMessage),
     sendGroupImage: tracked(sendGroupImage),
     sendGroupMessage: tracked(sendGroupMessage),

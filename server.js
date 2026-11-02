@@ -1903,6 +1903,13 @@ async function completeZaloAuth(req, res) {
   return redirect(res, "/interface-settings.html?zalo=connected#zalo-oa");
 }
 
+// Keeps the Zalo OA token renewed in the background so Settings always shows the real expiry.
+setInterval(() => {
+  zaloClient.refreshIfExpiring(60 * 60 * 1000).then((renewed) => {
+    if (renewed) console.log("Zalo OA: token renewed in the background.");
+  }, (error) => console.error("Zalo scheduled token refresh failed:", error.message));
+}, 15 * 60 * 1000).unref();
+
 const server = http.createServer(async (req, res) => {
   try {
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);

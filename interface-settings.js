@@ -218,8 +218,8 @@ if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voices
     else if (!authorized) detail.textContent = "Thông báo Zalo đang tạm dừng. Bấm \"Cấp quyền lại Zalo OA\", đăng nhập Zalo quản lý OA và chọn Cho phép.";
     else if (failing) detail.textContent = `Lần gửi lúc ${formatTime(zalo.lastError.at)} thất bại: ${zalo.lastError.message} Bấm "Kiểm tra kết nối" để thử lại.`;
     else if (zalo.expiresAt && zalo.expiresAt < Date.now()) detail.textContent = `Token đã hết hạn lúc ${formatTime(zalo.expiresAt)}; hệ thống sẽ làm mới ở lần gửi tiếp theo. Bấm "Kiểm tra kết nối" để làm mới ngay.`;
-    else detail.textContent = zalo.expiresAt ? `Token hiện tại hiệu lực đến ${formatTime(zalo.expiresAt)}, hệ thống tự làm mới.` : "Hệ thống tự làm mới token khi cần.";
-    if (connected && zalo.lastSuccessAt) detail.textContent += ` Gửi thành công gần nhất: ${formatTime(zalo.lastSuccessAt)}.`;
+    else detail.textContent = zalo.expiresAt ? `Token hiện tại hiệu lực đến ${formatTime(zalo.expiresAt)}, hệ thống tự gia hạn trước khi hết hạn.` : "Hệ thống tự gia hạn token khi cần.";
+    if (connected && zalo.lastSuccessAt) detail.textContent += ` Kết nối Zalo thành công gần nhất: ${formatTime(zalo.lastSuccessAt)}.`;
   };
   checkButton.addEventListener("click", async () => {
     checkButton.disabled = true;
@@ -279,6 +279,12 @@ if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voices
     section.hidden = false;
     const zalo = await response.json();
     render(zalo);
+    // Keeps the card current while the page stays open, e.g. after a background renewal.
+    setInterval(async () => {
+      if (document.hidden || checkButton.disabled) return;
+      const latest = await fetch("/api/zalo/status", { cache: "no-store" }).catch(() => null);
+      if (latest?.ok) render(await latest.json());
+    }, 60 * 1000);
     if (zalo.configured) loadResendCandidates().then(() => { resendPanel.hidden = false; }, () => {});
     if (new URLSearchParams(location.search).get("zalo") === "connected") {
       detail.textContent = "Đã kết nối lại Zalo OA thành công. " + detail.textContent;

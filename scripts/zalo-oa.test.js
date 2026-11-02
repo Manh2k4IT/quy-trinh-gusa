@@ -156,3 +156,32 @@ test("records network failures with their cause and clears them after a successf
     fs.rmSync(dataDirectory, { recursive: true });
   }
 });
+
+test("renews the token in the background only when it is about to expire", async () => {
+  const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-zalo-test-"));
+  let refreshes = 0;
+  const fetchImpl = async (url) => {
+    if (url === "https://oauth.zaloapp.com/v4/oa/access_token") {
+      refreshes += 1;
+      return Response.json({ access_token: `access-${refreshes}`, refresh_token: `refresh-${refreshes}`, expires_in: 90000 });
+    }
+    return Response.json({ error: 0 });
+  };
+
+  try {
+    const client = createZaloClient({ env: baseEnv, dataDirectory, fetchImpl, logger: { warn() {}, error() {}, log() {} } });
+    assert.equal(await client.refreshIfExpiring(60 * 60 * 1000), true);
+    assert.equal(refreshes, 1);
+    const firstExpiry = client.getStatus().expiresAt;
+    assert.equal(firstExpiry > Date.now() + 24 * 60 * 60 * 1000, true);
+
+    assert.equal(await client.refreshIfExpiring(60 * 60 * 1000), false);
+    assert.equal(refreshes, 1);
+
+    assert.equal(await client.refreshIfExpiring(30 * 60 * 60 * 1000), true);
+    assert.equal(refreshes, 2);
+    assert.equal(client.getStatus().expiresAt >= firstExpiry, true);
+  } finally {
+    fs.rmSync(dataDirectory, { recursive: true });
+  }
+});
