@@ -5,14 +5,19 @@
 .attendance-choice-heading h1 { margin: .5rem 0; color: #30231e; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; }
 .attendance-choice-heading p { margin: 0; color: #73777a; font-size: 1rem; line-height: 1.6; }
 .attendance-choice-grid { display: grid; width: min(100%, 980px); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin: 0 auto; }
+.attendance-choice-grid.has-three { width: min(100%, 1180px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .attendance-choice-card { display: grid; min-height: 310px; align-content: start; justify-items: start; gap: 1rem; padding: clamp(1.4rem, 3vw, 2.2rem); border: 1px solid #e1e8e4; border-radius: 24px; color: inherit; background: rgba(255, 255, 255, .94); box-shadow: 0 14px 36px rgba(37, 54, 74, .08); text-decoration: none; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .attendance-choice-card[hidden] { display: none; }
+.attendance-choice-location { display: inline-flex; align-items: center; gap: .3rem; margin-top: -.4rem; padding: .25rem .7rem; border-radius: 999px; color: #0e6e5a; background: #e6f4ef; font-size: .85rem; font-weight: 700; }
+body[data-theme="dark"] .attendance-choice-location { color: #79dbb5; background: #24483d; }
 .attendance-choice-card:hover, .attendance-choice-card:focus-visible { transform: translateY(-4px); border-color: #91c3aa; box-shadow: 0 20px 42px rgba(37, 84, 66, .14); }
 .attendance-choice-card:focus-visible { outline: 3px solid #278d70; outline-offset: 3px; }
 .attendance-choice-icon { display: grid; width: 72px; height: 72px; place-items: center; border-radius: 22px; color: #278d70; background: #e8f4ec; }
 .attendance-choice-online .attendance-choice-icon { color: #28788b; background: #e8f3f6; }
 body .attendance-choice-company .attendance-choice-icon { color: #0e7490; background: #e5f5fa; }
 body .attendance-choice-card[href="attendance.html?view=online"] .attendance-choice-icon { color: #175cd3; background: #eaf2ff; }
+body .attendance-choice-ben-thanh .attendance-choice-icon { color: #b54708; background: #fff4e5; }
+body[data-theme="dark"] .attendance-choice-ben-thanh .attendance-choice-icon { color: #fdb022; background: #4a3519; }
 body .attendance-choice-card[data-proposal-personnel-choice] .attendance-choice-icon { color: #6941c6; background: #f1ebff; }
 body .attendance-choice-card[href="payment-proposal.html"] .attendance-choice-icon { color: #067647; background: #e7f7ee; }
 body[data-theme="dark"] .attendance-choice-company .attendance-choice-icon { color: #7dd3e8; background: #23434e; }
@@ -30,6 +35,10 @@ body[data-theme="dark"] .attendance-choice-card[href="payment-proposal.html"] .a
 .attendance-network-settings h2 { margin-top: 0; font-size: 1.2rem; }
 .attendance-network-settings p { line-height: 1.6; }
 .attendance-network-settings label { display: block; margin-bottom: .6rem; font-weight: 600; }
+.attendance-network-settings input[type="number"] { width: min(100%, 200px); padding: .7rem .8rem; border: 1px solid #b7c6d8; border-radius: 10px; font: inherit; }
+.attendance-network-settings input[type="text"] { width: 100%; padding: .7rem .8rem; border: 1px solid #b7c6d8; border-radius: 10px; font: inherit; }
+.attendance-network-settings input + label { margin-top: 1rem; }
+.attendance-site-hint { display: block; margin-top: .4rem; color: #667085; font-size: .85rem; line-height: 1.5; }
 .attendance-network-settings textarea { width: 100%; padding: .8rem; border: 1px solid #b7c6d8; border-radius: 10px; font: inherit; resize: vertical; }
 .attendance-network-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: .8rem; }
 .attendance-network-actions button { padding: .7rem 1rem; border: 0; border-radius: 10px; color: #fff; background: var(--navy, #174b8e); font: inherit; cursor: pointer; }
@@ -40,7 +49,7 @@ body[data-theme="dark"] .attendance-network-settings textarea { color: #e2e8f0; 
   .attendance-choice-content { padding: 1.4rem 1rem 2rem; }
   .attendance-choice-heading { margin: .7rem auto 1.4rem; }
   .attendance-choice-heading p { font-size: .9rem; }
-  .attendance-choice-grid { grid-template-columns: 1fr; gap: .9rem; }
+  .attendance-choice-grid, .attendance-choice-grid.has-three { grid-template-columns: 1fr; gap: .9rem; }
   .attendance-choice-card { min-height: 245px; gap: .8rem; padding: 1.2rem; border-radius: 20px; }
   .attendance-choice-icon { width: 60px; height: 60px; border-radius: 18px; }
   .attendance-choice-icon svg { width: 36px; height: 36px; }

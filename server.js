@@ -11,6 +11,7 @@ const { createProposalPdf } = require("./proposal-document-pdf");
 const { renderProposalPages } = require("./proposal-document-image");
 const paymentDocumentData = require("./payment-document-data");
 const { validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, isAllowedOfficeIp } = require("./attendance-network");
+const { normalizeAttendanceSite, getAttendanceShift, formatShiftTime } = require("./attendance-schedule");
 const { getApprovalConfirmation } = require("./approval-confirmation");
 const { createZaloClient } = require("./zalo-oa");
 const { createAttachmentStore } = require("./proposal-attachments");
@@ -54,6 +55,8 @@ const proposalEventClients = new Set();
 const allowLocalDevAccess = process.env.ALLOW_LOCAL_DEV === "true";
 const sessionMaxAgeMilliseconds = 10 * 365 * 24 * 60 * 60 * 1000;
 const attendanceNetworkPath = path.join(dataDirectory, "attendance-network.json");
+const attendanceSitesPath = path.join(dataDirectory, "attendance-sites.json");
+const defaultSiteRadiusMeters = 150;
 const attendanceTrustedProxyHops = Number(process.env.ATTENDANCE_TRUST_PROXY_HOPS?.trim() || (process.env.RENDER === "true" ? 2 : 0));
 if (!Number.isInteger(attendanceTrustedProxyHops) || attendanceTrustedProxyHops < 0 || attendanceTrustedProxyHops > 10) {
   throw new Error("ATTENDANCE_TRUST_PROXY_HOPS phải là số nguyên từ 0 đến 10.");
@@ -74,6 +77,77 @@ function serveAttendanceNetwork(req, res) {
   if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được xem cấu hình mạng chấm công." });
   const currentIp = getRequestIp(req, attendanceTrustedProxyHops);
   sendJson(res, 200, { ...getAttendanceNetwork(), currentIp, currentNetwork: getOfficeNetwork(currentIp) });
+}
+
+// Bến Thành has no usable office Wi-Fi, so presence there is proven by GPS distance to a point saved by Admin/CEO.
+function getAttendanceSites() {
+  try {
+    const settings = JSON.parse(fs.readFileSync(attendanceSitesPath, "utf8"));
+    return { benThanh: validateSitePoint(settings.benThanh) };
+  } catch (error) {
+    if (error.code === "ENOENT") return { benThanh: null };
+    throw error;
+  }
+}
+
+function validateSitePoint(point) {
+  if (!point) return null;
+  const latitude = Number(point.latitude);
+  const longitude = Number(point.longitude);
+  const radiusMeters = Math.round(Number(point.radiusMeters ?? defaultSiteRadiusMeters));
+  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) throw new Error("Tọa độ điểm chấm công không hợp lệ.");
+  if (!Number.isFinite(radiusMeters) || radiusMeters < 30 || radiusMeters > 1000) throw new Error("Bán kính chấm công phải từ 30 đến 1000 mét.");
+  return { latitude, longitude, radiusMeters };
+}
+
+function distanceInMeters(from, to) {
+  const toRadians = (degrees) => degrees * Math.PI / 180;
+  const deltaLatitude = toRadians(to.latitude - from.latitude);
+  const deltaLongitude = toRadians(to.longitude - from.longitude);
+  const a = Math.sin(deltaLatitude / 2) ** 2 + Math.cos(toRadians(from.latitude)) * Math.cos(toRadians(to.latitude)) * Math.sin(deltaLongitude / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.sqrt(a));
+}
+
+// Returns an error message when the reported position is not at the Bến Thành point, or null when it is.
+function checkBenThanhLocation(location) {
+  const { benThanh } = getAttendanceSites();
+  if (!benThanh) return { message: "Admin/CEO chưa lưu vị trí chấm công Bến Thành." };
+  const latitude = Number(location?.latitude);
+  const longitude = Number(location?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return { message: "Vui lòng bật và cho phép truy cập vị trí để chấm công tại Bến Thành." };
+  const accuracy = Math.max(0, Number(location.accuracy) || 0);
+  const distance = distanceInMeters(benThanh, { latitude, longitude });
+  // Indoor GPS drifts, so allow up to 100 m of the device's reported accuracy on top of the radius.
+  if (distance > benThanh.radiusMeters + Math.min(accuracy, 100)) {
+    return { message: `Bạn đang cách điểm chấm công Bến Thành khoảng ${Math.round(distance)} m (cho phép ${benThanh.radiusMeters} m). Hãy đến cửa hàng rồi thử lại.` };
+  }
+  return { proof: { latitude, longitude, accuracy: Math.round(accuracy), distanceMeters: Math.round(distance) } };
+}
+
+function serveAttendanceSites(req, res) {
+  const user = getCurrentUser(req);
+  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được xem điểm chấm công." });
+  sendJson(res, 200, getAttendanceSites());
+}
+
+async function updateAttendanceSites(req, res) {
+  const user = getCurrentUser(req);
+  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được sửa điểm chấm công." });
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (Buffer.byteLength(body, "utf8") > 4096) return sendJson(res, 413, { message: "Dữ liệu quá lớn." });
+  }
+  let benThanh;
+  try {
+    benThanh = validateSitePoint(JSON.parse(body).benThanh);
+  } catch (error) {
+    return sendJson(res, 400, { message: error.message });
+  }
+  const settings = { benThanh, updatedAt: new Date().toISOString(), updatedBy: user.id };
+  fs.writeFileSync(`${attendanceSitesPath}.tmp`, JSON.stringify(settings, null, 2));
+  fs.renameSync(`${attendanceSitesPath}.tmp`, attendanceSitesPath);
+  sendJson(res, 200, { benThanh });
 }
 
 async function updateAttendanceNetwork(req, res) {
@@ -1592,10 +1666,19 @@ async function updateAttendance(req, res) {
   const attendance = getAttendance();
   const userRecords = attendance[userKey] || {};
   const record = userRecords[dateKey] || { date: dateKey, status: "working" };
+  // Check-out follows the office chosen at check-in, whatever page it is sent from.
+  const site = action === "check-in" ? (mode === "office" ? normalizeAttendanceSite(payload.site) : "q4") : normalizeAttendanceSite(record.site);
+  let siteProof = null;
   if (needsOfficeNetwork(action, mode, record)) {
-    const { allowedIps } = getAttendanceNetwork();
-    if (allowedIps.length && !isAllowedOfficeIp(getRequestIp(req, attendanceTrustedProxyHops), allowedIps)) {
-      return sendJson(res, 403, { message: "Bạn cần kết nối mạng công ty đã được Admin/CEO cho phép để check-in hoặc check-out tại công ty." });
+    if (site === "ben-thanh") {
+      const result = checkBenThanhLocation(payload.location);
+      if (result.message) return sendJson(res, 403, { message: result.message });
+      siteProof = result.proof;
+    } else {
+      const { allowedIps } = getAttendanceNetwork();
+      if (allowedIps.length && !isAllowedOfficeIp(getRequestIp(req, attendanceTrustedProxyHops), allowedIps)) {
+        return sendJson(res, 403, { message: "Bạn cần kết nối mạng công ty đã được Admin/CEO cho phép để check-in hoặc check-out tại công ty." });
+      }
     }
   }
   const now = new Date().toISOString();
@@ -1604,20 +1687,23 @@ async function updateAttendance(req, res) {
     if (mode === "online" && (!payload.onlineProof?.photoCapturedAt || !payload.onlineProof.photoData?.startsWith("data:image/") || !Number.isFinite(Number(payload.onlineProof.latitude)) || !Number.isFinite(Number(payload.onlineProof.longitude)))) return send(res, 400, "Vui lòng chụp ảnh và chia sẻ vị trí trước khi check-in online.");
     if (mode === "office") {
       const currentMinutes = getLocalMinutes();
-      const isAfternoon = attendanceType === "half-day-afternoon";
-      const checkInStartsAt = isAfternoon ? 11 * 60 : 6 * 60;
-      const checkInEndsAt = isAfternoon ? 15 * 60 : 12 * 60;
-      if (currentMinutes < checkInStartsAt || currentMinutes > checkInEndsAt) {
-        const startLabel = isAfternoon ? "11:00" : "06:00";
-        const endLabel = isAfternoon ? "15:00" : "12:00";
-        return send(res, 400, `Khung giờ check-in cho ca này là ${startLabel}–${endLabel}.`);
+      const shift = getAttendanceShift(site, attendanceType);
+      if (currentMinutes < shift.checkInFrom || currentMinutes > shift.checkInTo) {
+        return send(res, 400, `Khung giờ check-in cho ca này là ${formatShiftTime(shift.checkInFrom)}–${formatShiftTime(shift.checkInTo)}.`);
       }
     }
     record.checkIn = now;
     record.status = "working";
     record.workMode = mode;
     record.attendanceType = mode === "office" ? attendanceType : "full-day";
-    const lateThreshold = record.attendanceType === "half-day-afternoon" ? 13 * 60 : 8 * 60 + 30;
+    if (site === "ben-thanh") {
+      record.site = site;
+      record.siteCheckIn = siteProof;
+    } else {
+      delete record.site;
+      delete record.siteCheckIn;
+    }
+    const lateThreshold = getAttendanceShift(site, record.attendanceType).lateAfter;
     record.lateMinutes = Math.max(0, getLocalMinutes() - lateThreshold);
     record.late = record.lateMinutes > 0;
     if (!record.late) delete record.lateMinutes;
@@ -1626,9 +1712,10 @@ async function updateAttendance(req, res) {
   } else {
     if (!record.checkIn) return send(res, 400, "Bạn chưa check-in hôm nay");
     if (record.checkOut) return sendJson(res, 409, { message: "Bạn đã check-out hôm nay.", record });
-    const checkoutMinutes = 17 * 60 + 30;
-    if (getLocalMinutes() < checkoutMinutes) return send(res, 400, "Bạn chỉ có thể check-out từ 17:30.");
+    const checkoutMinutes = getAttendanceShift(site, record.attendanceType).checkOutFrom;
+    if (getLocalMinutes() < checkoutMinutes) return send(res, 400, `Bạn chỉ có thể check-out từ ${formatShiftTime(checkoutMinutes)}.`);
     record.checkOut = now;
+    if (siteProof && site === "ben-thanh") record.siteCheckOut = siteProof;
     record.status = "completed";
   }
   userRecords[dateKey] = record;
@@ -1947,6 +2034,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/attendance-overview/status") return await updateAttendanceOverviewStatus(req, res);
     if (req.method === "GET" && req.url === "/api/attendance-network") return serveAttendanceNetwork(req, res);
     if (req.method === "POST" && req.url === "/api/attendance-network") return await updateAttendanceNetwork(req, res);
+    if (req.method === "GET" && req.url === "/api/attendance-sites") return serveAttendanceSites(req, res);
+    if (req.method === "POST" && req.url === "/api/attendance-sites") return await updateAttendanceSites(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/attendance")) return serveAttendance(req, res);
     if (req.method === "POST" && req.url === "/api/attendance") return await updateAttendance(req, res);
     if (req.method === "GET" && req.url === "/api/proposals/events") return serveProposalEvents(req, res);

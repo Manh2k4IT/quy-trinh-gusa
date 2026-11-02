@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20260929-2" />
-    <link rel="stylesheet" href="attendance-choice.css?v=20261015-1" />
+    <link rel="stylesheet" href="attendance-choice.css?v=20261102-3" />
   </head>
   <body class="attendance-choice-screen">
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -26,11 +26,19 @@
             <h1>Chấm công</h1>
             <p>Chọn hình thức chấm công phù hợp với nơi bạn làm việc hôm nay.</p>
           </div>
-          <div class="attendance-choice-grid" aria-label="Chọn hình thức chấm công">
+          <div class="attendance-choice-grid has-three" aria-label="Chọn hình thức chấm công">
             <a class="attendance-choice-card attendance-choice-company" href="attendance.html">
               <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M8 40h32M13 40V17l11-9 11 9v23M19 40V28h10v12M18 19h.1M30 19h.1" /></svg></span>
               <span class="attendance-choice-title">Chấm công tại công ty</span>
+              <span class="attendance-choice-location"><span aria-hidden="true">📍</span> Khu vực Quận 4</span>
               <span class="attendance-choice-description">Check-in và check-out khi bạn làm việc tại công ty.</span>
+              <span class="attendance-choice-action">Tiếp tục <span aria-hidden="true">→</span></span>
+            </a>
+            <a class="attendance-choice-card attendance-choice-ben-thanh" href="attendance.html?site=ben-thanh">
+              <span class="attendance-choice-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M8 40h32M11 40V20h26v20M8 20l4-10h24l4 10M19 40V30h10v10M16 25h.1M32 25h.1" /></svg></span>
+              <span class="attendance-choice-title">Chấm công tại công ty</span>
+              <span class="attendance-choice-location"><span aria-hidden="true">📍</span> Khu vực Bến Thành</span>
+              <span class="attendance-choice-description">Giờ làm 09:00–17:00. Xác minh bằng vị trí GPS, không cần Wi-Fi.</span>
               <span class="attendance-choice-action">Tiếp tục <span aria-hidden="true">→</span></span>
             </a>
             <a class="attendance-choice-card attendance-choice-online" href="attendance.html?view=online">
@@ -56,10 +64,28 @@
             </form>
             <p data-attendance-network-status role="status"></p>
           </section>
+          <section class="attendance-network-settings" data-attendance-site hidden aria-labelledby="attendance-site-title">
+            <h2 id="attendance-site-title">Vị trí chấm công Bến Thành</h2>
+            <p>Chỉ Admin/CEO quản lý. Nhân viên chỉ check-in và check-out Bến Thành được khi ở trong bán kính quanh điểm này. Có 2 cách lưu: dán tọa độ hoặc link Google Maps của cửa hàng, hoặc đứng tại cửa hàng và lưu vị trí hiện tại.</p>
+            <p>Điểm đang lưu: <strong data-attendance-site-current>Đang tải...</strong></p>
+            <form data-attendance-site-form>
+              <label for="attendance-site-radius">Bán kính cho phép (mét, từ 30 đến 1000)</label>
+              <input id="attendance-site-radius" type="number" min="30" max="1000" step="10" value="150" data-attendance-site-radius disabled />
+              <label for="attendance-site-coordinates">Vị trí cửa hàng: tọa độ hoặc link Google Maps</label>
+              <input id="attendance-site-coordinates" type="text" placeholder="Ví dụ: 10.772500, 106.698000" autocomplete="off" spellcheck="false" data-attendance-site-coordinates disabled />
+              <small class="attendance-site-hint">Trên Google Maps, bấm chuột phải vào cửa hàng rồi bấm dòng số tọa độ đầu tiên để sao chép, sau đó dán vào đây.</small>
+              <div class="attendance-network-actions">
+                <button type="button" data-attendance-site-save-typed disabled>Lưu vị trí đã nhập</button>
+                <button type="submit" data-attendance-site-save disabled>Lưu vị trí hiện tại làm điểm Bến Thành</button>
+              </div>
+            </form>
+            <p data-attendance-site-status role="status"></p>
+          </section>
         </section>
       </main>
     </div>
     <script src="admin-menu.js?v=20261023-1"></script>
     <script src="attendance-network-settings.js?v=20261016-2"></script>
+    <script src="attendance-site-settings.js?v=20261102-2"></script>
   </body>
 </html>

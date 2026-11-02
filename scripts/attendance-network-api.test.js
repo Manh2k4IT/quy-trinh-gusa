@@ -187,3 +187,93 @@ test('configuration survives restart and corrupt settings fail closed rather tha
   assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-in', mode: 'office' } })).status, 500);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory, 'attendance.json'))), {});
 });
+
+function setClock(localTime) {
+  // localTime is Asia/Ho_Chi_Minh (UTC+7) on the test day.
+  const [hours, minutes] = localTime.split(':').map(Number);
+  const utc = new Date(Date.UTC(2026, 9, 15, hours - 7, minutes));
+  fs.writeFileSync(path.join(directory, 'clock.txt'), utc.toISOString());
+}
+
+const benThanhPoint = { latitude: 10.7725, longitude: 106.698, radiusMeters: 150 };
+const nearBenThanh = { latitude: 10.7729, longitude: 106.6982, accuracy: 20 };
+const farFromBenThanh = { latitude: 10.7579, longitude: 106.7054, accuracy: 20 };
+
+test('only active Admin/CEO can read or save the Bến Thành point, and invalid points are rejected', async () => {
+  for (const role of ['employee', 'accountant', 'inactive', null]) {
+    assert.equal((await request('/api/attendance-sites', role)).status, 403);
+    assert.equal((await request('/api/attendance-sites', role, { method: 'POST', payload: { benThanh: benThanhPoint } })).status, 403);
+  }
+  for (const benThanh of [{ latitude: 91, longitude: 106 }, { latitude: 10, longitude: 106, radiusMeters: 5 }, { latitude: 'x', longitude: 106 }]) {
+    assert.equal((await request('/api/attendance-sites', 'ceo', { method: 'POST', payload: { benThanh } })).status, 400);
+  }
+  const saved = await request('/api/attendance-sites', 'ceo', { method: 'POST', payload: { benThanh: benThanhPoint } });
+  assert.equal(saved.status, 200);
+  assert.deepEqual((await (await request('/api/attendance-sites', 'admin')).json()).benThanh, benThanhPoint);
+  assert.equal((await request('/attendance-sites.json', null)).status, 404);
+});
+
+test('Bến Thành check-in uses GPS instead of office Wi-Fi and its own late time', async () => {
+  await setIps(['1.1.1.1']);
+  await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { benThanh: null } });
+  resetRecords();
+  setClock('09:10');
+  const checkIn = (location, site = 'ben-thanh') => request('/api/attendance', 'employee', { method: 'POST', ip: '9.9.9.9', payload: { action: 'check-in', mode: 'office', site, location } });
+
+  let response = await checkIn(nearBenThanh);
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).message, /chưa lưu vị trí/);
+
+  await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { benThanh: benThanhPoint } });
+  response = await checkIn(undefined);
+  assert.equal(response.status, 403);
+  response = await checkIn(farFromBenThanh);
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).message, /cách điểm chấm công Bến Thành/);
+
+  response = await checkIn(nearBenThanh);
+  assert.equal(response.status, 200);
+  const { record } = await response.json();
+  assert.equal(record.site, 'ben-thanh');
+  assert.equal(record.lateMinutes, 10);
+  assert.equal(typeof record.siteCheckIn.distanceMeters, 'number');
+
+  // The same time at Quận 4 is late from 08:30 and still needs office Wi-Fi.
+  resetRecords();
+  setClock('09:10');
+  assert.equal((await checkIn(nearBenThanh, 'q4')).status, 403);
+  response = await request('/api/attendance', 'employee', { method: 'POST', ip: '1.1.1.1', payload: { action: 'check-in', mode: 'office' } });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).record.lateMinutes, 40);
+  await setIps([]);
+});
+
+test('Bến Thành check-out opens at 17:00 (13:00 for the morning shift) and needs GPS again', async () => {
+  await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { benThanh: benThanhPoint } });
+  const attend = (action, payload = {}) => request('/api/attendance', 'employee', { method: 'POST', payload: { action, mode: 'office', site: 'ben-thanh', location: nearBenThanh, ...payload } });
+
+  resetRecords();
+  setClock('08:50');
+  assert.equal((await attend('check-in')).status, 200);
+  setClock('16:55');
+  assert.equal((await attend('check-out')).status, 400);
+  setClock('17:05');
+  assert.equal((await attend('check-out', { location: undefined })).status, 403);
+  assert.equal((await attend('check-out', { location: farFromBenThanh })).status, 403);
+  const done = await attend('check-out', { site: 'q4' });
+  assert.equal(done.status, 200);
+  assert.equal((await done.json()).record.status, 'completed');
+
+  resetRecords();
+  setClock('08:50');
+  assert.equal((await attend('check-in', { attendanceType: 'half-day-morning' })).status, 200);
+  setClock('13:01');
+  assert.equal((await attend('check-out')).status, 200);
+
+  // Quận 4 keeps its 17:30 check-out.
+  resetRecords();
+  setClock('08:00');
+  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-in', mode: 'office' } })).status, 200);
+  setClock('17:05');
+  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-out', mode: 'office' } })).status, 400);
+});
