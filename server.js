@@ -44,6 +44,7 @@ const organizationChartPath = dataPath("organization-chart.json");
 const organizationProfilesPath = dataPath("organization-profiles.json");
 const organizationMembersPath = dataPath("organization-members.json");
 const attendancePath = dataPath("attendance.json");
+const announcementsPath = dataPath("announcements.json");
 const proposalsPath = dataPath("proposals.json");
 const paymentTemplatePath = dataPath("payment-template.json");
 const usersPath = dataPath("users.json");
@@ -1215,6 +1216,68 @@ async function sendProposalCreatedPush(proposal) {
 const proposalTypeLabels = { late: "đi trễ", "early-leave": "về sớm", "half-day": "nghỉ nửa ngày", leave: "nghỉ phép", "unauthorized-leave": "nghỉ không phép", payment: "thanh toán" };
 
 // Thông báo trên chuông: việc đang chờ chính người dùng và kết quả đề xuất của họ.
+// Company-wide announcements: every active user reads them, Admin/CEO post and delete them.
+function getAnnouncements() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(announcementsPath, "utf8"));
+    return Array.isArray(saved) ? saved : [];
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+function saveAnnouncements(announcements) {
+  fs.writeFileSync(`${announcementsPath}.tmp`, JSON.stringify(announcements, null, 2));
+  fs.renameSync(`${announcementsPath}.tmp`, announcementsPath);
+}
+
+function serveAnnouncements(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const announcements = getAnnouncements().sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  sendJson(res, 200, { announcements, canManage: isManagementUser(currentUser) });
+}
+
+async function createAnnouncement(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được đăng thông báo chung.");
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (Buffer.byteLength(body, "utf8") > 32768) return send(res, 413, "Nội dung thông báo quá dài.");
+  }
+  const payload = JSON.parse(body || "{}");
+  const title = String(payload.title || "").trim().slice(0, 150);
+  const content = String(payload.content || "").trim().slice(0, 5000);
+  if (!title || !content) return send(res, 400, "Vui lòng nhập tiêu đề và nội dung thông báo.");
+  const announcement = {
+    id: crypto.randomUUID(),
+    title,
+    content,
+    pinned: Boolean(payload.pinned),
+    important: Boolean(payload.important),
+    authorId: getAttendanceUserKey(currentUser),
+    authorName: currentUser.name || currentUser.email,
+    createdAt: new Date().toISOString(),
+  };
+  saveAnnouncements([announcement, ...getAnnouncements()]);
+  const recipients = [...users.values()].filter((user) => user.status === "active" && getAttendanceUserKey(user) !== announcement.authorId);
+  sendUserNotification(recipients, { title: `Thông báo chung: ${title}`, body: content.slice(0, 160), path: `/announcements.html#${announcement.id}` })
+    .catch((error) => console.error("Announcement notification failed:", error.message));
+  sendJson(res, 201, { announcement });
+}
+
+function deleteAnnouncement(req, res, id) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được xóa thông báo chung.");
+  const announcements = getAnnouncements();
+  const remaining = announcements.filter((item) => item.id !== id);
+  if (remaining.length === announcements.length) return send(res, 404, "Không tìm thấy thông báo.");
+  saveAnnouncements(remaining);
+  sendJson(res, 200, { deleted: true });
+}
+
 function serveNotifications(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return sendJson(res, 200, { items: [] });
@@ -1260,6 +1323,17 @@ function serveNotifications(req, res) {
       title: proposal.status === "approved" ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối",
       text: `Đề xuất ${proposalTypeLabels[proposal.type] || ""}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
       url: proposal.type === "payment" ? "/payment-proposal.html" : "/proposals.html",
+    }));
+  getAnnouncements()
+    .filter((announcement) => Date.parse(announcement.createdAt) > since && announcement.authorId !== getAttendanceUserKey(currentUser))
+    .slice(0, 10)
+    .forEach((announcement) => items.push({
+      id: `announcement-${announcement.id}`,
+      time: announcement.createdAt,
+      kind: "update",
+      title: announcement.important ? "Thông báo chung · Quan trọng" : "Thông báo chung",
+      text: announcement.title,
+      url: `/announcements.html#${announcement.id}`,
     }));
   items.sort((a, b) => Date.parse(b.time || 0) - Date.parse(a.time || 0));
   sendJson(res, 200, { items });
@@ -2068,6 +2142,9 @@ const server = http.createServer(async (req, res) => {
     if (await recruitment.handlePublic(req, res)) return;
     if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
     if (req.method === "GET" && req.url === "/api/notifications") return serveNotifications(req, res);
+    if (req.method === "GET" && req.url === "/api/announcements") return serveAnnouncements(req, res);
+    if (req.method === "POST" && req.url === "/api/announcements") return await createAnnouncement(req, res);
+    if (req.method === "DELETE" && req.url.startsWith("/api/announcements/")) return deleteAnnouncement(req, res, decodeURIComponent(req.url.slice("/api/announcements/".length)));
     if (req.method === "GET" && req.url === "/api/report-notifications") return serveReportNotifications(req, res);
     if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
     if (req.url === "/api/push/devices" && req.method === "DELETE") return await unregisterPushDevice(req, res);
@@ -2155,7 +2232,7 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
-    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html", "/recruitment.html"].includes(req.url.split("?")[0])) {
+    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html", "/recruitment.html", "/announcements.html"].includes(req.url.split("?")[0])) {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }

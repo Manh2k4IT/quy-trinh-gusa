@@ -197,6 +197,11 @@ async function openApplications() {
     const data = await request('/api/recruitment/applications');
     applications = data.applications;
     applicationStatuses = data.statuses;
+    // The server marked these as seen, so the button and bell stop counting them.
+    state.newApplications = 0;
+    const applicationsCount = document.querySelector('[data-applications-count]');
+    applicationsCount.hidden = true;
+    window.refreshNotifications?.();
     const jobIds = [...new Set(applications.map((item) => item.jobId))];
     applicationJobFilter.innerHTML = '<option value="">Tất cả vị trí</option>' + jobIds.map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(applications.find((item) => item.jobId === id).jobTitle)}</option>`).join('');
     applicationStatusFilter.innerHTML = '<option value="">Tất cả trạng thái</option>' + Object.entries(applicationStatuses).map(([key, label]) => `<option value="${key}">${label}</option>`).join('');
@@ -230,9 +235,9 @@ async function updateApplication(card, changes) {
   const id = card.dataset.application;
   try {
     const { application } = await request(`/api/recruitment/applications/${id}`, { method: 'POST', body: JSON.stringify(changes) });
-    applications = applications.map((item) => (item.id === id ? application : item));
+    applications = applications.map((item) => (item.id === id ? { ...application, seen: true } : item));
     card.dataset.status = application.status;
-    state.newApplications = applications.filter((item) => item.status === 'new').length;
+    state.newApplications = applications.filter((item) => item.status === 'new' && !item.seen).length;
     const applicationsCount = document.querySelector('[data-applications-count]');
     applicationsCount.textContent = String(state.newApplications);
     applicationsCount.hidden = !state.newApplications;
@@ -336,7 +341,7 @@ document.addEventListener('gusa:notifications', (event) => {
   const applicationsCount = document.querySelector('[data-applications-count]');
   applicationsCount.textContent = state.newApplications > 99 ? '99+' : String(state.newApplications);
   applicationsCount.hidden = !state.newApplications;
-  if (!applicationsModal.hidden && state.newApplications !== applications.filter((entry) => entry.status === 'new').length) openApplications();
+  if (!applicationsModal.hidden && state.newApplications !== applications.filter((entry) => entry.status === 'new' && !entry.seen).length) openApplications();
 });
 load();
 })();

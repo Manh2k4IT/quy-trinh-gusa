@@ -231,7 +231,15 @@ ul{margin:0;padding-left:22px}li{margin:4px 0}li::marker{color:#174b8e}.card p{m
   async function handleApplications(req, res, pathname, user) {
     if (!canViewApplications(user)) return send(res, 403, "Chỉ Admin, CEO và Nhân sự được xem danh sách ứng tuyển.");
     const id = pathname.split("/")[4];
-    if (req.method === "GET" && pathname === "/api/recruitment/applications") return sendJson(res, 200, { applications: getApplications(), statuses: applicationStatuses });
+    if (req.method === "GET" && pathname === "/api/recruitment/applications") {
+      // Opening the list counts as seeing every new application, so it stops alerting this viewer.
+      const list = getApplications();
+      const viewer = viewerKey(user);
+      const unseen = list.filter((item) => item.status === "new" && !(item.seenBy || []).includes(viewer));
+      unseen.forEach((item) => { item.seenBy = [...(item.seenBy || []), viewer]; });
+      if (unseen.length) saveApplications(list);
+      return sendJson(res, 200, { applications: list.map(({ seenBy, ...item }) => ({ ...item, seen: (seenBy || []).includes(viewer) })), statuses: applicationStatuses });
+    }
     if (req.method === "GET" && /^\/api\/recruitment\/applications\/[\w-]+\/cv$/.test(pathname)) return serveCv(res, id);
     const list = getApplications();
     const application = list.find((item) => item.id === id);
@@ -258,9 +266,11 @@ ul{margin:0;padding-left:22px}li{margin:4px 0}li::marker{color:#174b8e}.card p{m
     return send(res, 404, "Not found");
   }
 
-  // Số hồ sơ mới chưa xử lý — dùng cho chuông thông báo.
-  const newApplicationsFor = (user) => (canViewApplications(user) ? getApplications().filter((item) => item.status === "new").length : 0);
-  const latestNewApplicationAt = (user) => (canViewApplications(user) ? getApplications().filter((item) => item.status === "new").map((item) => item.createdAt).sort().pop() || null : null);
+  // Hồ sơ mới mà người này chưa mở danh sách để xem — dùng cho chuông thông báo và số trên nút.
+  const viewerKey = (user) => user?.id || user?.email || "";
+  const unseenNewApplications = (user) => (canViewApplications(user) ? getApplications().filter((item) => item.status === "new" && !(item.seenBy || []).includes(viewerKey(user))) : []);
+  const newApplicationsFor = (user) => unseenNewApplications(user).length;
+  const latestNewApplicationAt = (user) => unseenNewApplications(user).map((item) => item.createdAt).sort().pop() || null;
 
   // Trang công khai: GET hiển thị, POST /tuyen-dung/:id/ung-tuyen nhận hồ sơ.
   async function handlePublic(req, res) {

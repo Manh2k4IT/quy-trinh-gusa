@@ -491,6 +491,11 @@ function initializeNotificationCenter(user) {
   const readSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(seenKey) || '[]')); } catch { return new Set(); } };
   const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
   let items = [];
+  // Items seen in the current opening stay visible until the bell is opened again.
+  let keepVisible = new Set();
+  // Counted items reappear when their count changes (e.g. one more account waiting).
+  const seenIdOf = (item) => (item.count ? `${item.id}#${item.count}` : item.id);
+  const saveSeen = (seen) => { try { localStorage.setItem(seenKey, JSON.stringify([...seen].slice(-300))); } catch {} };
   // "5 phút trước", "Hôm qua 14:20", "23/10 09:15".
   const timeAgo = (value) => {
     const time = Date.parse(value || '');
@@ -509,9 +514,11 @@ function initializeNotificationCenter(user) {
   };
   const render = () => {
     const seen = readSeen();
-    const unread = items.filter((item) => item.kind === 'action' || !seen.has(item.id));
-    list.innerHTML = items.length
-      ? items.map((item) => `<a class="notification-link${item.kind === 'action' || !seen.has(item.id) ? ' is-unread' : ''}" href="${escape(item.url)}"><p><b>${escape(item.title)}</b><span>${escape(item.text)}</span>${item.time ? `<time class="notification-time" datetime="${escape(item.time)}">${escape(timeAgo(item.time))}</time>` : ''}</p></a>`).join('')
+    // Notifications already seen (results) or already opened (to-dos) are no longer listed.
+    const unread = items.filter((item) => !seen.has(seenIdOf(item)));
+    const visible = items.filter((item) => !seen.has(seenIdOf(item)) || keepVisible.has(seenIdOf(item)));
+    list.innerHTML = visible.length
+      ? visible.map((item) => `<a class="notification-link${seen.has(seenIdOf(item)) ? '' : ' is-unread'}" href="${escape(item.url)}" data-notification-id="${escape(seenIdOf(item))}"><p><b>${escape(item.title)}</b><span>${escape(item.text)}</span>${item.time ? `<time class="notification-time" datetime="${escape(item.time)}">${escape(timeAgo(item.time))}</time>` : ''}</p></a>`).join('')
       : '<p class="notification-empty">Không có thông báo mới.</p>';
     if (count) {
       count.textContent = unread.length > 99 ? '99+' : String(unread.length);
@@ -521,7 +528,7 @@ function initializeNotificationCenter(user) {
     document.dispatchEvent(new CustomEvent('gusa:notifications', { detail: { items } }));
   };
   // Mục menu nhận chấm đỏ theo trang mà thông báo dẫn tới (việc sản xuất đã có chấm riêng ở menu Quy Trình).
-  const menuTargets = { '/user-management.html': 'user-management.html', '/recruitment.html': 'recruitment.html', '/proposals.html': 'proposal-choice.html', '/payment-proposal.html': 'proposal-choice.html' };
+  const menuTargets = { '/announcements.html': 'announcements.html', '/user-management.html': 'user-management.html', '/recruitment.html': 'recruitment.html', '/proposals.html': 'proposal-choice.html', '/payment-proposal.html': 'proposal-choice.html' };
   const renderMenuBadges = (unread) => {
     const totals = {};
     unread.forEach((item) => {
@@ -546,12 +553,21 @@ function initializeNotificationCenter(user) {
     .then((response) => response.ok ? response.json() : { items: [] })
     .then((data) => { items = data.items || []; render(); })
     .catch(() => {});
-  // Mở chuông là đã xem các thông báo kết quả (việc cần làm vẫn giữ số cho đến khi xử lý xong).
+  // Mở chuông là đã xem các thông báo kết quả; chúng vẫn hiện trong lần mở này và ẩn từ lần sau.
   button.addEventListener('click', () => {
     const seen = readSeen();
-    items.filter((item) => item.kind === 'update').forEach((item) => seen.add(item.id));
-    try { localStorage.setItem(seenKey, JSON.stringify([...seen].slice(-200))); } catch {}
-    setTimeout(render, 1500);
+    keepVisible = new Set(items.filter((item) => item.kind === 'update' && !seen.has(seenIdOf(item))).map(seenIdOf));
+    keepVisible.forEach((id) => seen.add(id));
+    saveSeen(seen);
+    render();
+  });
+  // Bấm mở một việc cần làm thì việc đó không hiện trên chuông nữa (vẫn còn trong trang Báo cáo).
+  list.addEventListener('click', (event) => {
+    const link = event.target.closest('[data-notification-id]');
+    if (!link) return;
+    const seen = readSeen();
+    seen.add(link.dataset.notificationId);
+    saveSeen(seen);
   });
   window.refreshNotifications();
   ['production', 'proposal', 'proposal-status'].forEach((type) => window.proposalApprovalEvents?.addEventListener(type, () => window.refreshNotifications()));
@@ -659,12 +675,12 @@ if (sidebarScroll) {
       <a class="menu-item" href="process-choice.html"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
       <a class="menu-item" href="#"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
       <a class="menu-item" href="recruitment.html"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
-      <a class="menu-item" href="#"><span class="menu-icon">▥</span><span>Báo cáo doanh số</span></a>
     </nav>
     <p class="menu-label">CHẤM CÔNG</p>
     <nav class="menu" aria-label="Menu chấm công">
       <a class="menu-item" href="attendance-choice.html"><span class="menu-icon">◷</span><span>Chấm công</span></a>
       <a class="menu-item" href="attendance.html?view=days"><span class="menu-icon">▦</span><span>Tổng ngày công</span></a>
+      <a class="menu-item" href="announcements.html"><span class="menu-icon">✉</span><span>Thông báo chung</span></a>
     </nav>
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thông báo chung - Quy Trình</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="management.css?v=20261031-2" />
+    <link rel="stylesheet" href="announcements.css?v=20261102-1" />
+  </head>
+  <body>
+    <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand"><div class="mini-logo"><img src="logo1.jpg" alt="" /></div><span>Gusa - Quy Trình</span><button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4.5" width="16" height="15" rx="3" /><path d="M9.5 4.5v15" /><path class="sidebar-toggle-arrow" d="m15.5 10-2 2 2 2" /></svg></button></div>
+        <div class="sidebar-scroll"></div>
+        <div class="sidebar-account"><div class="avatar" data-user-avatar>B</div><div><strong data-user-name></strong><small data-user-role></small></div><a class="sidebar-logout" href="/auth/logout">Đăng xuất</a></div>
+      </aside>
+      <main class="workspace">
+        <header class="topbar">
+          <button class="mobile-menu-toggle" type="button" data-mobile-menu-toggle aria-label="Mở menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>
+          <div class="breadcrumbs"><span>Gusa - Quy Trình</span><span class="crumb-separator">/</span><strong>Thông báo chung</strong></div>
+          <div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip is-selected" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div>
+        </header>
+        <section class="announcements-content" aria-labelledby="announcements-title">
+          <div class="announcements-hero">
+            <div>
+              <span class="announcements-eyebrow">NỘI BỘ</span>
+              <h1 id="announcements-title">Thông báo chung</h1>
+              <p>Tin tức, quy định và thông báo mới nhất từ công ty.</p>
+            </div>
+            <span class="announcements-hero-icon" aria-hidden="true">📣</span>
+          </div>
+
+          <form class="announcement-composer" data-announcement-form hidden>
+            <h2>Đăng thông báo mới</h2>
+            <label>Tiêu đề<input name="title" maxlength="150" required placeholder="Ví dụ: Lịch nghỉ Tết Dương lịch 2027" /></label>
+            <label>Nội dung<textarea name="content" rows="5" maxlength="5000" required placeholder="Nhập nội dung thông báo..."></textarea></label>
+            <div class="announcement-composer-footer">
+              <label class="announcement-check"><input type="checkbox" name="pinned" /> <span>📌 Ghim lên đầu</span></label>
+              <label class="announcement-check"><input type="checkbox" name="important" /> <span>❗ Đánh dấu quan trọng</span></label>
+              <button type="submit">Đăng thông báo</button>
+            </div>
+            <p class="announcement-status" data-announcement-status role="status"></p>
+          </form>
+
+          <div class="announcement-toolbar">
+            <input type="search" placeholder="Tìm thông báo..." aria-label="Tìm thông báo" data-announcement-search />
+            <div class="announcement-filters" role="tablist" aria-label="Lọc thông báo">
+              <button type="button" class="is-active" data-announcement-filter="all">Tất cả</button>
+              <button type="button" data-announcement-filter="unread">Chưa đọc</button>
+              <button type="button" data-announcement-filter="important">Quan trọng</button>
+            </div>
+          </div>
+          <div class="announcement-list" data-announcement-list aria-live="polite"><p class="announcement-empty">Đang tải thông báo...</p></div>
+        </section>
+      </main>
+    </div>
+    <script src="announcements.js?v=20261102-2"></script>
+    <script src="admin-menu.js?v=20261102-3"></script>
+  </body>
+</html>

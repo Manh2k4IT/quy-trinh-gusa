@@ -5,6 +5,13 @@
 .attendance-choice-heading h1 { margin: .5rem 0; color: #30231e; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; }
 .attendance-choice-heading p { margin: 0; color: #73777a; font-size: 1rem; line-height: 1.6; }
 .attendance-choice-grid { display: grid; width: min(100%, 980px); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin: 0 auto; }
+.attendance-choice-cover { display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 16px; background: #eef2f7; }
+.attendance-choice-cover img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 35%; transition: transform .3s ease; }
+.attendance-choice-cover.is-ben-thanh img { object-position: center top; }
+.attendance-choice-card:hover .attendance-choice-cover img { transform: scale(1.04); }
+.attendance-choice-cover.is-online { display: grid; place-items: center; background: linear-gradient(135deg, #eaf2ff, #f5f9ff 55%, #eef7f1); }
+.attendance-choice-cover.is-online .attendance-choice-icon { width: 76px; height: 76px; border-radius: 22px; background: #fff; box-shadow: 0 10px 24px rgba(23, 92, 211, .14); }
+body[data-theme="dark"] .attendance-choice-cover.is-online { background: linear-gradient(135deg, #1e2a3d, #1f2937); }
 .attendance-choice-grid.has-three { width: min(100%, 1180px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .attendance-choice-card { display: grid; min-height: 310px; align-content: start; justify-items: start; gap: 1rem; padding: clamp(1.4rem, 3vw, 2.2rem); border: 1px solid #e1e8e4; border-radius: 24px; color: inherit; background: rgba(255, 255, 255, .94); box-shadow: 0 14px 36px rgba(37, 54, 74, .08); text-decoration: none; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .attendance-choice-card[hidden] { display: none; }
