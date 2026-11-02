@@ -14,8 +14,61 @@
     coordinates.disabled = busy;
     saveTyped.disabled = busy;
   };
-  // Accepts "lat, lng" or a Google Maps link (…/@lat,lng,…  ?q=lat,lng  !3dlat!4dlng).
+  // Google Maps "Plus Codes" (Open Location Code). Short codes such as "QMCX+V6M Bến Thành" are
+  // completed from a Ho Chi Minh City reference point, which is valid within ~40 km of it.
+  const plusCodeAlphabet = '23456789CFGHJMPQRVWX';
+  const plusCodeReference = { latitude: 10.7769, longitude: 106.7009 };
+  const encodePlusCodePrefix = ({ latitude, longitude }) => {
+    let lat = latitude + 90;
+    let lng = longitude + 180;
+    let code = '';
+    for (const resolution of [20, 1, 0.05, 0.0025]) {
+      const latDigit = Math.floor(lat / resolution);
+      const lngDigit = Math.floor(lng / resolution);
+      lat -= latDigit * resolution;
+      lng -= lngDigit * resolution;
+      code += plusCodeAlphabet[latDigit] + plusCodeAlphabet[lngDigit];
+    }
+    return code;
+  };
+  const decodePlusCode = (value) => {
+    const match = value.toUpperCase().match(/(?:^|\s)([23456789CFGHJMPQRVWX]{2,8})\+([23456789CFGHJMPQRVWX]{0,3})(?=\s|,|$)/);
+    if (!match || match[1].length % 2) return null;
+    const head = match[1].length < 8 ? encodePlusCodePrefix(plusCodeReference).slice(0, 8 - match[1].length) + match[1] : match[1];
+    const digits = head + match[2];
+    let latitude = -90;
+    let longitude = -180;
+    let latResolution = 400;
+    let lngResolution = 400;
+    for (let index = 0; index < Math.min(digits.length, 10); index += 2) {
+      latResolution /= 20;
+      lngResolution /= 20;
+      latitude += plusCodeAlphabet.indexOf(digits[index]) * latResolution;
+      longitude += plusCodeAlphabet.indexOf(digits[index + 1] || '2') * lngResolution;
+    }
+    if (digits.length > 10) {
+      const grid = plusCodeAlphabet.indexOf(digits[10]);
+      latResolution /= 5;
+      lngResolution /= 4;
+      latitude += Math.floor(grid / 4) * latResolution;
+      longitude += (grid % 4) * lngResolution;
+    }
+    latitude += latResolution / 2;
+    longitude += lngResolution / 2;
+    if (match[1].length < 8) {
+      // Pick the cell nearest the reference when the completed code lands in a neighbouring block.
+      const block = 20 ** (2 - (8 - match[1].length) / 2);
+      if (plusCodeReference.latitude + block / 2 < latitude) latitude -= block;
+      else if (plusCodeReference.latitude - block / 2 > latitude) latitude += block;
+      if (plusCodeReference.longitude + block / 2 < longitude) longitude -= block;
+      else if (plusCodeReference.longitude - block / 2 > longitude) longitude += block;
+    }
+    return { latitude: Number(latitude.toFixed(6)), longitude: Number(longitude.toFixed(6)) };
+  };
+  // Accepts a Plus Code, "lat, lng" or a Google Maps link (…/@lat,lng,…  ?q=lat,lng  !3dlat!4dlng).
   const parseCoordinates = (value) => {
+    const plusCode = decodePlusCode(value);
+    if (plusCode) return plusCode;
     let text = value.trim();
     try { text = decodeURIComponent(text); } catch {}
     const match = text.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)
@@ -93,7 +146,7 @@
   saveTyped.addEventListener('click', async () => {
     const point = parseCoordinates(coordinates.value);
     if (!point) {
-      status.textContent = 'Không đọc được tọa độ. Hãy dán dạng "10.772500, 106.698000" hoặc link Google Maps có tọa độ.';
+      status.textContent = 'Không đọc được tọa độ. Hãy dán tọa độ dạng "10.772500, 106.698000", Plus Code (ví dụ QMCX+V6M) hoặc link Google Maps.';
       coordinates.focus();
       return;
     }
