@@ -1530,6 +1530,15 @@ async function createProposal(req, res) {
   const paymentFlow = payload.paymentFlow === "accountant" ? "accountant" : "ceo";
   const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData, ...paymentTemplateFields } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
   const proposals = getProposals();
+  // A double tap or a network retry must not create a second proposal (and a second Zalo message).
+  const duplicate = proposals.find((item) => item.userId === proposal.userId && item.status === "pending" && item.type === proposal.type
+    && item.date === proposal.date && (item.dateTo || "") === (proposal.dateTo || "") && (item.time || "") === (proposal.time || "")
+    && item.reason === proposal.reason && String(item.amount ?? "") === String(proposal.amount ?? "")
+    && Date.now() - Date.parse(item.createdAt) < 2 * 60 * 1000);
+  if (duplicate) {
+    console.warn(`Duplicate proposal submission ignored for proposal ${duplicate.id}.`);
+    return sendJson(res, 200, { proposal: attachments.withUrls(duplicate), duplicate: true });
+  }
   if (allowedTypes.includes(type)) {
     proposal.signatureData = signatureData;
     proposal.signatureName = signatureName;

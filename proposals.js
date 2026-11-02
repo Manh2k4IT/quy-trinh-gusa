@@ -127,8 +127,11 @@ async function loadProposals() {
   renderProposals(proposals);
 }
 
+const submitButton = form.querySelector('[type="submit"]');
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (submitButton.disabled) return;
   if (!window.validateProposalSignature?.()) {
     status.textContent = 'Vui lòng ký tên trong bảng chữ ký trước khi gửi.';
     return;
@@ -152,6 +155,8 @@ form.addEventListener('submit', async (event) => {
     delete payload.dateTo;
   }
   delete payload.duration;
+  submitButton.disabled = true;
+  submitButton.textContent = 'ĐANG GỬI...';
   try {
     const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const responseText = await response.text();
@@ -164,6 +169,9 @@ form.addEventListener('submit', async (event) => {
     loadProposals().catch(() => {});
   } catch (error) {
     status.textContent = error.message;
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = 'GỬI ĐỀ XUẤT';
   }
 });
 

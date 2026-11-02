@@ -361,8 +361,11 @@ adminTemplateFile.addEventListener('change', async () => {
     adminTemplateStatus.textContent = error.message;
   }
 });
+const submitButton = form.querySelector('[type="submit"]');
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (submitButton.disabled) return;
   if (!window.validatePaymentTemplate()) return;
   if (!window.validateProposalSignature?.()) {
     status.textContent = 'Vui lòng ký tên trong bảng chữ ký trước khi gửi.';
@@ -378,6 +381,8 @@ form.addEventListener('submit', async (event) => {
     return;
   }
   delete payload.paymentFile;
+  submitButton.disabled = true;
+  submitButton.textContent = 'ĐANG GỬI...';
   try {
     if (file) {
       payload.paymentFileName = file.name;
@@ -393,6 +398,9 @@ form.addEventListener('submit', async (event) => {
     loadPaymentProposals().catch((error) => { status.textContent = error.message; });
   } catch (error) {
     status.textContent = error.message;
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = 'GỬI ĐỀ XUẤT';
   }
 });
 
