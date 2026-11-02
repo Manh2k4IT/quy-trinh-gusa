@@ -1242,6 +1242,56 @@ function serveAnnouncements(req, res) {
   sendJson(res, 200, { announcements, canManage: isManagementUser(currentUser) });
 }
 
+// Admin/CEO can hide whole features from everyone else: the menu item disappears and its pages send people home.
+const menuFeatures = {
+  process: ["/process-choice.html", "/production.html"],
+  kpi: ["/kpi.html"],
+  recruitment: ["/recruitment.html"],
+  attendance: ["/attendance-choice.html", "/attendance.html"],
+  "attendance-days": [],
+  announcements: ["/announcements.html"],
+  proposals: ["/proposal-choice.html", "/proposals.html", "/payment-proposal.html"],
+  "work-report": ["/work-report.html"],
+  reports: ["/report-choice.html", "/attendance-overview.html", "/proposal-report.html"],
+};
+
+function getHiddenFeatures() {
+  try {
+    const data = JSON.parse(fs.readFileSync(dataPath("menu-visibility.json"), "utf8"));
+    return Array.isArray(data.hidden) ? data.hidden.filter((key) => Object.hasOwn(menuFeatures, key)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function hiddenFeatureForPage(url) {
+  const { pathname, searchParams } = new URL(url, "http://localhost");
+  const hidden = getHiddenFeatures();
+  if (pathname === "/attendance.html" && searchParams.get("view") === "days") return hidden.includes("attendance-days") ? "attendance-days" : null;
+  return hidden.find((key) => menuFeatures[key].includes(pathname)) || null;
+}
+
+function serveMenuVisibility(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  sendJson(res, 200, { hidden: getHiddenFeatures(), canManage: isManagementUser(currentUser) });
+}
+
+async function saveMenuVisibility(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được ẩn/hiện chức năng.");
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (Buffer.byteLength(body, "utf8") > 4096) return send(res, 413, "Dữ liệu quá lớn.");
+  }
+  let payload;
+  try { payload = JSON.parse(body || "{}"); } catch { return send(res, 400, "Dữ liệu không hợp lệ."); }
+  const hidden = [...new Set((Array.isArray(payload.hidden) ? payload.hidden : []).filter((key) => Object.hasOwn(menuFeatures, key)))];
+  fs.writeFileSync(dataPath("menu-visibility.json"), JSON.stringify({ hidden, updatedAt: new Date().toISOString(), updatedBy: currentUser.email || currentUser.name || "" }, null, 2));
+  sendJson(res, 200, { hidden, canManage: true });
+}
+
 async function createAnnouncement(req, res) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được đăng thông báo chung.");
@@ -2152,6 +2202,8 @@ const server = http.createServer(async (req, res) => {
     if (await recruitment.handlePublic(req, res)) return;
     if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
     if (req.method === "GET" && req.url === "/api/notifications") return serveNotifications(req, res);
+    if (req.method === "GET" && req.url === "/api/menu-visibility") return serveMenuVisibility(req, res);
+    if (req.method === "POST" && req.url === "/api/menu-visibility") return await saveMenuVisibility(req, res);
     if (req.method === "GET" && req.url === "/api/announcements") return serveAnnouncements(req, res);
     if (req.method === "POST" && req.url === "/api/announcements") return await createAnnouncement(req, res);
     if (req.method === "DELETE" && req.url.startsWith("/api/announcements/")) return deleteAnnouncement(req, res, decodeURIComponent(req.url.slice("/api/announcements/".length)));
@@ -2246,6 +2298,7 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
+    if (req.method === "GET" && hiddenFeatureForPage(req.url) && !isManagementUser(getCurrentUser(req))) return redirect(res, "/organization-chart.html");
     serveStatic(req, res);
   } catch (error) {
     console.error(error);

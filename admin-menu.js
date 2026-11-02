@@ -657,6 +657,99 @@ function initializeProductionBadge() {
   setInterval(() => { if (!document.hidden) window.refreshProductionBadge(); }, 60000);
 }
 
+// Admin/CEO switch features on or off for everyone else; they still see hidden items, faded, to switch them back.
+function initializeMenuVisibility(isAdmin) {
+  const items = [...sidebarScroll.querySelectorAll('.menu-item[data-feature]')];
+  if (!items.length) return;
+  if (!document.getElementById('menu-visibility-style')) {
+    const style = document.createElement('style');
+    style.id = 'menu-visibility-style';
+    style.textContent = `
+      .menu-item.is-feature-hidden { opacity: .5; }
+      .menu-item.is-feature-hidden > span:last-of-type::after { content: " · Đang ẩn"; color: #b42318; font-size: .72rem; font-weight: 700; }
+      .is-editing-features .menu-item.is-feature-hidden > span:last-of-type::after { content: none; }
+      .feature-toggle { display: none; margin-left: auto; flex-shrink: 0; min-width: 52px; padding: .2rem .55rem; border: 0; border-radius: 999px; color: #067647; background: #dcfae6; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
+      .feature-toggle[aria-pressed="false"] { color: #b42318; background: #fee4e2; }
+      .is-editing-features .feature-toggle { display: inline-block; }
+      .is-editing-features .menu-item[data-feature] { opacity: 1; outline: 1px dashed #c4cfdc; outline-offset: -2px; cursor: pointer; }
+      .menu-visibility-button { width: calc(100% - 1rem); margin: 1rem .5rem .5rem; padding: .6rem .75rem; border: 1px dashed #b8c4d4; border-radius: 14px; color: #3d4c60; background: transparent; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+      .menu-visibility-button:hover, .is-editing-features .menu-visibility-button { border-style: solid; border-color: #1f4f8f; color: #1f4f8f; background: #eef4ff; }
+      .app-shell.is-collapsed .menu-visibility-button, .app-shell.is-collapsed .feature-toggle { display: none; }
+      body[data-theme="dark"] .menu-visibility-button { color: #cbd5e1; border-color: #475467; }
+    `;
+    document.head.append(style);
+  }
+  let hidden = [];
+  const apply = () => {
+    items.forEach((item) => {
+      const off = hidden.includes(item.dataset.feature);
+      if (!isAdmin) {
+        if (off) item.hidden = true;
+        return;
+      }
+      item.classList.toggle('is-feature-hidden', off);
+      const toggle = item.querySelector('[data-feature-toggle]');
+      if (toggle) {
+        toggle.textContent = off ? 'Ẩn' : 'Hiện';
+        toggle.setAttribute('aria-pressed', String(!off));
+        toggle.title = off ? 'Nhân viên đang không thấy mục này. Bấm để hiện lại.' : 'Nhân viên đang thấy mục này. Bấm để ẩn.';
+      }
+    });
+    // A section whose items are all hidden loses its heading too.
+    sidebarScroll.querySelectorAll('nav.menu').forEach((nav) => {
+      const label = nav.previousElementSibling?.classList.contains('menu-label') ? nav.previousElementSibling : null;
+      if (label && !label.hasAttribute('data-admin-menu-label')) label.hidden = [...nav.querySelectorAll('.menu-item')].every((item) => item.hidden);
+    });
+  };
+  fetch('/api/menu-visibility', { cache: 'no-store' })
+    .then((response) => (response.ok ? response.json() : { hidden: [] }))
+    .then((data) => {
+      hidden = data.hidden || [];
+      apply();
+      if (!isAdmin || sidebarScroll.querySelector('.menu-visibility-button')) return;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'menu-visibility-button';
+      button.textContent = '👁 Ẩn/hiện chức năng';
+      button.addEventListener('click', () => {
+        const editing = sidebarScroll.classList.toggle('is-editing-features');
+        button.textContent = editing ? '✓ Xong' : '👁 Ẩn/hiện chức năng';
+      });
+      sidebarScroll.append(button);
+      items.forEach((item) => {
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'feature-toggle';
+        toggle.dataset.featureToggle = '';
+        item.append(toggle);
+      });
+      // While editing, a click on an item switches it instead of opening the page.
+      sidebarScroll.addEventListener('click', async (event) => {
+        const item = event.target.closest('.menu-item[data-feature]');
+        if (!item || !sidebarScroll.classList.contains('is-editing-features')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const toggle = item.querySelector('[data-feature-toggle]');
+        if (toggle.disabled) return;
+        const key = item.dataset.feature;
+        const next = hidden.includes(key) ? hidden.filter((value) => value !== key) : [...hidden, key];
+        toggle.disabled = true;
+        try {
+          const response = await fetch('/api/menu-visibility', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hidden: next }) });
+          if (!response.ok) throw new Error((await response.text()) || 'Không lưu được.');
+          hidden = (await response.json()).hidden;
+          apply();
+        } catch (error) {
+          alert(error.message || 'Không lưu được.');
+        } finally {
+          toggle.disabled = false;
+        }
+      }, true);
+      apply();
+    })
+    .catch(() => {});
+}
+
 function initializeMobilePush() {
   if (!window.Capacitor?.isNativePlatform?.() || document.querySelector('[data-mobile-push-script]')) return;
   const script = document.createElement('script');
@@ -672,23 +765,23 @@ if (sidebarScroll) {
     <p class="menu-label">DANH MỤC</p>
     <nav class="menu" aria-label="Danh mục chính">
       <a class="menu-item" href="organization-chart.html"><span class="menu-icon">▤</span><span>Sơ đồ tổ chức</span></a>
-      <a class="menu-item" href="process-choice.html"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
-      <a class="menu-item" href="kpi.html"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
-      <a class="menu-item" href="recruitment.html"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
+      <a class="menu-item" href="process-choice.html" data-feature="process"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
+      <a class="menu-item" href="kpi.html" data-feature="kpi"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
+      <a class="menu-item" href="recruitment.html" data-feature="recruitment"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
     </nav>
     <p class="menu-label">CHẤM CÔNG</p>
     <nav class="menu" aria-label="Menu chấm công">
-      <a class="menu-item" href="attendance-choice.html"><span class="menu-icon">◷</span><span>Chấm công</span></a>
-      <a class="menu-item" href="attendance.html?view=days"><span class="menu-icon">▦</span><span>Tổng ngày công</span></a>
-      <a class="menu-item" href="announcements.html"><span class="menu-icon">✉</span><span>Thông báo chung</span></a>
+      <a class="menu-item" href="attendance-choice.html" data-feature="attendance"><span class="menu-icon">◷</span><span>Chấm công</span></a>
+      <a class="menu-item" href="attendance.html?view=days" data-feature="attendance-days"><span class="menu-icon">▦</span><span>Tổng ngày công</span></a>
+      <a class="menu-item" href="announcements.html" data-feature="announcements"><span class="menu-icon">✉</span><span>Thông báo chung</span></a>
     </nav>
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">
-      <a class="menu-item" href="proposal-choice.html"><span class="menu-icon">☷</span><span>Đề xuất</span></a>
-      <a class="menu-item" href="work-report.html"><span class="menu-icon">✎</span><span>Báo cáo công việc</span></a>
+      <a class="menu-item" href="proposal-choice.html" data-feature="proposals"><span class="menu-icon">☷</span><span>Đề xuất</span></a>
+      <a class="menu-item" href="work-report.html" data-feature="work-report"><span class="menu-icon">✎</span><span>Báo cáo công việc</span></a>
     </nav>
     <nav class="menu" aria-label="Menu báo cáo">
-      <a class="menu-item" href="report-choice.html" data-report-menu hidden><span class="menu-icon">▥</span><span>Báo cáo</span></a>
+      <a class="menu-item" href="report-choice.html" data-feature="reports" data-report-menu hidden><span class="menu-icon">▥</span><span>Báo cáo</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
     <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt</span></a></nav>
@@ -771,6 +864,7 @@ if (sidebarScroll) {
       initializeProductionBadge();
       initializeNotificationCenter(user);
       initializeMobilePush();
+      initializeMenuVisibility(isAdmin);
       if (isAdmin || isAccountant) initializeSharedProposalNotifications();
       if (isAdmin || isAccountant) initializeReportMenuBadge();
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
