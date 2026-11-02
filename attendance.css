@@ -86,6 +86,8 @@ body[data-theme="dark"] .attendance-late-summary-list li b { color: #edf0f4; }
 .attendance-dialog-icon { display: grid; width: 58px; height: 58px; place-items: center; border-radius: 50%; font-size: 1.9rem; font-weight: 800; }
 .attendance-dialog.is-success .attendance-dialog-icon { color: #067647; background: #dcfae6; }
 .attendance-dialog.is-error .attendance-dialog-icon { color: #b42318; background: #fee4e2; }
+.attendance-dialog-action { display: grid; width: 100%; min-height: 48px; margin-top: .6rem; place-items: center; border-radius: 12px; color: #fff; background: #2f7d57; font-weight: 700; text-decoration: none; }
+.attendance-dialog button.is-secondary { margin-top: .3rem; color: #344054; background: #f2f4f7; }
 .attendance-dialog button { width: 100%; min-height: 48px; margin-top: .6rem; border: 0; border-radius: 12px; color: #fff; background: var(--navy, #174b8e); font: inherit; font-weight: 700; cursor: pointer; }
 body[data-theme="dark"] .attendance-dialog { background: #1f2937; color: #edf0f4; }
 body[data-theme="dark"] .attendance-dialog p { color: #cbd5e1; }

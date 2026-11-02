@@ -27,3 +27,8 @@ attendance-sites.json
 attendance-sites.json.tmp
 announcements.json
 announcements.json.tmp
+work-report-templates.json
+work-reports.json
+work-report-files/
+work-report-structure.json
+work-report-reminders.json

@@ -1,4 +1,4 @@
-.announcements-content { display: grid; gap: 1.1rem; width: min(100%, 900px); margin: 0 auto; padding: 1.6rem 1.4rem 3rem; }
+.announcements-content { display: grid; flex: 1; min-height: 0; align-content: start; gap: 1.1rem; width: 100%; overflow-y: auto; padding: 1.6rem max(1.4rem, calc((100% - 900px) / 2)) 3rem; }
 .announcements-hero { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.5rem 1.6rem; border-radius: 22px; background: linear-gradient(130deg, #eef4ff 0%, #f6f9ff 55%, #fff7ea 100%); }
 .announcements-eyebrow { color: #5b7ba6; font-size: .78rem; font-weight: 800; letter-spacing: .1em; }
 .announcements-hero h1 { margin: .25rem 0 .4rem; color: #172b4d; font-size: clamp(1.8rem, 4vw, 2.4rem); line-height: 1.1; }

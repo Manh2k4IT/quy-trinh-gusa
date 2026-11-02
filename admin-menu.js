@@ -673,7 +673,7 @@ if (sidebarScroll) {
     <nav class="menu" aria-label="Danh mục chính">
       <a class="menu-item" href="organization-chart.html"><span class="menu-icon">▤</span><span>Sơ đồ tổ chức</span></a>
       <a class="menu-item" href="process-choice.html"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
-      <a class="menu-item" href="#"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
+      <a class="menu-item" href="kpi.html"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
       <a class="menu-item" href="recruitment.html"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
     </nav>
     <p class="menu-label">CHẤM CÔNG</p>
@@ -685,6 +685,7 @@ if (sidebarScroll) {
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">
       <a class="menu-item" href="proposal-choice.html"><span class="menu-icon">☷</span><span>Đề xuất</span></a>
+      <a class="menu-item" href="work-report.html"><span class="menu-icon">✎</span><span>Báo cáo công việc</span></a>
     </nav>
     <nav class="menu" aria-label="Menu báo cáo">
       <a class="menu-item" href="report-choice.html" data-report-menu hidden><span class="menu-icon">▥</span><span>Báo cáo</span></a>

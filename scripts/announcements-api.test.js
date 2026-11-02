@@ -18,7 +18,7 @@ test.before(async () => {
     users[role] = { id: role, name: `${role} name`, email: `${role}@example.test`, role, status: 'active' };
     sessions[`${role}-session`] = { userId: role, createdAt: Date.now() };
   }
-  for (const [file, value] of Object.entries({ 'users.json': users, 'sessions.json': sessions, 'attendance.json': {}, 'proposals.json': [], 'push-devices.json': [] })) {
+  for (const [file, value] of Object.entries({ 'announcements.json': [], 'users.json': users, 'sessions.json': sessions, 'attendance.json': {}, 'proposals.json': [], 'push-devices.json': [] })) {
     fs.writeFileSync(path.join(directory, file), JSON.stringify(value));
   }
   const port = await new Promise((resolve) => {

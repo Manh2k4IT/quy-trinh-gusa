@@ -17,6 +17,7 @@ const { createZaloClient } = require("./zalo-oa");
 const { createAttachmentStore } = require("./proposal-attachments");
 const { createProductionOrders } = require("./production-orders");
 const { createRecruitment } = require("./recruitment");
+const { createWorkReports } = require("./work-reports");
 
 loadEnvFile();
 
@@ -34,7 +35,8 @@ if (!fs.existsSync(dataDirectory)) fs.mkdirSync(dataDirectory, { recursive: true
 function dataPath(fileName) {
   const targetPath = path.join(dataDirectory, fileName);
   const seedPath = path.join(process.cwd(), fileName);
-  if (!fs.existsSync(targetPath) && fs.existsSync(seedPath) && path.resolve(targetPath) !== path.resolve(seedPath)) {
+  // Only seed plain files; data folders (e.g. uploaded photos) are created where they are used.
+  if (!fs.existsSync(targetPath) && fs.existsSync(seedPath) && fs.statSync(seedPath).isFile() && path.resolve(targetPath) !== path.resolve(seedPath)) {
     fs.copyFileSync(seedPath, targetPath);
   }
   return targetPath;
@@ -214,6 +216,7 @@ const serverOnlyScripts = new Set([
   "proposal-image-worker.js",
   "recruitment.js",
   "report-notification-data.js",
+  "work-reports.js",
 ]);
 
 function isPublicStaticPath(relativePath) {
@@ -1324,6 +1327,7 @@ function serveNotifications(req, res) {
       text: `Đề xuất ${proposalTypeLabels[proposal.type] || ""}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
       url: proposal.type === "payment" ? "/payment-proposal.html" : "/proposals.html",
     }));
+  items.push(...workReports.notificationsFor(currentUser));
   getAnnouncements()
     .filter((announcement) => Date.parse(announcement.createdAt) > since && announcement.authorId !== getAttendanceUserKey(currentUser))
     .slice(0, 10)
@@ -1492,6 +1496,9 @@ Xem trên Gusa: ${url}`));
 
 
 const recruitment = createRecruitment({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getClientIp: (req) => getRequestIp(req, attendanceTrustedProxyHops), notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
+const workReports = createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getUserKey: getAttendanceUserKey, getLocalDateKey, getLocalMinutes, notify: sendUserNotification });
+// Reminds people who have not submitted a work report due today, an hour before its deadline.
+setInterval(() => { workReports.sendReminders().catch((error) => console.error("Work report reminders failed:", error.message)); }, 5 * 60 * 1000).unref();
 const productionOrders = createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey: getAttendanceUserKey, sendJson, send, notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
 
 async function sendZaloApprovedToGroup(proposal) {
@@ -1807,6 +1814,8 @@ async function updateAttendance(req, res) {
   } else {
     if (!record.checkIn) return send(res, 400, "Bạn chưa check-in hôm nay");
     if (record.checkOut) return sendJson(res, 409, { message: "Bạn đã check-out hôm nay.", record });
+    const workReportBlock = workReports.checkoutBlock(currentUser);
+    if (workReportBlock) return sendJson(res, 409, { message: workReportBlock, needsWorkReport: true });
     const checkoutMinutes = getAttendanceShift(site, record.attendanceType).checkOutFrom;
     if (getLocalMinutes() < checkoutMinutes) return send(res, 400, `Bạn chỉ có thể check-out từ ${formatShiftTime(checkoutMinutes)}.`);
     record.checkOut = now;
@@ -2139,6 +2148,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/api/me") return serveCurrentUser(req, res);
     if (await productionOrders.handle(req, res)) return;
     if (await recruitment.handle(req, res)) return;
+    if (await workReports.handle(req, res)) return;
     if (await recruitment.handlePublic(req, res)) return;
     if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
     if (req.method === "GET" && req.url === "/api/notifications") return serveNotifications(req, res);
@@ -2232,7 +2242,7 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
-    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html", "/recruitment.html", "/announcements.html"].includes(req.url.split("?")[0])) {
+    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html", "/recruitment.html", "/announcements.html", "/work-report.html", "/kpi.html"].includes(req.url.split("?")[0])) {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
