@@ -272,8 +272,52 @@ function getStatusMeta(record, date) {
 
   return { className: 'present', short: 'X', label: 'Đã chấm công' };
 }
+// Late days of the selected month, shown under the workday table. The month follows the page's month picker.
+let lateSummaryPlace = 'all';
+const latePlaceOf = (record) => (record.workMode === 'online' || record.onlineProof ? 'online' : record.site === 'ben-thanh' ? 'ben-thanh' : 'q4');
+const monthLabel = (value) => `Tháng ${Number(value.slice(5, 7))}/${value.slice(0, 4)}`;
+
+function renderLateSummary(monthEntries) {
+  const lateEntries = monthEntries
+    .filter((record) => record.late)
+    .filter((record) => lateSummaryPlace === 'all' || latePlaceOf(record) === lateSummaryPlace)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const monthOptions = [...monthSelect.options].map(({ value }) => `<option value="${value}" ${value === monthSelect.value ? 'selected' : ''}>${monthLabel(value)}</option>`).join('');
+  const placeOptions = [['all', 'Tất cả khu vực'], ['q4', 'Quận 4'], ['ben-thanh', 'Bến Thành'], ['online', 'Làm online']]
+    .map(([value, label]) => `<option value="${value}" ${lateSummaryPlace === value ? 'selected' : ''}>${label}</option>`).join('');
+  const filtered = lateSummaryPlace !== 'all';
+  const minutes = lateEntries.map((record) => Math.max(0, Number(record.lateMinutes) || 0));
+  const totalMinutes = minutes.reduce((sum, value) => sum + value, 0);
+  const worst = minutes.length ? Math.max(...minutes) : 0;
+  const rows = lateEntries.map((record, index) => {
+    const date = new Date(`${record.date}T00:00:00`);
+    const weekday = date.toLocaleDateString('vi-VN', { weekday: 'long' });
+    const place = record.workMode === 'online' || record.onlineProof ? 'Làm online' : `Khu vực ${record.site === 'ben-thanh' ? 'Bến Thành' : 'Quận 4'}`;
+    const level = minutes[index] > 60 ? 'is-high' : minutes[index] > 15 ? 'is-medium' : 'is-low';
+    return `<li><div><b>${weekday}, ${date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</b><span>Check-in ${formatTime(record.checkIn)} · ${place}</span></div><strong class="${level}">${minutes[index]} phút</strong></li>`;
+  }).join('');
+  return `
+    <section class="attendance-late-summary">
+      <div class="attendance-late-summary-head">
+        <h3>Đi trễ ${monthLabel(monthSelect.value).toLowerCase()}</h3>
+        <div class="attendance-late-summary-filters">
+          <label><span>Tháng</span><select data-late-filter="month">${monthOptions}</select></label>
+          <label><span>Khu vực</span><select data-late-filter="place">${placeOptions}</select></label>
+        </div>
+      </div>
+      <div class="attendance-late-summary-stats">
+        <div><span>Số lần đi trễ</span><b>${lateEntries.length}</b><small>ngày</small></div>
+        <div><span>Tổng phút trễ</span><b>${totalMinutes}</b><small>phút</small></div>
+        <div><span>Trễ nhiều nhất</span><b>${worst}</b><small>phút</small></div>
+      </div>
+      ${rows ? `<ul class="attendance-late-summary-list">${rows}</ul>` : `<p class="attendance-late-summary-empty">${filtered ? 'Không có lần đi trễ nào ở khu vực này trong tháng.' : 'Tháng này chưa đi trễ lần nào. Giữ vững nhé!'}</p>`}
+    </section>
+  `;
+}
+
 function renderRecords() {
-  const entryList = Object.values(records).sort((a, b) => b.date.localeCompare(a.date));
+  // The API returns every month, so the cards only count the month being viewed.
+  const entryList = Object.values(records).filter((record) => !monthSelect.value || record.date?.startsWith(monthSelect.value)).sort((a, b) => b.date.localeCompare(a.date));
   const workingDays = entryList.reduce((total, record) => {
     if (record.halfDayApproved) return total + (record.attendanceType === 'full-day' ? 1 : 0.5);
     return total + (record.checkIn && record.checkOut && record.status === 'completed' ? (record.attendanceType === 'full-day' ? 1 : 0.5) : 0);
@@ -358,6 +402,7 @@ function renderRecords() {
         <span><i class="attendance-legend-dot is-unauthorized"></i> Nghỉ không phép</span>
       </div>
       ${rows}
+      ${renderLateSummary(entryList)}
     </div>
   `;
 }
@@ -410,6 +455,17 @@ function describeAttendanceResult(action, record) {
 async function submitAttendance(action) { if (attendanceBusy) return; attendanceBusy = true; checkIn.disabled = true; checkOut.disabled = true; message.textContent = 'Đang cập nhật...'; try { const selectedType = document.querySelector('input[name="attendanceType"]:checked')?.value || 'full-day'; const today = records?.[todayKey()]; const officeSite = action === 'check-in' ? (isOnlineAttendance ? null : attendanceSite) : (today?.workMode === 'online' ? null : today?.site || 'q4'); let location; if (officeSite) { message.textContent = 'Đang lấy vị trí...'; try { location = await getAttendanceLocation(); } catch (error) { if (officeSite !== 'q4') throw error; } message.textContent = 'Đang cập nhật...'; } const response = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, mode: isOnlineAttendance ? 'online' : 'office', site: attendanceSite, attendanceType: selectedType, onlineProof, location }) }); const responseText = await response.text(); let data = {}; try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; } if (!response.ok) throw new Error(data.message || 'Không thể cập nhật chấm công.'); message.textContent = action === 'check-in' ? 'Đã check-in thành công.' : 'Đã check-out thành công.'; if (data.record) showAttendanceDialog(describeAttendanceResult(action, data.record)); attendanceBusy = false; await loadAttendance(); } catch (error) { attendanceBusy = false; message.textContent = error.message; showAttendanceDialog({ success: false, title: action === 'check-in' ? 'Chưa check-in được' : 'Chưa check-out được', lines: [error.message] }); setStatus(records); } }
 const today = new Date(); for (let offset = 0; offset < 12; offset += 1) { const date = new Date(today.getFullYear(), today.getMonth() - offset, 1); const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; monthSelect.append(new Option(date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }), value)); }
 monthSelect.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+list.addEventListener('change', (event) => {
+  const select = event.target.closest('[data-late-filter]');
+  if (!select) return;
+  if (select.dataset.lateFilter === 'month') {
+    monthSelect.value = select.value;
+    loadAttendance();
+    return;
+  }
+  lateSummaryPlace = select.value;
+  renderRecords();
+});
 monthSelect.addEventListener('change', loadAttendance); attendanceTypeChoice?.addEventListener('change', () => setStatus(records)); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => submitAttendance('check-out')); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
 fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin, user.role); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'ceo'
       ? originalRole === 'CEO'

@@ -77,6 +77,19 @@ let canReview = false;
 let viewerRole = 'employee';
 let pendingAccountingRejectId = '';
 let pendingAccountingRejectButton = null;
+// The reason dialog serves both Admin/CEO rejections and the accountant's direct-payment rejection.
+let pendingRejectAction = '';
+const rejectTitle = document.querySelector('[data-reject-title]');
+function openRejectDialog(id, button, action) {
+  pendingAccountingRejectId = id;
+  pendingAccountingRejectButton = button;
+  pendingRejectAction = action;
+  if (rejectTitle) rejectTitle.textContent = action === 'accounting-reject' ? 'Từ chối đề xuất trực tiếp' : 'Từ chối đề xuất';
+  accountantRejectReason.value = '';
+  accountantRejectError.hidden = true;
+  accountantRejectModal.hidden = false;
+  accountantRejectReason.focus();
+}
 let notificationInitialized = false;
 let notificationTimer;
 
@@ -427,16 +440,14 @@ accountantRejectModal.addEventListener('click', (event) => {
 accountantRejectForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const rejectionReason = accountantRejectReason.value.trim();
-  if (!rejectionReason) {
-    accountantRejectError.textContent = 'Vui lòng nhập lý do từ chối.';
-    accountantRejectError.hidden = false;
+  if (!rejectionReason && !confirm('Bạn chưa nhập lý do từ chối. Vẫn gửi từ chối mà không có lý do?')) {
     accountantRejectReason.focus();
     return;
   }
   const submitButton = accountantRejectForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
   submitButton.textContent = 'ĐANG GỬI...';
-  const succeeded = await update(pendingAccountingRejectId, 'rejected', pendingAccountingRejectButton, 'accounting-reject', rejectionReason);
+  const succeeded = await update(pendingAccountingRejectId, 'rejected', pendingAccountingRejectButton, pendingRejectAction, rejectionReason);
   submitButton.disabled = false;
   submitButton.textContent = 'Gửi từ chối';
   if (succeeded) {
@@ -475,16 +486,9 @@ list.addEventListener('click', (event) => {
   const accountantReject = event.target.closest('[data-accountant-reject]');
   if (details) { openProposalDetail(details.dataset.detail); return; }
   if (approve) update(approve.dataset.approve, 'approved', approve);
-  if (reject) update(reject.dataset.reject, 'rejected', reject);
+  if (reject) openRejectDialog(reject.dataset.reject, reject, '');
   if (confirm) update(confirm.dataset.confirm, 'approved', confirm, 'confirm');
-  if (accountantReject) {
-    pendingAccountingRejectId = accountantReject.dataset.accountantReject;
-    pendingAccountingRejectButton = accountantReject;
-    accountantRejectReason.value = '';
-    accountantRejectError.hidden = true;
-    accountantRejectModal.hidden = false;
-    accountantRejectReason.focus();
-  }
+  if (accountantReject) openRejectDialog(accountantReject.dataset.accountantReject, accountantReject, 'accounting-reject');
 });
 document.querySelector('[data-close-report-detail]')?.addEventListener('click', closeProposalDetail);
 detailModal?.addEventListener('click', (event) => { if (event.target === detailModal) closeProposalDetail(); });

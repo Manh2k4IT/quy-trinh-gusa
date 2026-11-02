@@ -331,7 +331,13 @@ test("signed proposals preserve documents and payment routing", async () => {
   assert.equal((await rejected.json()).proposal.paymentStage, "rejected");
   const management = await post({ ...paymentPayload, paymentFlow: "ceo" });
   const managementId = (await management.json()).proposal.id;
-  assert.equal((await decide(managementId, "admin", { status: "rejected" })).status, 200);
+  const managementRejected = await decide(managementId, "admin", { status: "rejected", rejectionReason: "Vượt ngân sách tháng" });
+  assert.equal(managementRejected.status, 200);
+  assert.equal((await managementRejected.json()).proposal.rejectionReason, "Vượt ngân sách tháng");
+  const noReason = await post({ ...paymentPayload, paymentFlow: "ceo" });
+  const noReasonRejected = await decide((await noReason.json()).proposal.id, "ceo", { status: "rejected" });
+  assert.equal(noReasonRejected.status, 200);
+  assert.equal((await noReasonRejected.json()).proposal.rejectionReason, undefined);
   assert.equal((await decide(managementId, "accountant", { action: "confirm" })).status, 409);
   const legacy = await request("/api/proposals/personnel-1/document?format=pdf", "employee");
   assert.equal(legacy.status, 200);

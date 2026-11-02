@@ -111,6 +111,33 @@ function escapeReportText(value) {
 	return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 }
 
+// Company-wide late totals for the month of the selected day, one row per employee.
+let lateMonthSort = 'count';
+function renderLateMonthSummary(selectedDate) {
+	const month = selectedDate.slice(0, 7);
+	const monthLabel = `tháng ${Number(month.slice(5, 7))}/${month.slice(0, 4)}`;
+	const people = users.map((user) => {
+		const lateRecords = Object.values(user.records || {}).filter((record) => record.date?.startsWith(month) && record.late);
+		const minutes = lateRecords.map(getLateMinutes);
+		return { user, count: lateRecords.length, total: minutes.reduce((sum, value) => sum + value, 0), worst: minutes.length ? Math.max(...minutes) : 0 };
+	});
+	const late = people.filter((person) => person.count > 0)
+		.sort((a, b) => (lateMonthSort === 'minutes' ? b.total - a.total || b.count - a.count : b.count - a.count || b.total - a.total) || a.user.name.localeCompare(b.user.name, 'vi'));
+	const totalCount = late.reduce((sum, person) => sum + person.count, 0);
+	const totalMinutes = late.reduce((sum, person) => sum + person.total, 0);
+	const peak = Math.max(1, ...late.map((person) => (lateMonthSort === 'minutes' ? person.total : person.count)));
+	const rows = late.map((person, index) => {
+		const share = Math.round(((lateMonthSort === 'minutes' ? person.total : person.count) / peak) * 100);
+		return `<li class="lr-rank-row"><span class="lr-rank">${index + 1}</span><span class="lr-avatar">${getReportAvatar(person.user)}</span><div class="lr-rank-info"><b>${escapeReportText(person.user.name)}</b><span class="lr-bar"><i style="width:${share}%"></i></span></div><span class="lr-rank-cell"><b>${person.count}</b><small>lần</small></span><span class="lr-rank-cell"><b>${person.total}</b><small>phút</small></span><span class="lr-rank-cell"><b>${Math.round(person.total / person.count)}</b><small>phút/lần</small></span><span class="lr-rank-cell is-worst"><b>${person.worst}</b><small>lâu nhất</small></span></li>`;
+	}).join('');
+	const onTime = people.length - late.length;
+	return `<section class="lr-month"><div class="lr-head"><div><span class="lr-eyebrow">Tổng hợp toàn công ty</span><h3>Đi trễ ${monthLabel}</h3></div><label class="lr-filter"><span>Sắp xếp</span><select data-late-month-sort><option value="count" ${lateMonthSort === 'count' ? 'selected' : ''}>Nhiều lần nhất</option><option value="minutes" ${lateMonthSort === 'minutes' ? 'selected' : ''}>Nhiều phút nhất</option></select></label></div>`
+		+ `<div class="lr-stats"><div class="lr-stat"><span>Tổng lượt đi trễ</span><b>${totalCount}</b></div><div class="lr-stat"><span>Tổng phút trễ</span><b>${totalMinutes}</b></div><div class="lr-stat"><span>Nhân viên từng đi trễ</span><b>${late.length}<small class="lr-stat-of"> / ${people.length}</small></b></div></div>`
+		+ (rows ? `<ol class="lr-rank-list">${rows}</ol>` : '<div class="lr-empty"><span aria-hidden="true">✓</span><b>Cả công ty không ai đi trễ</b><small>Tháng này chưa có lượt đi trễ nào.</small></div>')
+		+ (rows && onTime ? `<p class="lr-month-note">${onTime} nhân viên không đi trễ lần nào trong ${monthLabel}.</p>` : '')
+		+ '</section>';
+}
+
 function renderLateReport() {
 	const selectedDate = monthSelect.value;
 	const selectedDateLabel = monthSelect.selectedOptions[0]?.textContent || selectedDate;
@@ -140,7 +167,8 @@ function renderLateReport() {
 	lateReport.innerHTML = `<div class="lr"><div class="lr-head"><div><span class="lr-eyebrow">Báo cáo đi trễ</span><h3>${escapeReportText(selectedDateLabel)}</h3></div><label class="lr-filter"><span>Trạng thái</span><select data-late-report-status>${statusOptions}</select></label></div>`
 		+ `<div class="lr-stats"><div class="lr-stat"><span>Số người đi trễ</span><b>${filteredLateEntries.length}</b></div><div class="lr-stat"><span>Tổng phút trễ</span><b>${totalMinutes}</b></div><div class="lr-stat is-worst"><span>Trễ nhiều nhất</span><b>${worst ? `${minutesOf[worstIndex]} phút` : '—'}</b>${worst ? `<small>${escapeReportText(worst.user.name)}</small>` : ''}</div></div>`
 		+ (rows ? `<div class="lr-list">${rows}</div>` : '<div class="lr-empty"><span aria-hidden="true">✓</span><b>Không có ai đi trễ</b><small>Không có nhân sự đi trễ trong ngày này theo bộ lọc.</small></div>')
-		+ '<p class="lr-feedback" data-late-feedback role="status" hidden></p></div>';
+		+ '<p class="lr-feedback" data-late-feedback role="status" hidden></p></div>'
+		+ renderLateMonthSummary(selectedDate);
 }
 
 // "Bỏ đi trễ" clears a wrongful late mark; the day still counts as worked.
@@ -167,6 +195,11 @@ lateReport.addEventListener('click', async (event) => {
 });
 
 lateReport.addEventListener('change', (event) => {
+	if (event.target.matches('[data-late-month-sort]')) {
+		lateMonthSort = event.target.value;
+		renderLateReport();
+		return;
+	}
 	if (!event.target.matches('[data-late-report-status]')) return;
 	lateReportStatusFilter = event.target.value;
 	renderLateReport();

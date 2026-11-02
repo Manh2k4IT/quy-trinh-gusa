@@ -1460,6 +1460,18 @@ async function resendProposalZalo(req, res, proposalId) {
   sendJson(res, 200, { sent: true });
 }
 
+// Tells the group where the proposal was posted that it was rejected, with the reason.
+async function sendZaloRejectedToGroup(proposal) {
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
+  const reason = String(proposal.rejectionReason || "").trim().slice(0, 500);
+  const text = `Đề xuất ${typeLabels[proposal.type] || proposal.type} của ${proposal.userName || "nhân viên"} đã bị từ chối.${reason ? `\nLý do: ${reason}` : ""}\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
+  try {
+    await zaloClient.sendGroupMessage(text, { kind: proposal.type === "payment" ? "payment" : "general" });
+  } catch (error) {
+    console.error("Zalo rejected-proposal group notification failed:", error.message);
+  }
+}
+
 async function sendZaloProposalOutcome(proposal, { managementApproval = false } = {}) {
   const zaloUserId = zaloClient.getUserId(proposal.userId);
   if (!zaloUserId) {
@@ -1497,22 +1509,24 @@ async function updateProposalStatus(req, res) {
       proposal.reviewedAt = now;
     } else if (payload.action === "accounting-reject") {
       if (currentUser.role !== "accountant" || paymentFlow !== "accountant" || paymentStage !== "accounting") return send(res, 403, "Chỉ kế toán được từ chối đề xuất trực tiếp đang chờ kế toán.");
+      // The reason is optional; the page asks for confirmation before rejecting without one.
       const rejectionReason = String(payload.rejectionReason || "").trim().slice(0, 1000);
-      if (!rejectionReason) return send(res, 400, "Vui lòng nhập lý do từ chối.");
       proposal.status = "rejected";
       proposal.paymentStage = "rejected";
-      proposal.rejectionReason = rejectionReason;
+      if (rejectionReason) proposal.rejectionReason = rejectionReason;
       proposal.accountingRejectedAt = now;
       proposal.accountingRejectedBy = getAttendanceUserKey(currentUser);
       proposal.reviewedAt = now;
     } else {
       if (!isManagementUser(currentUser) || !["approved", "rejected"].includes(payload.status)) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");
       if (paymentFlow !== "ceo" || paymentStage !== "management") return send(res, 409, "Đề xuất này không còn ở bước duyệt của CEO/Admin.");
+      const rejectionReason = String(payload.rejectionReason || "").trim().slice(0, 1000);
       proposal.managementReviewedAt = now;
       proposal.managementReviewedBy = getAttendanceUserKey(currentUser);
       if (payload.status === "rejected") {
         proposal.status = "rejected";
         proposal.paymentStage = "rejected";
+        if (rejectionReason) proposal.rejectionReason = rejectionReason;
         proposal.reviewedAt = now;
       } else {
         proposal.managementApprovedAt = now;
@@ -1525,6 +1539,8 @@ async function updateProposalStatus(req, res) {
     if (!isManagementUser(currentUser)) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");
     if (! ["approved", "rejected"].includes(payload.status)) return send(res, 400, "Trạng thái đề xuất không hợp lệ.");
     if (proposal.status !== "pending") return send(res, 409, "Đề xuất này đã được xử lý.");
+    const rejectionReason = String(payload.rejectionReason || "").trim().slice(0, 1000);
+    if (payload.status === "rejected" && rejectionReason) proposal.rejectionReason = rejectionReason;
     proposal.status = payload.status;
     proposal.reviewedAt = now;
     proposal.reviewedBy = getAttendanceUserKey(currentUser);
@@ -1543,6 +1559,7 @@ async function updateProposalStatus(req, res) {
     sendProposalStatusPush(proposal).catch((error) => console.error("Proposal push failed:", error));
     if (["approved", "rejected"].includes(proposal.status)) sendZaloProposalOutcome(proposal).catch((error) => console.error("Zalo proposal status notification failed:", error.message));
     if (proposal.status === "approved") sendZaloApprovedToGroup(proposal);
+    if (proposal.status === "rejected") sendZaloRejectedToGroup(proposal);
   }
   sendJson(res, 200, { proposal: attachments.withUrls(proposal), movedToAccounting });
 }

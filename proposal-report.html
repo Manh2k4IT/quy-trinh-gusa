@@ -41,10 +41,10 @@
     <div class="report-detail-modal" data-accountant-reject-modal hidden>
       <form class="report-detail-dialog accountant-reject-dialog" data-accountant-reject-form role="dialog" aria-modal="true" aria-labelledby="accountant-reject-title">
         <button class="report-detail-close" type="button" data-cancel-accountant-reject aria-label="Đóng">×</button>
-        <h2 id="accountant-reject-title">Từ chối đề xuất trực tiếp</h2>
-        <p>Nhập lý do để người đề xuất biết vì sao đơn bị từ chối.</p>
-        <label class="accountant-reject-label" for="accountant-reject-reason">Lý do từ chối</label>
-        <textarea id="accountant-reject-reason" data-accountant-reject-reason rows="5" maxlength="1000" required placeholder="Nhập lý do từ chối..."></textarea>
+        <h2 id="accountant-reject-title" data-reject-title>Từ chối đề xuất</h2>
+        <p>Nhập lý do để người đề xuất biết vì sao đơn bị từ chối. Lý do sẽ được gửi kèm thông báo Zalo.</p>
+        <label class="accountant-reject-label" for="accountant-reject-reason">Lý do từ chối (không bắt buộc)</label>
+        <textarea id="accountant-reject-reason" data-accountant-reject-reason rows="5" maxlength="1000" placeholder="Nhập lý do từ chối (không bắt buộc)..."></textarea>
         <p class="accountant-reject-error" data-accountant-reject-error role="alert" hidden></p>
         <div class="accountant-reject-actions"><button type="button" data-cancel-accountant-reject>Hủy</button><button type="submit">Gửi từ chối</button></div>
       </form>
@@ -52,6 +52,6 @@
     <script src="admin-menu.js?v=20261102-1"></script>
     <script src="report-notifications.js?v=20261007-1"></script>
     <script src="proposal-saved-document.js?v=20261007-2"></script>
-    <script src="proposal-report.js?v=20261031-1"></script>
+    <script src="proposal-report.js?v=20261102-2"></script>
   </body>
 </html>
