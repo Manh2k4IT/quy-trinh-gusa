@@ -232,7 +232,7 @@ function setStatus(record) {
     status.textContent = today.late ? `Đi muộn, đang làm việc từ ${formatTime(today.checkIn)}` : `Đang làm việc từ ${formatTime(today.checkIn)}`;
     if (otherSite) status.textContent = `Hôm nay bạn đã check-in tại ${otherSite} (${formatTime(today.checkIn)}) nên giờ làm tính theo ${otherSite}. ${today.late ? 'Đi muộn. ' : ''}`;
     checkIn.disabled = true;
-    checkOut.disabled = attendanceBusy || !checkoutAvailable;
+    checkOut.disabled = attendanceBusy;
     if (!checkoutAvailable) status.textContent += `${otherSite ? '' : ' - '}Check-out mở lúc ${formatShiftTime(shift.checkOutFrom)}`;
     return;
   }
@@ -319,6 +319,22 @@ function renderLateSummary(monthEntries) {
   `;
 }
 
+// Hours worked in the month, including the shift still running today; refreshed every minute.
+function updateHoursStat(entryList = Object.values(records).filter((record) => !monthSelect.value || record.date?.startsWith(monthSelect.value))) {
+  const now = Date.now();
+  const running = entryList.find((record) => record.date === todayKey() && record.checkIn && !record.checkOut);
+  const totalHours = entryList.reduce((sum, record) => {
+    if (record.checkIn && record.checkOut) return sum + (new Date(record.checkOut) - new Date(record.checkIn)) / 3600000;
+    if (record === running) return sum + Math.max(0, now - new Date(record.checkIn)) / 3600000;
+    return sum;
+  }, 0);
+  document.querySelector('[data-stat-hours]').textContent = `${totalHours.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h`;
+  const hoursNote = document.querySelector('.stat-hours small');
+  if (hoursNote) hoursNote.textContent = running ? `tổng thời gian · hôm nay đang làm từ ${formatTime(running.checkIn)}` : 'tổng thời gian';
+  const daysNote = document.querySelector('.stat-days small');
+  if (daysNote) daysNote.textContent = running ? 'quy đổi trong tháng này · hôm nay được cộng khi check-out' : 'quy đổi trong tháng này';
+}
+
 function renderRecords() {
   // The API returns every month, so the cards only count the month being viewed.
   const entryList = Object.values(records).filter((record) => !monthSelect.value || record.date?.startsWith(monthSelect.value)).sort((a, b) => b.date.localeCompare(a.date));
@@ -328,8 +344,7 @@ function renderRecords() {
   }, 0);
   document.querySelector('[data-stat-days]').textContent = workingDays.toLocaleString('vi-VN', { maximumFractionDigits: 1 });
   document.querySelector('[data-stat-late]').textContent = entryList.filter((record) => record.late).length;
-  const totalHours = entryList.reduce((sum, record) => sum + (record.checkIn && record.checkOut ? (new Date(record.checkOut) - new Date(record.checkIn)) / 3600000 : 0), 0);
-  document.querySelector('[data-stat-hours]').textContent = `${totalHours.toFixed(1)}h`;
+  updateHoursStat(entryList);
 
   const monthValue = monthSelect.value;
   if (!monthValue) {
@@ -480,7 +495,18 @@ list.addEventListener('change', (event) => {
   lateSummaryPlace = select.value;
   renderRecords();
 });
-monthSelect.addEventListener('change', loadAttendance); attendanceTypeChoice?.addEventListener('change', () => setStatus(records)); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => submitAttendance('check-out')); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
+monthSelect.addEventListener('change', loadAttendance); attendanceTypeChoice?.addEventListener('change', () => setStatus(records)); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => {
+  const today = records?.[todayKey()];
+  const shift = getAttendanceShift(today?.site, today?.attendanceType);
+  const now = new Date();
+  const waitMinutes = shift.checkOutFrom - (now.getHours() * 60 + now.getMinutes());
+  if (today?.checkIn && !today.checkOut && waitMinutes > 0) {
+    const wait = waitMinutes >= 60 ? `${Math.floor(waitMinutes / 60)} giờ${waitMinutes % 60 ? ` ${waitMinutes % 60} phút` : ''}` : `${waitMinutes} phút`;
+    showAttendanceDialog({ success: false, title: 'Chưa đến giờ check-out', lines: [`Ca hôm nay check-out từ ${formatShiftTime(shift.checkOutFrom)}. Còn ${wait} nữa.`, `Bạn đang làm việc từ ${formatTime(today.checkIn)}, quay lại bấm Check-out khi đến giờ nhé.`] });
+    return;
+  }
+  submitAttendance('check-out');
+}); setInterval(() => { if (records) updateHoursStat(); }, 60 * 1000); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
 fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin, user.role); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'ceo'
       ? originalRole === 'CEO'
       : user.role === 'admin'
