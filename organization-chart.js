@@ -860,9 +860,13 @@ function renderPresentationChart() {
     group.textContent = name;
     internalGroups.append(group);
   });
+  // Reports straight to the director, on the left of the director → deputy line.
+  const techSpecialist = document.createElement("div");
+  techSpecialist.className = "presentation-tech-specialist";
+  techSpecialist.innerHTML = "<strong>CHUYÊN VIÊN<br />HỆ THỐNG<br />CÔNG NGHỆ</strong>";
   const leaders = document.createElement("div");
   leaders.className = "presentation-leaders";
-  leaders.append(director, deputy, internal, internalGroups);
+  leaders.append(director, deputy, techSpecialist, internal, internalGroups);
   const makePresentationLink = (element, name) => {
     const matchingNode = nodes.find((node) => normalizeSearchText(node.name) === normalizeSearchText(name));
     element.classList.add("presentation-clickable");
@@ -886,6 +890,7 @@ function renderPresentationChart() {
   makePresentationLink(director, "GIÁM ĐỐC");
   makePresentationLink(deputy, "P. GIÁM ĐỐC");
   makePresentationLink(internal, "KIỂM SOÁT NỘI BỘ");
+  makePresentationLink(techSpecialist, "CHUYÊN VIÊN HỆ THỐNG CÔNG NGHỆ");
   top.append(leaders);
   chartTree.append(top);
   const departments = document.createElement("div");
