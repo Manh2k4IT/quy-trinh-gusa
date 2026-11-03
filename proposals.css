@@ -131,8 +131,8 @@
 	.app-shell {
 		height: 100dvh;
 		min-height: 100dvh;
-		padding-top: env(safe-area-inset-top, 0px);
-		padding-bottom: env(safe-area-inset-bottom, 0px);
+		padding-top: var(--app-safe-top);
+		padding-bottom: var(--app-safe-bottom);
 		background: var(--surface);
 	}
 
@@ -140,7 +140,7 @@
 
 	.sidebar {
 		height: 100dvh;
-		padding-top: env(safe-area-inset-top, 0px);
+		padding-top: var(--app-safe-top);
 	}
 }
 

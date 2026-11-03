@@ -4894,3 +4894,17 @@ body[data-theme="dark"] .page-breadcrumbs { border-color: #334155; background: #
 body[data-theme="dark"] .zalo-resend label { color: #edf0f4; }
 body[data-theme="dark"] .zalo-resend select { background: #1f2937; border-color: #374151; color: #edf0f4; }
 .zalo-oa-setting .interface-setting-control { flex-wrap: wrap; gap: .6rem; }
+
+/* Phones and the Android app: the app fills exactly the visible screen (browser bars come and go, so 100vh is
+   taller than what shows) and stays clear of the status bar and the system navigation bar.
+   The Android app passes the bar sizes as --safe-area-inset-*; browsers use env(). */
+:root {
+  --app-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --app-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+body:has(> .app-shell) { overflow: hidden; overscroll-behavior: none; }
+.app-shell { box-sizing: border-box; height: 100vh; height: 100dvh; min-height: 0; padding-top: var(--app-safe-top); padding-bottom: var(--app-safe-bottom); }
+.app-shell > .workspace, .app-shell > .sidebar { height: auto; align-self: stretch; }
+@media (max-width: 600px) {
+  .app-shell > .sidebar { height: auto; top: 0; bottom: 0; padding-top: var(--app-safe-top); padding-bottom: var(--app-safe-bottom); }
+}

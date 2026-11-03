@@ -179,11 +179,11 @@ body[data-theme="dark"] .production-proof { background: #101c2d; border-color: #
 }
 /* Chừa vùng thanh trạng thái (trên) và thanh điều hướng (dưới) trên điện thoại. */
 @media (max-width: 600px) {
-  .app-shell { height: 100dvh; min-height: 100dvh; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--surface); }
+  .app-shell { height: 100dvh; min-height: 100dvh; padding-top: var(--app-safe-top); padding-bottom: var(--app-safe-bottom); background: var(--surface); }
   .workspace { height: auto; }
-  .sidebar { height: 100dvh; padding-top: env(safe-area-inset-top, 0px); }
-  .production-content { padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px)); }
-  .production-modal { padding-top: calc(.6rem + env(safe-area-inset-top, 0px)); padding-bottom: calc(.6rem + env(safe-area-inset-bottom, 0px)); }
+  .sidebar { height: 100dvh; padding-top: var(--app-safe-top); }
+  .production-content { padding-bottom: calc(2rem + var(--app-safe-bottom)); }
+  .production-modal { padding-top: calc(.6rem + var(--app-safe-top)); padding-bottom: calc(.6rem + var(--app-safe-bottom)); }
 }
 
 .production-assign { border: 1px solid var(--line); border-radius: 14px; background: #fff; }
