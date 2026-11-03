@@ -50,6 +50,10 @@
 .attendance-secondary:disabled { cursor: not-allowed; opacity: .45; }
 .attendance-primary:disabled { cursor: not-allowed; opacity: .4; box-shadow: none; filter: grayscale(.6); }
 .attendance-primary[hidden], .attendance-secondary[hidden] { display: none; }
+/* Check-out is the main action during the shift, so it gets a solid button of its own. */
+.attendance-secondary[data-check-out]:not(:disabled) { border: 0; color: #fff; background: linear-gradient(115deg, #e8772e, #d4621f); box-shadow: 0 9px 18px rgba(212, 98, 31, .25); }
+.attendance-secondary[data-check-out]:not(:disabled):hover { filter: brightness(1.05); }
+.attendance-secondary[data-check-out]:not(:disabled) svg { stroke: currentColor; }
 .attendance-late-summary { display: grid; gap: .8rem; margin-top: 1.2rem; padding: 1.1rem; border: 1px solid #f3dfc4; border-radius: 18px; background: linear-gradient(180deg, #fffaf2, #fff); }
 .attendance-late-summary h3 { margin: 0; color: #93370d; font-size: 1.05rem; }
 .attendance-late-summary-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: .7rem; }
@@ -709,3 +713,5 @@ body[data-theme="dark"] .lr-meta, body[data-theme="dark"] .lr-stat span { color:
 	.lr-avatar .attendance-report-avatar { width: 42px; height: 42px; }
 	.lr-waive { grid-column: 1 / -1; width: 100%; }
 }
+
+body[data-theme="dark"] .attendance-secondary[data-check-out]:not(:disabled) { color: #fff; background: linear-gradient(115deg, #e8772e, #d4621f); }
