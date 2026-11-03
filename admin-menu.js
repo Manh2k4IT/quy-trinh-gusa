@@ -578,7 +578,7 @@ function initializeNotificationCenter(user) {
 // Chấm đỏ mục Báo cáo: tổng số mục mới/cập nhật chưa xem — cùng cách đếm với các thẻ trong trang Báo cáo.
 function initializeReportMenuBadge() {
   if (window.refreshReportMenuBadge) return;
-  const reportKeys = ['online', 'late', 'overview', 'personnel', 'payment'];
+  const reportKeys = ['online', 'late', 'overview', 'personnel', 'payment', 'accounting-team'];
   const setBadge = (count) => {
     document.querySelectorAll('.menu-item[href="report-choice.html"] .menu-icon').forEach((icon) => {
       let badge = icon.querySelector(':scope > [data-report-menu-badge]');
@@ -782,6 +782,7 @@ if (sidebarScroll) {
     </nav>
     <nav class="menu" aria-label="Menu báo cáo">
       <a class="menu-item" href="report-choice.html" data-feature="reports" data-report-menu hidden><span class="menu-icon">▥</span><span>Báo cáo</span></a>
+      <a class="menu-item" href="salary.html" data-salary-menu hidden><span class="menu-icon">₫</span><span>Lương nhân viên</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
     <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt</span></a></nav>
@@ -822,9 +823,9 @@ if (sidebarScroll) {
           element.textContent = user.name || user.email || 'Tài khoản Google';
         });
         document.querySelectorAll('[data-user-role], [data-profile-role]').forEach((element) => {
-          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên';
+          element.textContent = user.role === 'admin' ? 'Quản trị viên' : user.role === 'ceo' ? 'CEO' : user.role === 'accountant' ? 'Kế toán trưởng' : user.role === 'bookkeeper' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên';
         });
-        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên';
+        const roleChipLabel = user.role === 'ceo' ? 'CEO' : user.role === 'admin' ? 'Quản trị' : user.role === 'accountant' ? 'Kế toán trưởng' : user.role === 'bookkeeper' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên';
         document.querySelectorAll('.role-chip').forEach((button) => {
           const originalRole = button.dataset.role || button.textContent.trim();
           button.dataset.role = originalRole;
@@ -870,8 +871,9 @@ if (sidebarScroll) {
       sidebarScroll.querySelector('[data-admin-menu]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-admin-menu-label]').hidden = !isAdmin;
       sidebarScroll.querySelector('[data-report-menu]').hidden = !(isAdmin || isAccountant);
+      sidebarScroll.querySelector('[data-salary-menu]').hidden = !isAdmin;
       document.querySelectorAll('[data-report-access]').forEach((card) => {
-        card.hidden = card.dataset.reportAccess === 'payment' ? !(isAdmin || isAccountant) : !isAdmin;
+        card.hidden = ['payment', 'accounting-team'].includes(card.dataset.reportAccess) ? !(isAdmin || isAccountant) : !isAdmin;
       });
       const reportStatus = document.querySelector('[data-report-choice-status]');
       if (reportStatus) {

@@ -143,13 +143,13 @@ test("summary API exposes only authorized reports and no report contents", async
     assert.equal(response.status, 200);
     const summary = await response.json();
     assert.equal(summary.accountId, role);
-    assert.deepEqual(Object.keys(summary.reports), ["online", "late", "overview", "personnel", "payment"]);
+    assert.deepEqual(Object.keys(summary.reports), ["online", "late", "overview", "personnel", "payment", "accounting-team"]);
     assert.equal(summary.reports.payment.length, 2);
     assert.deepEqual(summary.reports.payment.map((item) => item.id), ["management-payment", "accounting-payment"]);
     assert.deepEqual(Object.keys(summary.reports.online[0]), ["id", "version"]);
   }
   const accountant = await (await request("/api/report-notifications", "accountant")).json();
-  assert.deepEqual(Object.keys(accountant.reports), ["payment"]);
+  assert.deepEqual(Object.keys(accountant.reports), ["payment", "accounting-team"]);
   assert.deepEqual(accountant.reports.payment.map((item) => item.id), ["accounting-payment", "direct-payment"]);
   for (const role of ["employee", "inactive", null]) {
     assert.equal((await request("/api/report-notifications", role)).status, 403);

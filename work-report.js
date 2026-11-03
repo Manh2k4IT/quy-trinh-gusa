@@ -43,8 +43,8 @@
 
   const scheduleText = (schedule = {}) => {
     const range = schedule.startDate || schedule.endDate ? ` · ${schedule.startDate ? `từ ${shortDate(schedule.startDate)}` : ''}${schedule.endDate ? ` đến ${shortDate(schedule.endDate)}` : ''}` : '';
-    if (schedule.frequency === 'weekly') return `Hằng tuần, hạn ${weekdayLong[schedule.weekday || 6]}${range}`;
-    if (schedule.frequency === 'monthly') return `Hằng tháng, hạn ngày ${schedule.monthDay || 28}${range}`;
+    if (schedule.frequency === 'weekly') return `Hằng tuần, ${schedule.openWeekday ? `mở ${weekdayLong[schedule.openWeekday]}, ` : ''}hạn ${weekdayLong[schedule.weekday || 6]}${range}`;
+    if (schedule.frequency === 'monthly') return `Hằng tháng, ${schedule.openDay ? `mở ngày ${schedule.openDay}, ` : ''}hạn ngày ${schedule.monthDay || 28}${range}`;
     const days = schedule.weekdays?.length ? schedule.weekdays : [1, 2, 3, 4, 5, 6, 7];
     return `${days.length === 7 ? 'Mỗi ngày' : `Mỗi ${days.map((day) => weekdayNames[day]).join(', ')}`}${range}`;
   };
@@ -87,27 +87,32 @@
   function renderMine() {
     const panel = panels.mine;
     const items = today.items;
-    const done = items.filter((item) => item.report).length;
+    // A weekly/monthly report whose input opens later shows locked and does not count as to-do yet.
+    items.forEach((item) => { item.locked = !item.report && Boolean(item.period.opensOn) && today.date < item.period.opensOn; });
+    const done = items.filter((item) => item.report || item.locked).length;
     statusChip.hidden = !items.length;
     statusChip.className = `wr-status ${done === items.length ? 'is-done' : 'is-missing'}`;
-    statusChip.textContent = done === items.length ? `Đã nộp đủ ${items.length} báo cáo` : `Còn ${items.length - done} báo cáo cần nộp`;
+    statusChip.textContent = done === items.length ? (items.some((item) => item.locked) ? 'Chưa có báo cáo cần nộp lúc này' : `Đã nộp đủ ${items.length} báo cáo`) : `Còn ${items.length - done} báo cáo cần nộp`;
     if (!items.length) {
       panel.innerHTML = '<div class="wr-empty"><span aria-hidden="true">🗂️</span><b>Hôm nay bạn không có báo cáo cần nộp</b><small>Khi Admin/CEO giao mẫu báo cáo cho bạn, nó sẽ hiện ở đây theo đúng lịch nộp. Xem báo cáo cũ ở tab "Lịch sử của tôi".</small></div>';
       return;
     }
     // Reports still to do come first and start open; submitted ones stay folded until tapped.
-    const ordered = [...items].sort((a, b) => Number(Boolean(a.report)) - Number(Boolean(b.report)));
-    ordered.forEach((item) => { if (!item.report && !item.seenOpen) { openCards.add(item.template.id); item.seenOpen = true; } });
-    panel.innerHTML = `<div class="wr-summary"><span class="is-todo"><b>${items.length - done}</b> cần nộp</span><span class="is-done"><b>${done}</b> đã nộp</span></div>`
+    const rank = (item) => (item.report ? 2 : item.locked ? 1 : 0);
+    const ordered = [...items].sort((a, b) => rank(a) - rank(b));
+    ordered.forEach((item) => { if (!item.report && !item.locked && !item.seenOpen) { openCards.add(item.template.id); item.seenOpen = true; } });
+    const submitted = items.filter((item) => item.report).length;
+    const locked = items.filter((item) => item.locked).length;
+    panel.innerHTML = `<div class="wr-summary"><span class="is-todo"><b>${items.length - done}</b> cần nộp</span><span class="is-done"><b>${submitted}</b> đã nộp</span>${locked ? `<span class="is-locked"><b>${locked}</b> chưa mở</span>` : ''}</div>`
       + ordered.map((entry) => {
         const { template, period, report } = entry;
-        const state = report ? (report.late ? ['is-late', `Nộp trễ · ${clock(report.submittedAt)}`] : ['is-done', `Đã nộp · ${clock(report.submittedAt)}`]) : entry.late ? ['is-missing', 'Quá hạn'] : ['is-pending', 'Chưa nộp'];
+        const state = report ? (report.late ? ['is-late', `Nộp trễ · ${clock(report.submittedAt)}`] : ['is-done', `Đã nộp · ${clock(report.submittedAt)}`]) : entry.locked ? ['is-locked', `Mở từ ${period.opensOn.slice(8, 10)}/${period.opensOn.slice(5, 7)}`] : entry.late ? ['is-missing', 'Quá hạn'] : ['is-pending', 'Chưa nộp'];
         const open = openCards.has(template.id);
         return `<section class="wr-report-card ${state[0]}${open ? ' is-open' : ''}" data-template="${escape(template.id)}">
           <button type="button" class="wr-card-head" data-toggle-card aria-expanded="${open}">
-            <span class="wr-card-icon" aria-hidden="true">${report ? '✓' : '✎'}</span>
+            <span class="wr-card-icon" aria-hidden="true">${report ? '✓' : entry.locked ? '🔒' : '✎'}</span>
             <span class="wr-card-title"><span class="wr-card-tags">${kindTags(template)}</span><b>${escape(template.name)}</b><small>${escape(period.label)} · <span class="wr-due">Hạn ${escape(period.dueLabel)} ${escape(template.deadline)}</span> · ${template.items.length} mục</small></span>
-            <span class="wr-card-status"><span class="wr-pill ${state[0]}">${state[1]}</span><span class="wr-toggle-label">${open ? 'Thu gọn ▴' : report ? 'Xem / sửa ▾' : 'Mở để nộp ▾'}</span></span>
+            <span class="wr-card-status"><span class="wr-pill ${state[0]}">${state[1]}</span><span class="wr-toggle-label">${open ? 'Thu gọn ▴' : report ? 'Xem / sửa ▾' : entry.locked ? 'Xem ▾' : 'Mở để nộp ▾'}</span></span>
           </button>
           <div class="wr-card-body"></div>
         </section>`;
@@ -125,6 +130,10 @@
   function renderForm(entry) {
     const { template, period, report } = entry;
     const card = panels.mine.querySelector(`[data-template="${CSS.escape(template.id)}"] .wr-card-body`);
+    if (entry.locked) {
+      card.innerHTML = `<div class="wr-locked-note"><b>🔒 Báo cáo này mở nhập từ ngày ${escape(shortDate(period.opensOn))}</b><span>Hạn nộp ${escape(period.dueLabel)} ${escape(template.deadline)}. Gồm ${template.items.length} mục: ${template.items.map((item) => escape(item.label)).join(', ')}.</span></div>`;
+      return;
+    }
     const answers = Object.fromEntries((report?.answers || []).map((answer) => [answer.itemId, answer]));
     // One draft per item holding every input it has, seeded from the last submission.
     const draft = drafts[template.id] ||= Object.fromEntries(template.items.map((item) => {
@@ -155,21 +164,22 @@
     const panel = panels.history;
     panel.innerHTML = '<p class="wr-empty">Đang tải...</p>';
     const { rows } = await request('/api/work-reports/history');
-    const statusText = { submitted: 'Đã nộp', late: 'Nộp trễ', missing: 'Không nộp', pending: 'Chưa nộp' };
-    const count = (status) => rows.filter((row) => row.status === status).length;
+    const statusText = { submitted: 'Đã nộp', late: 'Nộp trễ', missing: 'Không nộp', pending: 'Chưa nộp', overdue: 'Quá hạn – còn nộp trễ được' };
+    const count = (...statuses) => rows.filter((row) => statuses.includes(row.status)).length;
     const draw = () => {
-      const visible = rows.filter((row) => historyFilter === 'all' || (historyFilter === 'missing' ? ['missing', 'pending'].includes(row.status) : row.status === historyFilter));
+      const visible = rows.filter((row) => historyFilter === 'all' || (historyFilter === 'missing' ? ['missing', 'pending', 'overdue'].includes(row.status) : row.status === historyFilter));
       const byDay = visible.reduce((map, row) => map.set(row.dueDate, [...(map.get(row.dueDate) || []), row]), new Map());
-      panel.innerHTML = `<div class="wr-stats is-four"><div><span>Đã nộp</span><b class="is-done">${count('submitted')}</b></div><div><span>Nộp trễ</span><b class="is-late">${count('late')}</b></div><div><span>Không nộp</span><b class="is-missing">${count('missing')}</b></div><div><span>Đang chờ nộp</span><b class="is-upcoming">${count('pending')}</b></div></div>
+      panel.innerHTML = `<div class="wr-stats is-four"><div><span>Đã nộp</span><b class="is-done">${count('submitted')}</b></div><div><span>Nộp trễ</span><b class="is-late">${count('late')}</b></div><div><span>Không nộp</span><b class="is-missing">${count('missing')}</b></div><div><span>Đang chờ nộp</span><b class="is-upcoming">${count('pending', 'overdue')}</b></div></div>
         <div class="wr-filter-chips" role="tablist">${[['all', 'Tất cả'], ['submitted', 'Đã nộp'], ['late', 'Nộp trễ'], ['missing', 'Chưa nộp']].map(([value, label]) => `<button type="button" class="${historyFilter === value ? 'is-active' : ''}" data-history-filter="${value}">${label}</button>`).join('')}</div>
         ${visible.length ? [...byDay].map(([day, list]) => `<section class="wr-group"><h3>${escape(new Date(`${day}T00:00:00`).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' }))}</h3>
-          ${list.map((row) => `<button type="button" class="wr-person wr-history-row is-${row.status}" ${row.reportId ? `data-report="${escape(row.reportId)}"` : 'disabled'}>
-            <span class="wr-card-icon" aria-hidden="true">${row.reportId ? '✓' : row.status === 'pending' ? '✎' : '!'}</span>
+          ${list.map((row) => `<button type="button" class="wr-person wr-history-row is-${row.status}" ${row.reportId ? `data-report="${escape(row.reportId)}"` : row.status === 'overdue' ? 'data-go-mine' : 'disabled'}>
+            <span class="wr-card-icon" aria-hidden="true">${row.reportId ? '✓' : row.status === 'pending' ? '✎' : row.status === 'overdue' ? '⏰' : '!'}</span>
             <span class="wr-person-info"><b>${escape(row.templateName)}</b><small>${escape(row.periodLabel)}${row.dueLabel ? ` · <span class="wr-due">hạn ${escape(row.dueLabel)}</span>` : ''}</small></span>
             <span class="wr-pill is-${row.status === 'pending' ? 'upcoming' : row.status}">${statusText[row.status]}${row.submittedAt ? ` · ${clock(row.submittedAt)}` : ''}</span>
-            ${row.reportId ? '<span class="wr-view">Xem ›</span>' : ''}
+            ${row.reportId ? '<span class="wr-view">Xem ›</span>' : row.status === 'overdue' ? '<span class="wr-view">Nộp trễ ›</span>' : ''}
           </button>`).join('')}</section>`).join('') : '<div class="wr-empty"><span aria-hidden="true">📭</span><b>Không có báo cáo nào</b><small>Thử chọn bộ lọc khác.</small></div>'}`;
       panel.querySelectorAll('[data-history-filter]').forEach((button) => { button.onclick = () => { historyFilter = button.dataset.historyFilter; draw(); }; });
+      panel.querySelectorAll('[data-go-mine]').forEach((button) => { button.onclick = () => show('mine'); });
       panel.querySelectorAll('[data-report]').forEach((button) => { button.onclick = async () => openModal(reportDetail((await request(`/api/work-reports/${button.dataset.report}`)).report)); });
     };
     draw();
@@ -300,7 +310,7 @@
   }
 
   // Follow-up for managers: any day range, filterable by status.
-  const overviewState = { from: '', to: '', status: 'all' };
+  const overviewState = { from: '', to: '', status: 'all', view: (() => { try { return localStorage.getItem('wr-overview-view') || 'matrix'; } catch { return 'matrix'; } })(), search: '', department: '' };
   const addDays = (key, days) => { const date = new Date(`${key}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + days); return date.toISOString().slice(0, 10); };
   async function renderOverview() {
     const panel = panels.overview;
@@ -309,30 +319,113 @@
     panel.innerHTML = '<p class="wr-empty">Đang tải...</p>';
     const { from, to, rows } = await request(`/api/work-reports/overview?from=${overviewState.from}&to=${overviewState.to}`);
     Object.assign(overviewState, { from, to });
-    const order = ['missing', 'upcoming', 'late', 'submitted'];
-    const statusText = { submitted: 'Đã nộp', late: 'Nộp trễ', missing: 'Chưa nộp', upcoming: 'Chưa đến hạn' };
-    const count = (status) => rows.filter((row) => row.status === status).length;
+    const order = ['missing', 'overdue', 'upcoming', 'late', 'submitted'];
+    const statusText = { submitted: 'Đã nộp', late: 'Nộp trễ', missing: 'Chưa nộp', overdue: 'Quá hạn – còn nộp trễ được', upcoming: 'Chưa đến hạn' };
+    const countLabel = { missing: 'chưa nộp', overdue: 'quá hạn', late: 'nộp trễ', upcoming: 'chưa đến hạn' };
+    const statusIcon = { submitted: '✓', late: '⏱', missing: '!', overdue: '⏰', upcoming: '…' };
+    const count = (...statuses) => rows.filter((row) => statuses.includes(row.status)).length;
     const singleDay = from === to;
     const ranges = [['today', 'Hôm nay', today.date, today.date], ['week', '7 ngày', addDays(today.date, -6), today.date], ['month', 'Tháng này', `${today.date.slice(0, 8)}01`, today.date]];
     const activeRange = ranges.find(([, , rangeFrom, rangeTo]) => rangeFrom === from && rangeTo === to)?.[0];
-    const visible = rows.filter((row) => overviewState.status === 'all' || row.status === overviewState.status);
-    const groupKey = (row) => (singleDay ? row.department : row.dueDate);
-    const groups = [...visible.reduce((map, row) => map.set(groupKey(row), [...(map.get(groupKey(row)) || []), row]), new Map())];
-    if (!singleDay) groups.sort((a, b) => b[0].localeCompare(a[0]));
-    const groupTitle = (key) => (singleDay ? escape(key) : escape(new Date(`${key}T00:00:00`).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })));
-    panel.innerHTML = `<div class="wr-overview-bar">
-        <div class="wr-range-chips">${ranges.map(([key, label]) => `<button type="button" class="${activeRange === key ? 'is-active' : ''}" data-range="${key}">${label}</button>`).join('')}</div>
-        <div class="wr-range-inputs"><label>Từ ngày<input type="date" value="${from}" max="${today.date}" data-range-from /></label><span aria-hidden="true">→</span><label>Đến ngày<input type="date" value="${to}" max="${today.date}" data-range-to /></label></div>
-      </div>
-      <div class="wr-stats is-four"><div><span>Đã nộp</span><b class="is-done">${count('submitted')}</b></div><div><span>Nộp trễ</span><b class="is-late">${count('late')}</b></div><div><span>Chưa nộp</span><b class="is-missing">${count('missing')}</b></div><div><span>Chưa đến hạn</span><b class="is-upcoming">${count('upcoming')}</b></div></div>
-      <div class="wr-filter-chips is-status">${[['all', `Tất cả (${rows.length})`], ['submitted', `Đã nộp (${count('submitted')})`], ['late', `Nộp trễ (${count('late')})`], ['missing', `Chưa nộp (${count('missing')})`], ['upcoming', `Chưa đến hạn (${count('upcoming')})`]].map(([value, label]) => `<button type="button" class="${overviewState.status === value ? 'is-active' : ''}" data-status-filter="${value}">${label}</button>`).join('')}</div>
-      ${groups.length ? groups.map(([key, people]) => `<section class="wr-group"><h3>${groupTitle(key)}<small>${people.filter((row) => ['submitted', 'late'].includes(row.status)).length}/${people.length} đã nộp</small></h3>
-        ${people.sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status) || a.name.localeCompare(b.name, 'vi')).map((row) => `<button type="button" class="wr-person" ${row.reportId ? `data-report="${escape(row.reportId)}"` : 'disabled'}>
+    const departments = [...new Set(rows.map((row) => row.department))].sort((a, b) => a.localeCompare(b, 'vi'));
+    if (overviewState.department && !departments.includes(overviewState.department)) overviewState.department = '';
+    const done = (row) => ['submitted', 'late'].includes(row.status);
+    const personRow = (row) => `<button type="button" class="wr-person" ${row.reportId ? `data-report="${escape(row.reportId)}"` : 'disabled'}>
           <span class="wr-avatar">${row.picture ? `<img src="${escape(row.picture)}" alt="" referrerpolicy="no-referrer" />` : escape((row.name || '?').charAt(0).toUpperCase())}</span>
           <span class="wr-person-info"><b>${escape(row.name)}${row.title ? ` · <span>${escape(row.title)}</span>` : ''}</b><small>${singleDay ? '' : `${escape(row.department)} · `}${escape(row.templateName)} · ${escape(row.periodLabel)} · <span class="wr-due">hạn ${escape(row.dueLabel)}</span></small></span>
           <span class="wr-pill is-${row.status}">${statusText[row.status]}${row.submittedAt ? ` · ${clock(row.submittedAt)}` : ''}</span>
           ${row.reportId ? '<span class="wr-view">Xem ›</span>' : ''}
-        </button>`).join('')}</section>`).join('') : `<div class="wr-empty"><span aria-hidden="true">🗂️</span><b>${rows.length ? 'Không có báo cáo nào theo bộ lọc' : 'Không có báo cáo nào cần nộp trong khoảng này'}</b><small>${rows.length ? 'Thử chọn trạng thái khác.' : 'Tạo mẫu ở tab "Mẫu báo cáo" và xếp nhân viên ở tab "Phòng ban & vị trí".'}</small></div>`}`;
+        </button>`;
+
+    panel.innerHTML = `<div class="wr-overview-bar">
+        <div class="wr-range-chips">${ranges.map(([key, label]) => `<button type="button" class="${activeRange === key ? 'is-active' : ''}" data-range="${key}">${label}</button>`).join('')}</div>
+        <div class="wr-range-inputs"><label>Từ ngày<input type="date" value="${from}" max="${today.date}" data-range-from /></label><span aria-hidden="true">→</span><label>Đến ngày<input type="date" value="${to}" max="${today.date}" data-range-to /></label></div>
+      </div>
+      <div class="wr-stats is-four"><div><span>Đã nộp</span><b class="is-done">${count('submitted')}</b></div><div><span>Nộp trễ</span><b class="is-late">${count('late')}</b></div><div><span>Chưa nộp</span><b class="is-missing">${count('missing', 'overdue')}</b>${count('overdue') ? `<small class="wr-stat-note">${count('overdue')} còn nộp trễ được</small>` : ''}</div><div><span>Chưa đến hạn</span><b class="is-upcoming">${count('upcoming')}</b></div></div>
+      <div class="wr-ov-tools">
+        <div class="wr-view-switch" role="tablist">${[['matrix', '👥 Theo nhân viên'], ['list', '☰ Danh sách']].map(([value, label]) => `<button type="button" class="${overviewState.view === value ? 'is-active' : ''}" data-ov-view="${value}">${label}</button>`).join('')}</div>
+        <input type="search" placeholder="Tìm nhân viên..." value="${escape(overviewState.search)}" data-ov-search />
+        <select data-ov-department><option value="">Tất cả phòng ban</option>${departments.map((name) => `<option value="${escape(name)}" ${overviewState.department === name ? 'selected' : ''}>${escape(name)}</option>`).join('')}</select>
+      </div>
+      <div class="wr-filter-chips is-status">${[['all', `Tất cả (${rows.length})`], ['submitted', `Đã nộp (${count('submitted')})`], ['late', `Nộp trễ (${count('late')})`], ['missing', `Chưa nộp (${count('missing')})`], ['overdue', `Quá hạn (${count('overdue')})`], ['upcoming', `Chưa đến hạn (${count('upcoming')})`]].map(([value, label]) => `<button type="button" class="${overviewState.status === value ? 'is-active' : ''}" data-status-filter="${value}">${label}</button>`).join('')}</div>
+      <div data-ov-body></div>`;
+    const body = panel.querySelector('[data-ov-body]');
+
+    // Rows left after the search box and the department picker.
+    const filtered = () => {
+      const query = overviewState.search.trim().toLowerCase();
+      return rows.filter((row) => (!overviewState.department || row.department === overviewState.department) && (!query || `${row.name} ${row.title || ''}`.toLowerCase().includes(query)));
+    };
+
+    // By person: each person gets one line with their own reports only (people are given different templates).
+    const drawMatrix = (list) => {
+      const people = [...list.reduce((map, row) => {
+        const person = map.get(row.userId) || { ...row, cells: new Map() };
+        person.cells.set(row.templateName, [...(person.cells.get(row.templateName) || []), row]);
+        return map.set(row.userId, person);
+      }, new Map()).values()];
+      // A status chip keeps the people who have at least one report in that status.
+      const shown = people.filter((person) => overviewState.status === 'all' || [...person.cells.values()].flat().some((row) => row.status === overviewState.status));
+      if (!shown.length) return '<div class="wr-empty"><span aria-hidden="true">🗂️</span><b>Không có nhân viên nào theo bộ lọc</b><small>Thử bỏ bớt bộ lọc.</small></div>';
+      const worst = (cell) => order.find((status) => cell.some((row) => row.status === status));
+      const byDepartment = [...shown.reduce((map, person) => map.set(person.department, [...(map.get(person.department) || []), person]), new Map())].sort((a, b) => a[0].localeCompare(b[0], 'vi'));
+      const chip = (person, name) => {
+        const cell = person.cells.get(name);
+        const status = worst(cell);
+        const finished = cell.filter(done).length;
+        const detail = cell.length === 1 ? (cell[0].submittedAt ? clock(cell[0].submittedAt) : statusText[status]) : `${finished}/${cell.length} kỳ`;
+        return `<button type="button" class="wr-report-chip is-${status}" data-cell="${escape(person.userId)}|${escape(name)}" title="${escape(`${name} · ${statusText[status]}`)}"><i aria-hidden="true">${statusIcon[status]}</i><span>${escape(name)}</span><small>${escape(detail)}</small></button>`;
+      };
+      return `<div class="wr-legend" aria-label="Chú thích"><span class="wr-legend-title">ℹ️ Chú thích:</span>${['submitted', 'late', 'overdue', 'missing', 'upcoming'].map((status) => `<span class="wr-legend-item is-${status}"><i aria-hidden="true">${statusIcon[status]}</i>${statusText[status]}</span>`).join('')}</div>
+        ${byDepartment.map(([department, members]) => {
+          const all = members.flatMap((person) => [...person.cells.values()].flat());
+          const percent = all.length ? Math.round((all.filter(done).length / all.length) * 100) : 0;
+          return `<section class="wr-people-group">
+            <header><b>${escape(department)}</b><span>${members.length} người</span><span class="wr-matrix-progress"><i style="width:${percent}%"></i></span><small>${all.filter(done).length}/${all.length} báo cáo · ${percent}%</small></header>
+            ${members.sort((a, b) => order.indexOf(worst([...a.cells.values()].flat())) - order.indexOf(worst([...b.cells.values()].flat())) || a.name.localeCompare(b.name, 'vi')).map((person) => {
+              const mine = [...person.cells.values()].flat();
+              const mineDone = mine.filter(done).length;
+              const counts = ['missing', 'overdue', 'late', 'upcoming'].map((status) => [status, mine.filter((row) => row.status === status).length]).filter(([, n]) => n);
+              return `<article class="wr-people-row">
+                <div class="wr-people-who"><span class="wr-avatar">${person.picture ? `<img src="${escape(person.picture)}" alt="" referrerpolicy="no-referrer" />` : escape((person.name || '?').charAt(0).toUpperCase())}</span><span><b>${escape(person.name)}</b>${person.title ? `<small>${escape(person.title)}</small>` : ''}</span></div>
+                <div class="wr-people-score"><b>${mineDone}/${mine.length}</b><span>đã nộp</span><span class="wr-matrix-progress"><i style="width:${mine.length ? Math.round((mineDone / mine.length) * 100) : 0}%"></i></span>${counts.map(([status, n]) => `<em class="is-${status}">${statusIcon[status]} ${n} ${countLabel[status]}</em>`).join('')}</div>
+                <div class="wr-people-reports">${[...person.cells.keys()].sort((a, b) => order.indexOf(worst(person.cells.get(a))) - order.indexOf(worst(person.cells.get(b))) || a.localeCompare(b, 'vi')).map((name) => chip(person, name)).join('')}</div>
+              </article>`;
+            }).join('')}
+          </section>`;
+        }).join('')}`;
+    };
+
+    const drawList = (list) => {
+      const visible = list.filter((row) => overviewState.status === 'all' || row.status === overviewState.status);
+      const groupKey = (row) => (singleDay ? row.department : row.dueDate);
+      const groups = [...visible.reduce((map, row) => map.set(groupKey(row), [...(map.get(groupKey(row)) || []), row]), new Map())];
+      if (!singleDay) groups.sort((a, b) => b[0].localeCompare(a[0]));
+      const groupTitle = (key) => (singleDay ? escape(key) : escape(new Date(`${key}T00:00:00`).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })));
+      return groups.length ? groups.map(([key, people]) => `<section class="wr-group"><h3>${groupTitle(key)}<small>${people.filter(done).length}/${people.length} đã nộp</small></h3>
+        ${people.sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status) || a.name.localeCompare(b.name, 'vi')).map(personRow).join('')}</section>`).join('')
+        : `<div class="wr-empty"><span aria-hidden="true">🗂️</span><b>${rows.length ? 'Không có báo cáo nào theo bộ lọc' : 'Không có báo cáo nào cần nộp trong khoảng này'}</b><small>${rows.length ? 'Thử chọn trạng thái khác.' : 'Tạo mẫu ở tab "Mẫu báo cáo" và xếp nhân viên ở tab "Phòng ban & vị trí".'}</small></div>`;
+    };
+
+    const openReport = async (id) => openModal(reportDetail((await request(`/api/work-reports/${id}`)).report));
+    const drawBody = () => {
+      const list = filtered();
+      body.innerHTML = !rows.length ? drawList(list) : overviewState.view === 'list' ? drawList(list) : drawMatrix(list);
+      body.querySelectorAll('[data-report]').forEach((button) => { button.onclick = () => openReport(button.dataset.report); });
+      body.querySelectorAll('[data-cell]').forEach((button) => {
+        button.onclick = () => {
+          const split = button.dataset.cell.indexOf('|');
+          const userId = button.dataset.cell.slice(0, split);
+          const name = button.dataset.cell.slice(split + 1);
+          const cell = list.filter((row) => row.userId === userId && row.templateName === name);
+          if (cell.length === 1 && cell[0].reportId) return openReport(cell[0].reportId);
+          openModal(`<h2>${escape(cell[0].name)} · ${escape(name)}</h2><div class="wr-cell-list">${cell.sort((a, b) => b.dueDate.localeCompare(a.dueDate)).map(personRow).join('')}</div>`);
+          modalBody.querySelectorAll('[data-report]').forEach((item) => { item.onclick = () => openReport(item.dataset.report); });
+        };
+      });
+    };
+    drawBody();
+
     panel.querySelectorAll('[data-range]').forEach((button) => {
       button.onclick = () => {
         const [, , rangeFrom, rangeTo] = ranges.find(([key]) => key === button.dataset.range);
@@ -345,10 +438,23 @@
     const applyRange = () => { if (fromInput.value && toInput.value) { Object.assign(overviewState, { from: fromInput.value, to: toInput.value }); renderOverview(); } };
     fromInput.onchange = applyRange;
     toInput.onchange = applyRange;
-    panel.querySelectorAll('[data-status-filter]').forEach((button) => { button.onclick = () => { overviewState.status = button.dataset.statusFilter; renderOverview(); }; });
-    panel.querySelectorAll('[data-report]').forEach((button) => {
-      button.onclick = async () => openModal(reportDetail((await request(`/api/work-reports/${button.dataset.report}`)).report));
+    panel.querySelectorAll('[data-status-filter]').forEach((button) => {
+      button.onclick = () => {
+        overviewState.status = button.dataset.statusFilter;
+        panel.querySelectorAll('[data-status-filter]').forEach((chip) => chip.classList.toggle('is-active', chip === button));
+        drawBody();
+      };
     });
+    panel.querySelectorAll('[data-ov-view]').forEach((button) => {
+      button.onclick = () => {
+        overviewState.view = button.dataset.ovView;
+        try { localStorage.setItem('wr-overview-view', overviewState.view); } catch {}
+        panel.querySelectorAll('[data-ov-view]').forEach((item) => item.classList.toggle('is-active', item === button));
+        drawBody();
+      };
+    });
+    panel.querySelector('[data-ov-search]').oninput = (event) => { overviewState.search = event.target.value; drawBody(); };
+    panel.querySelector('[data-ov-department]').onchange = (event) => { overviewState.department = event.target.value; drawBody(); };
   }
 
   // ---------- Departments, positions and who sits where ----------
@@ -495,8 +601,8 @@
           <fieldset><legend>Lịch nộp</legend>
             <div class="wr-frequency">${[['daily', 'Hằng ngày'], ['weekly', 'Hằng tuần'], ['monthly', 'Hằng tháng']].map(([value, label]) => `<label class="${schedule.frequency === value ? 'is-active' : ''}"><input type="radio" name="frequency" value="${value}" ${schedule.frequency === value ? 'checked' : ''} /> ${label}</label>`).join('')}</div>
             ${schedule.frequency === 'daily' ? `<div class="wr-weekdays">${[1, 2, 3, 4, 5, 6, 7].map((day) => `<label class="${(schedule.weekdays || []).includes(day) ? 'is-active' : ''}"><input type="checkbox" name="weekdays" value="${day}" ${(schedule.weekdays || []).includes(day) ? 'checked' : ''} /> ${weekdayNames[day]}</label>`).join('')}</div><small>Chọn những ngày trong tuần cần nộp.</small>` : ''}
-            ${schedule.frequency === 'weekly' ? `<label class="wr-inline">Nộp mỗi tuần, hạn vào <select name="weekday">${[1, 2, 3, 4, 5, 6, 7].map((day) => `<option value="${day}" ${(schedule.weekday || 6) === day ? 'selected' : ''}>${weekdayLong[day]}</option>`).join('')}</select></label><small>Nộp bất kỳ ngày nào trong tuần (Thứ 2 – Chủ nhật), trễ nếu qua hạn.</small>` : ''}
-            ${schedule.frequency === 'monthly' ? `<label class="wr-inline">Nộp mỗi tháng, hạn vào ngày <input type="number" name="monthDay" min="1" max="31" value="${schedule.monthDay || 28}" /></label><small>Tháng không có ngày đó thì lấy ngày cuối tháng.</small>` : ''}
+            ${schedule.frequency === 'weekly' ? `<label class="wr-inline">Nộp mỗi tuần, hạn vào <select name="weekday">${[1, 2, 3, 4, 5, 6, 7].map((day) => `<option value="${day}" ${(schedule.weekday || 6) === day ? 'selected' : ''}>${weekdayLong[day]}</option>`).join('')}</select></label><label class="wr-inline">Mở nhập từ <select name="openWeekday"><option value="">Cả tuần (từ Thứ 2)</option>${[1, 2, 3, 4, 5, 6, 7].map((day) => `<option value="${day}" ${schedule.openWeekday === day ? 'selected' : ''}>${weekdayLong[day]}</option>`).join('')}</select></label><small>${schedule.openWeekday ? `Nhân viên nhập được từ ${weekdayLong[schedule.openWeekday]} đến hạn; trước đó báo cáo hiện nhưng bị khoá.` : 'Nộp bất kỳ ngày nào trong tuần (Thứ 2 – Chủ nhật), trễ nếu qua hạn.'}</small>` : ''}
+            ${schedule.frequency === 'monthly' ? `<label class="wr-inline">Nộp mỗi tháng, hạn vào ngày <input type="number" name="monthDay" min="1" max="31" value="${schedule.monthDay || 28}" /></label><label class="wr-inline">Mở nhập từ ngày <input type="number" name="openDay" min="1" max="31" placeholder="Cả tháng" value="${schedule.openDay || ''}" /></label><small>${schedule.openDay ? `Nhân viên nhập được từ ngày ${schedule.openDay} đến hạn; trước đó báo cáo hiện nhưng bị khoá.` : 'Để trống: mở nhập cả tháng.'} Tháng không có ngày đó thì lấy ngày cuối tháng.</small>` : ''}
             <div class="wr-editor-row"><label>Hạn nộp lúc<input name="deadline" type="time" value="${escape(state.deadline)}" /></label>
               <label>Áp dụng từ ngày<input name="startDate" type="date" value="${escape(schedule.startDate || '')}" /></label>
               <label>Đến ngày<input name="endDate" type="date" value="${escape(schedule.endDate || '')}" /></label></div>
@@ -528,6 +634,8 @@
         if (form.querySelector('[name="weekdays"]')) state.schedule.weekdays = [...form.querySelectorAll('[name="weekdays"]:checked')].map((input) => Number(input.value));
         if (form.weekday) state.schedule.weekday = Number(form.weekday.value);
         if (form.monthDay) state.schedule.monthDay = Number(form.monthDay.value);
+        if (form.openWeekday) state.schedule.openWeekday = Number(form.openWeekday.value) || undefined;
+        if (form.openDay) state.schedule.openDay = Number(form.openDay.value) || undefined;
         form.querySelectorAll('[data-list]').forEach((list) => { state.targets[list.dataset.list] = [...list.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value); });
         form.querySelectorAll('[data-index]').forEach((row) => {
           const item = state.items[Number(row.dataset.index)];
@@ -538,7 +646,7 @@
           });
         });
       };
-      form.querySelectorAll('[name="frequency"], [name="weekdays"], [name="kpi"]').forEach((input) => { input.onchange = () => { sync(); render(); }; });
+      form.querySelectorAll('[name="frequency"], [name="weekdays"], [name="kpi"], [name="openWeekday"], [name="openDay"]').forEach((input) => { input.onchange = () => { sync(); render(); }; });
       form.querySelectorAll('[data-filter-list]').forEach((search) => {
         search.oninput = () => search.parentElement.querySelectorAll('label').forEach((label) => { label.hidden = !label.textContent.toLowerCase().includes(search.value.trim().toLowerCase()); });
       });

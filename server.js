@@ -18,6 +18,7 @@ const { createAttachmentStore } = require("./proposal-attachments");
 const { createProductionOrders } = require("./production-orders");
 const { createRecruitment } = require("./recruitment");
 const { createWorkReports } = require("./work-reports");
+const { createSalaries } = require("./salaries");
 
 loadEnvFile();
 
@@ -217,6 +218,7 @@ const serverOnlyScripts = new Set([
   "recruitment.js",
   "report-notification-data.js",
   "work-reports.js",
+  "salaries.js",
 ]);
 
 function isPublicStaticPath(relativePath) {
@@ -692,7 +694,7 @@ async function updateUserRole(req, res, userId) {
   }
   const user = users.get(userId);
   if (!user) return send(res, 404, "Không tìm thấy tài khoản");
-  if (!["employee", "accountant", "warehouse", "manager", "production", "hr", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trò không hợp lệ");
+  if (!["employee", "accountant", "bookkeeper", "warehouse", "manager", "production", "hr", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trò không hợp lệ");
   if (user.id === currentUser.id || normalizeEmail(user.email) === fixedAdminEmail) {
     return send(res, 400, "Không thể đổi vai trò của tài khoản này.");
   }
@@ -752,7 +754,7 @@ async function inviteUser(req, res) {
     name: email.split("@")[0],
     email,
     picture: "",
-    role: ["accountant", "warehouse", "manager", "production", "hr", "admin", "ceo"].includes(payload.role) ? payload.role : "employee",
+    role: ["accountant", "bookkeeper", "warehouse", "manager", "production", "hr", "admin", "ceo"].includes(payload.role) ? payload.role : "employee",
     status: "active",
     invited: true,
     updatedAt: new Date().toISOString(),
@@ -875,7 +877,7 @@ async function serveProposalAttachment(req, res) {
   const match = /^\/api\/proposals\/([^/]+)\/attachment\/(payment|late)/.exec(new URL(req.url, "http://localhost").pathname);
   const proposal = match && getProposals().find((item) => item.id === decodeURIComponent(match[1]));
   if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
-  if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && canViewPaymentProposal(currentUser, proposal))) return send(res, 403, "Forbidden");
+  if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && (canViewPaymentProposal(currentUser, proposal) || isAccountingTeamProposal(proposal)))) return send(res, 403, "Forbidden");
   const dataUrl = attachments.read(proposal.id, match[2]);
   const parsed = /^data:([^;,]*)(?:;[^,]*)?;base64,(.*)$/s.exec(dataUrl);
   if (!parsed) return send(res, 404, "Không có tệp đính kèm.");
@@ -901,8 +903,21 @@ function getPaymentStage(proposal) {
   return proposal.paymentStage || (getPaymentFlow(proposal) === "accountant" ? "accounting" : "management");
 }
 
+// Personnel proposals (leave, late, early leave…) sent by the accounting staff ("Kế toán", role bookkeeper).
+function isAccountingTeamProposal(proposal) {
+  return proposal.type !== "payment" && users.get(String(proposal.userId || ""))?.role === "bookkeeper";
+}
+
+const isChiefAccountant = (user) => user?.role === "accountant" && user.status === "active";
+
+// The chief accountant reviews the accounting staff's personnel proposals; with no chief accountant they stay with Admin/CEO.
+function needsChiefAccountantReview(proposal) {
+  return proposal.status === "pending" && isAccountingTeamProposal(proposal) && [...users.values()].some(isChiefAccountant);
+}
+
 function needsManagementReview(proposal) {
   if (proposal.status !== "pending") return false;
+  if (needsChiefAccountantReview(proposal)) return false;
   return proposal.type !== "payment" || (getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "management");
 }
 
@@ -924,6 +939,7 @@ function getReportNotificationReports(currentUser, proposals = getProposals(), a
   }
   if (isManagementUser(currentUser) || currentUser.role === "accountant") {
     reports.payment = proposalReportItems(proposals.filter((proposal) => canViewPaymentProposal(currentUser, proposal)));
+    reports["accounting-team"] = proposalReportItems(proposals.filter(isAccountingTeamProposal));
   }
   return reports;
 }
@@ -941,7 +957,7 @@ async function serveProposalDocument(req, res) {
   const id = decodeURIComponent(url.pathname.slice("/api/proposals/".length, -"/document".length));
   const proposal = getProposals().find((item) => item.id === id);
   if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
-  if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && canViewPaymentProposal(currentUser, proposal))) return send(res, 403, "Forbidden");
+  if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && (canViewPaymentProposal(currentUser, proposal) || isAccountingTeamProposal(proposal)))) return send(res, 403, "Forbidden");
   if (!["late", "early-leave", "half-day", "leave", "unauthorized-leave", "payment"].includes(proposal.type)) return send(res, 400, "Loại đề xuất này chưa hỗ trợ tải đơn.");
   const saved = { ...proposal, userName: proposal.userName || users.get(proposal.userId)?.name || "Nhân viên" };
   const format = url.searchParams.get("format");
@@ -964,6 +980,8 @@ function serveProposals(req, res) {
   const canViewPaymentReport = isManagementUser(currentUser) || currentUser.role === "accountant";
   const proposals = scope === "all"
     ? isManagementUser(currentUser) ? getProposals() : null
+    : scope === "accounting-team"
+      ? isManagementUser(currentUser) || currentUser.role === "accountant" ? getProposals().filter(isAccountingTeamProposal) : null
     : scope === "payment-report"
       ? canViewPaymentReport
         ? getProposals().filter((proposal) => canViewPaymentProposal(currentUser, proposal))
@@ -972,7 +990,7 @@ function serveProposals(req, res) {
         ? isManagementUser(currentUser)
           ? getProposals().filter(needsManagementReview)
           : currentUser.role === "accountant"
-            ? getProposals().filter(needsAccountingReview)
+            ? getProposals().filter((proposal) => needsAccountingReview(proposal) || needsChiefAccountantReview(proposal))
             : null
         : getProposals().filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser));
   if (!proposals) return send(res, 403, "Forbidden");
@@ -990,11 +1008,11 @@ function serveProposals(req, res) {
     proposals: enrichedProposals,
     canReview: isManagementUser(currentUser) || currentUser.role === "accountant",
     viewerRole: currentUser.role,
-    ...(["all", "payment-report"].includes(scope) ? {
+    ...(["all", "payment-report", "accounting-team"].includes(scope) ? {
       reportNotificationSnapshot: {
         accountId: getAttendanceUserKey(currentUser),
-        reportKey: scope === "payment-report" ? "payment" : "personnel",
-        items: proposalReportItems(proposals.filter((proposal) => scope === "payment-report" || proposal.type !== "payment")),
+        reportKey: scope === "payment-report" ? "payment" : scope === "accounting-team" ? "accounting-team" : "personnel",
+        items: proposalReportItems(proposals.filter((proposal) => scope !== "all" || proposal.type !== "payment")),
       },
     } : {}),
   });
@@ -1166,7 +1184,7 @@ async function sendProposalStatusPush(proposal, { managementApproval = false } =
 
 async function sendProposalCreatedPush(proposal) {
   const reviewerIds = new Set([...users.values()]
-    .filter((user) => user.status === "active" && (needsAccountingReview(proposal) ? user.role === "accountant" : isManagementUser(user)))
+    .filter((user) => user.status === "active" && (needsAccountingReview(proposal) || needsChiefAccountantReview(proposal) ? user.role === "accountant" : isManagementUser(user)))
     .map(getAttendanceUserKey));
   const devices = getPushDevices().filter((device) => reviewerIds.has(device.userId));
   if (!devices.length) {
@@ -1345,7 +1363,7 @@ function serveNotifications(req, res) {
     const latestPending = pendingList.map((user) => user.createdAt || user.updatedAt || "").sort().pop();
     if (pendingUsers) items.push({ id: "pending-users", kind: "action", count: pendingUsers, time: latestPending || null, title: "Tài khoản mới chờ duyệt", text: `${pendingUsers} tài khoản đang chờ phê duyệt.`, url: "/user-management.html" });
   }
-  const reviewQueue = isManagementUser(currentUser) ? proposals.filter(needsManagementReview) : currentUser.role === "accountant" ? proposals.filter(needsAccountingReview) : [];
+  const reviewQueue = isManagementUser(currentUser) ? proposals.filter(needsManagementReview) : currentUser.role === "accountant" ? proposals.filter((proposal) => needsAccountingReview(proposal) || needsChiefAccountantReview(proposal)) : [];
   reviewQueue.slice(0, 10).forEach((proposal) => items.push({
     id: `review-${proposal.id}`,
     time: proposal.updatedAt || proposal.createdAt || null,
@@ -1470,7 +1488,7 @@ async function sendZaloProposalImages(proposal, { approved = false } = {}) {
 
 async function sendZaloReviewNotification(proposal, { managementApproval = false } = {}) {
   const reviewers = [...users.values()].filter((user) => user.status === "active" && (
-    needsAccountingReview(proposal) ? user.role === "accountant" : isManagementUser(user)
+    needsAccountingReview(proposal) || needsChiefAccountantReview(proposal) ? user.role === "accountant" : isManagementUser(user)
   ));
   const text = getProposalZaloMessage(proposal, { managementApproval });
   const notifications = [];
@@ -1546,6 +1564,7 @@ Xem trên Gusa: ${url}`));
 
 
 const recruitment = createRecruitment({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getClientIp: (req) => getRequestIp(req, attendanceTrustedProxyHops), notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
+const salaries = createSalaries({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send });
 const workReports = createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getUserKey: getAttendanceUserKey, getLocalDateKey, getLocalMinutes, notify: sendUserNotification });
 // Reminds people who have not submitted a work report due today, an hour before its deadline.
 setInterval(() => { workReports.sendReminders().catch((error) => console.error("Work report reminders failed:", error.message)); }, 5 * 60 * 1000).unref();
@@ -1667,7 +1686,7 @@ async function updateProposalStatus(req, res) {
       }
     }
   } else {
-    if (!isManagementUser(currentUser)) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");
+    if (!isManagementUser(currentUser) && !(currentUser.role === "accountant" && isAccountingTeamProposal(proposal))) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");
     if (! ["approved", "rejected"].includes(payload.status)) return send(res, 400, "Trạng thái đề xuất không hợp lệ.");
     if (proposal.status !== "pending") return send(res, 409, "Đề xuất này đã được xử lý.");
     const rejectionReason = String(payload.rejectionReason || "").trim().slice(0, 1000);
@@ -2199,6 +2218,7 @@ const server = http.createServer(async (req, res) => {
     if (await productionOrders.handle(req, res)) return;
     if (await recruitment.handle(req, res)) return;
     if (await workReports.handle(req, res)) return;
+    if (await salaries.handle(req, res)) return;
     if (await recruitment.handlePublic(req, res)) return;
     if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
     if (req.method === "GET" && req.url === "/api/notifications") return serveNotifications(req, res);
@@ -2299,6 +2319,7 @@ const server = http.createServer(async (req, res) => {
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
     if (req.method === "GET" && hiddenFeatureForPage(req.url) && !isManagementUser(getCurrentUser(req))) return redirect(res, "/organization-chart.html");
+    if (req.url.split("?")[0] === "/salary.html" && !isManagementUser(getCurrentUser(req))) return redirect(res, getCurrentUser(req) ? "/organization-chart.html" : "/");
     serveStatic(req, res);
   } catch (error) {
     console.error(error);

@@ -115,3 +115,52 @@ test('KPI summary: only KPI templates, submission rate and number items against 
     fs.rmSync(directory, { recursive: true });
   }
 });
+
+test('history starts from "Áp dụng từ ngày" when Admin set one, otherwise from the day the template was created', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'gusa-work-start-'));
+  const person = { id: 'a', name: 'A', status: 'active' };
+  const monthly = (id, schedule) => ({ id, name: id, deadline: '21:00', createdAt: '2026-11-03T03:00:00Z', targets: { userIds: ['a'] }, schedule: { frequency: 'monthly', monthDay: 28, ...schedule }, items: [{ id: 'x', label: 'X', type: 'text' }] });
+  fs.writeFileSync(path.join(directory, 'work-report-templates.json'), JSON.stringify([
+    monthly('backdated', { startDate: '2026-10-01', endDate: '2026-10-30' }),
+    monthly('new', {}),
+  ]));
+  fs.writeFileSync(path.join(directory, 'work-reports.json'), '[]');
+  let response;
+  const reports = createWorkReports({
+    dataPath: (name) => path.join(directory, name), users: new Map([['a', person]]), getCurrentUser: () => person, isManagementUser: () => false,
+    sendJson: (res, status, body) => { response = { status, body }; }, send: (res, status, body) => { response = { status, body }; },
+    getUserKey: (item) => item.id, getLocalDateKey: (date) => (date ? date.toISOString().slice(0, 10) : '2026-11-03'), getLocalMinutes: () => 10 * 60,
+  });
+  try {
+    await reports.handle({ url: '/api/work-reports/history', method: 'GET' }, {});
+    assert.deepEqual(response.body.rows.map((row) => [row.templateId, row.periodKey, row.status]), [['backdated', 'M:2026-10', 'missing']]);
+  } finally {
+    fs.rmSync(directory, { recursive: true });
+  }
+});
+
+test('a report past its deadline stays "overdue" while its period runs, then becomes "missing"', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'gusa-work-overdue-'));
+  const person = { id: 'a', name: 'A', status: 'active' };
+  fs.writeFileSync(path.join(directory, 'work-report-templates.json'), JSON.stringify([
+    { id: 'kpi', name: 'KPI', deadline: '21:00', createdAt: '2026-11-01T00:00:00Z', targets: { userIds: ['a'] }, schedule: { frequency: 'monthly', monthDay: 28, openDay: 27 }, items: [{ id: 'x', label: 'X', type: 'text' }] },
+  ]));
+  fs.writeFileSync(path.join(directory, 'work-reports.json'), '[]');
+  let today = '2026-11-29';
+  let response;
+  const reports = createWorkReports({
+    dataPath: (name) => path.join(directory, name), users: new Map([['a', person]]), getCurrentUser: () => person, isManagementUser: () => true,
+    sendJson: (res, status, body) => { response = { status, body }; }, send: (res, status, body) => { response = { status, body }; },
+    getUserKey: (item) => item.id, getLocalDateKey: (date) => (date ? date.toISOString().slice(0, 10) : today), getLocalMinutes: () => 10 * 60,
+  });
+  const statuses = async (url) => { await reports.handle({ url, method: 'GET' }, {}); return response.body.rows.filter((row) => row.periodLabel === 'Tháng 11/2026').map((row) => row.status); };
+  try {
+    assert.deepEqual(await statuses('/api/work-reports/history'), ['overdue']);
+    assert.deepEqual(await statuses('/api/work-reports/overview?from=2026-11-28&to=2026-11-29'), ['overdue']);
+    today = '2026-12-01';
+    assert.deepEqual(await statuses('/api/work-reports/history'), ['missing']);
+    assert.deepEqual(await statuses('/api/work-reports/overview?from=2026-11-28&to=2026-11-30'), ['missing']);
+  } finally {
+    fs.rmSync(directory, { recursive: true });
+  }
+});

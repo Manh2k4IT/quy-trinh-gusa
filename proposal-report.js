@@ -4,6 +4,17 @@ const filter = document.querySelector('[data-proposal-status-filter]');
 const proposalUrl = new URLSearchParams(window.location.search);
 const requestedProposalId = proposalUrl.get('proposalId') || '';
 const isPaymentReport = proposalUrl.get('type') === 'payment';
+// Leave and working-time proposals of the accounting staff, reviewed by the chief accountant.
+const isAccountingTeamReport = proposalUrl.get('type') === 'accounting-team';
+if (isAccountingTeamReport) {
+  document.title = 'Báo cáo nghỉ phép phòng kế toán - Quy Trình';
+  document.querySelector('.breadcrumbs strong').textContent = 'Báo cáo nghỉ phép phòng kế toán';
+  document.querySelector('.profile-page-heading .eyebrow').textContent = 'PHÒNG KẾ TOÁN';
+  document.querySelector('.profile-page-heading h1').textContent = 'Báo cáo nghỉ phép phòng kế toán';
+  document.querySelector('.profile-page-heading p').textContent = 'Duyệt đề xuất nghỉ phép và giờ làm (đi trễ, về sớm, nghỉ nửa ngày) của nhân viên Kế toán. Đề xuất đã duyệt được báo lên nhóm Zalo.';
+  document.querySelector('.report-tabs')?.setAttribute('hidden', '');
+  document.querySelector('.report-summary .is-payment')?.setAttribute('hidden', '');
+}
 if (isPaymentReport) {
   document.title = 'Báo cáo đề xuất thanh toán - Quy Trình';
   document.querySelector('.breadcrumbs strong').textContent = 'Báo cáo đề xuất thanh toán';
@@ -297,7 +308,8 @@ function render() {
         ? 'Chờ kế toán xác nhận'
         : statusLabels[proposal.status] || proposal.status;
     const canManage = viewerRole === 'admin' || viewerRole === 'ceo';
-    const canApprove = canReview && canManage && proposal.status === 'pending' && (!isPayment || paymentFlow === 'ceo' && paymentStage === 'management');
+    const canDecide = canManage || (isAccountingTeamReport && viewerRole === 'accountant' && !isPayment);
+    const canApprove = canReview && canDecide && proposal.status === 'pending' && (!isPayment || paymentFlow === 'ceo' && paymentStage === 'management');
     const canConfirm = canReview && viewerRole === 'accountant' && isPayment && proposal.status === 'pending' && paymentStage === 'accounting';
     const decisionActions = canConfirm
       ? `<div class="report-decision"><button type="button" data-confirm="${proposal.id}">Xác nhận</button>${paymentFlow === 'accountant' ? `<button type="button" data-accountant-reject="${proposal.id}">Từ chối</button>` : ''}</div>`
@@ -346,9 +358,9 @@ async function load(showFeedback = false) {
     refreshButton.textContent = 'Đang tải...';
   }
   try {
-    const scope = isPaymentReport ? 'payment-report' : 'all';
+    const scope = isPaymentReport ? 'payment-report' : isAccountingTeamReport ? 'accounting-team' : 'all';
     const response = await fetch(`/api/proposals?scope=${scope}&refresh=${Date.now()}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(isPaymentReport ? 'Không có quyền xem báo cáo đề xuất thanh toán.' : 'Không có quyền xem báo cáo nhân sự.');
+      if (!response.ok) throw new Error(isPaymentReport ? 'Không có quyền xem báo cáo đề xuất thanh toán.' : isAccountingTeamReport ? 'Chỉ Kế toán trưởng và Admin/CEO được xem báo cáo này.' : 'Không có quyền xem báo cáo nhân sự.');
       const result = await response.json();
       const nextProposals = result.proposals || [];
       canReview = result.canReview === true;

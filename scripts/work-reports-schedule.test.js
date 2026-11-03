@@ -53,3 +53,35 @@ test('reminders go once, within the hour before the deadline, only to people who
     fs.rmSync(directory, { recursive: true });
   }
 });
+
+test('weekly and monthly reports can open for input only from a set day', async () => {
+  const monthly = { schedule: { frequency: 'monthly', monthDay: 28, openDay: 25 } };
+  assert.equal(periodOf(monthly, '2026-11-03').opensOn, '2026-11-25');
+  assert.equal(periodOf({ schedule: { frequency: 'monthly', monthDay: 28 } }, '2026-11-03').opensOn, undefined);
+  assert.equal(periodOf({ schedule: { frequency: 'weekly', weekday: 6, openWeekday: 5 } }, '2026-11-03').opensOn, '2026-11-06');
+
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'gusa-work-open-'));
+  const person = { id: 'a', name: 'A', status: 'active' };
+  fs.writeFileSync(path.join(directory, 'work-report-templates.json'), JSON.stringify([
+    { id: 'kpi', name: 'KPI tháng', deadline: '21:00', createdAt: '2026-11-01T00:00:00Z', targets: { userIds: ['a'] }, schedule: { frequency: 'monthly', monthDay: 28, openDay: 25 }, items: [{ id: 'sales', label: 'Doanh thu', type: 'number', required: true }] },
+  ]));
+  fs.writeFileSync(path.join(directory, 'work-reports.json'), '[]');
+  let today = '2026-11-03';
+  let response;
+  const reports = createWorkReports({
+    dataPath: (name) => path.join(directory, name), users: new Map([['a', person]]), getCurrentUser: () => person, isManagementUser: () => false,
+    sendJson: (res, status, body) => { response = { status, body }; }, send: (res, status, body) => { response = { status, body }; },
+    getUserKey: (item) => item.id, getLocalDateKey: () => today, getLocalMinutes: () => 10 * 60,
+  });
+  const submit = () => reports.handle(Object.assign((async function* () { yield JSON.stringify({ templateId: 'kpi', answers: [{ itemId: 'sales', value: 100 }] }); })(), { url: '/api/work-reports', method: 'POST' }), {});
+  try {
+    await submit();
+    assert.equal(response.status, 409);
+    assert.match(response.body, /mở nhập từ ngày 25\/11/);
+    today = '2026-11-25';
+    await submit();
+    assert.equal(response.status, 201);
+  } finally {
+    fs.rmSync(directory, { recursive: true });
+  }
+});

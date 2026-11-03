@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Lương nhân viên - Quy Trình</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="management.css?v=20261103-1" />
+    <link rel="stylesheet" href="salary.css?v=20261103-3" />
+  </head>
+  <body>
+    <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand"><div class="mini-logo"><img src="logo1.jpg" alt="" /></div><span>Gusa - Quy Trình</span><button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4.5" width="16" height="15" rx="3" /><path d="M9.5 4.5v15" /><path class="sidebar-toggle-arrow" d="m15.5 10-2 2 2 2" /></svg></button></div>
+        <div class="sidebar-scroll"></div>
+        <div class="sidebar-account"><div class="avatar" data-user-avatar>B</div><div><strong data-user-name></strong><small data-user-role></small></div><a class="sidebar-logout" href="/auth/logout">Đăng xuất</a></div>
+      </aside>
+      <main class="workspace">
+        <header class="topbar">
+          <button class="mobile-menu-toggle" type="button" data-mobile-menu-toggle aria-label="Mở menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>
+          <div class="breadcrumbs"><span>Gusa - Quy Trình</span><span class="crumb-separator">/</span><strong>Lương nhân viên</strong></div>
+          <div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip is-selected" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div>
+        </header>
+        <section class="salary-content" aria-labelledby="salary-title">
+          <div class="salary-hero"><span class="salary-eyebrow">BIỂU MẪU · ADMIN/CEO</span><h1 id="salary-title">Lương nhân viên</h1><p>Danh sách tự đồng bộ theo các tài khoản Gmail đang hoạt động. Nhập lương cơ bản và phụ cấp, hệ thống tự lưu khi rời ô.</p></div>
+          <div class="salary-stats" data-salary-stats></div>
+          <input type="search" class="salary-search" placeholder="Tìm theo tên hoặc Gmail..." data-salary-search />
+          <div data-salary-list aria-live="polite"><p class="salary-empty">Đang tải...</p></div>
+        </section>
+      </main>
+    </div>
+    <script src="salary.js?v=20261103-roles"></script>
+    <script src="admin-menu.js?v=20261103-acct"></script>
+  </body>
+</html>

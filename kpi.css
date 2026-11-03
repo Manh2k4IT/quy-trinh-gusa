@@ -95,3 +95,21 @@ a.kpi-attach:hover { filter: brightness(.96); }
 .kpi-cell-attach .kpi-attach { padding: .1rem .35rem; border-radius: 8px; font-size: .75rem; }
 body[data-theme="dark"] .kpi-attachments { background: #111827; }
 body[data-theme="dark"] .kpi-attach { border-color: #374151; background: #1f2937; color: #93c5fd; }
+
+.kpi-salary { display: grid; gap: .8rem; padding: 1.1rem 1.2rem; border: 1px solid #abefc6; border-radius: 18px; background: linear-gradient(130deg, #ecfdf3, #f6fef9); }
+.kpi-salary[hidden] { display: none; }
+.kpi-salary-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .3rem 1rem; }
+.kpi-salary-head b { color: #054f31; font-size: 1.05rem; }
+.kpi-salary-head small { color: #667085; font-size: .8rem; }
+.kpi-salary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+.kpi-salary-grid > div { display: grid; gap: .2rem; padding: .75rem .9rem; border-radius: 14px; background: #fff; }
+.kpi-salary-grid span { color: #667085; font-size: .78rem; font-weight: 700; }
+.kpi-salary-grid b { color: #172b4d; font-size: clamp(1rem, 2.2vw, 1.3rem); overflow-wrap: anywhere; }
+.kpi-salary-grid .is-total { background: #054f31; }
+.kpi-salary-grid .is-total span { color: #a6f4c5; }
+.kpi-salary-grid .is-total b { color: #fff; }
+body[data-theme="dark"] .kpi-salary { border-color: #1f3b2d; background: linear-gradient(130deg, #13281f, #1f2937); }
+body[data-theme="dark"] .kpi-salary-head b { color: #6ce9a6; }
+body[data-theme="dark"] .kpi-salary-grid > div:not(.is-total) { background: #1f2937; }
+body[data-theme="dark"] .kpi-salary-grid > div:not(.is-total) b { color: #edf0f4; }
+@media (max-width: 560px) { .kpi-salary-grid { grid-template-columns: 1fr 1fr; } .kpi-salary-grid .is-total { grid-column: 1 / -1; } }

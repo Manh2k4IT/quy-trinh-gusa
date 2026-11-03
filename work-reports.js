@@ -34,12 +34,14 @@ function periodOf(template, date) {
   if (schedule.frequency === "weekly") {
     const start = addDays(date, 1 - isoWeekday(date));
     const dueDate = addDays(start, (schedule.weekday || 6) - 1);
-    return { key: `W:${start}`, dueDate, label: `Tuần ${shortDate(start)} – ${shortDate(addDays(start, 6))}`, dueLabel: `${weekdayNames[schedule.weekday || 6]} ${shortDate(dueDate)}` };
+    const opensOn = schedule.openWeekday ? addDays(start, schedule.openWeekday - 1) : null;
+    return { key: `W:${start}`, dueDate, label: `Tuần ${shortDate(start)} – ${shortDate(addDays(start, 6))}`, dueLabel: `${weekdayNames[schedule.weekday || 6]} ${shortDate(dueDate)}`, ...(opensOn ? { opensOn } : {}) };
   }
   if (schedule.frequency === "monthly") {
     const month = date.slice(0, 7);
     const dueDate = `${month}-${String(Math.min(schedule.monthDay || 28, daysInMonth(date))).padStart(2, "0")}`;
-    return { key: `M:${month}`, dueDate, label: `Tháng ${Number(month.slice(5))}/${month.slice(0, 4)}`, dueLabel: `ngày ${shortDate(dueDate)}` };
+    const opensOn = schedule.openDay ? `${month}-${String(Math.min(schedule.openDay, daysInMonth(date))).padStart(2, "0")}` : null;
+    return { key: `M:${month}`, dueDate, label: `Tháng ${Number(month.slice(5))}/${month.slice(0, 4)}`, dueLabel: `ngày ${shortDate(dueDate)}`, ...(opensOn && opensOn <= dueDate ? { opensOn } : {}) };
   }
   const weekdays = schedule.weekdays?.length ? schedule.weekdays : [1, 2, 3, 4, 5, 6, 7];
   if (!weekdays.includes(isoWeekday(date))) return null;
@@ -111,6 +113,15 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
     const [hours, minutes] = String(deadline || "21:00").split(":").map(Number);
     return hours * 60 + minutes;
   };
+  // First day a template counts: its "Áp dụng từ ngày" when Admin set one, otherwise the day it was created
+  // (templates saved before createdAt existed start from their last save).
+  const startsOn = (template) => {
+    if (template.schedule?.startDate) return template.schedule.startDate;
+    const since = template.createdAt || template.updatedAt;
+    return since ? getLocalDateKey(new Date(since)) : null;
+  };
+  // Not submitted and past its deadline: still "overdue" while the period runs (a late report is accepted), "missing" once it is over.
+  const unsubmittedLate = (template, period, today) => (periodOf(template, today)?.key === period.key ? "overdue" : "missing");
   const isLate = (template, period, date = getLocalDateKey()) => date > period.dueDate || (date === period.dueDate && getLocalMinutes() > deadlineMinutes(template.deadline));
 
   // Every template that applies to the user today, with its period and this period's report.
@@ -143,8 +154,20 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
       if (!schedule.weekdays.length) throw new Error("Chọn ít nhất một ngày trong tuần cần nộp báo cáo.");
     } else if (frequency === "weekly") {
       schedule.weekday = Math.min(7, Math.max(1, Math.round(Number(input.weekday) || 6)));
+      // Optional: input opens only from this weekday; left empty the whole week is open.
+      const openWeekday = Math.round(Number(input.openWeekday) || 0);
+      if (openWeekday) {
+        if (openWeekday < 1 || openWeekday > schedule.weekday) throw new Error("Ngày mở nhập phải trước hoặc trùng ngày hạn nộp trong tuần.");
+        schedule.openWeekday = openWeekday;
+      }
     } else {
       schedule.monthDay = Math.min(31, Math.max(1, Math.round(Number(input.monthDay) || 28)));
+      // Optional: input opens only from this day of the month; left empty the whole month is open.
+      const openDay = Math.round(Number(input.openDay) || 0);
+      if (openDay) {
+        if (openDay < 1 || openDay > schedule.monthDay) throw new Error("Ngày mở nhập phải trước hoặc trùng ngày hạn nộp trong tháng.");
+        schedule.openDay = openDay;
+      }
     }
     const items = (Array.isArray(payload.items) ? payload.items : []).slice(0, 40).map((item) => {
       const type = itemTypes.includes(item.type) ? item.type : "text";
@@ -196,6 +219,7 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
     const entry = payload.templateId ? due.find((item) => item.template.id === payload.templateId) : due[0];
     if (!entry) return send(res, 404, "Mẫu báo cáo này không áp dụng cho bạn hôm nay.");
     const { template, period, report: existing } = entry;
+    if (period.opensOn && getLocalDateKey() < period.opensOn) return send(res, 409, `Báo cáo "${template.name}" mở nhập từ ngày ${shortDate(period.opensOn)}.`);
     const reportId = existing?.id || crypto.randomUUID();
     const answersIn = new Map((Array.isArray(payload.answers) ? payload.answers : []).map((answer) => [answer.itemId, answer]));
     const usedHashes = new Set(reports.filter((report) => report.id !== reportId).flatMap((report) => report.answers.flatMap((answer) => (answer.photos || []).map((photo) => photo.sha256))));
@@ -319,16 +343,15 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
     for (let offset = 0; offset < days; offset += 1) {
       const date = addDays(today, -offset);
       for (const template of templates) {
-        // Do not count days from before the template existed.
-        // Templates saved before createdAt existed start from their last save instead.
-        const since = template.createdAt || template.updatedAt;
-        if (since && date < getLocalDateKey(new Date(since))) continue;
+        // Do not count days before the template starts.
+        const since = startsOn(template);
+        if (since && date < since) continue;
         const period = periodOf(template, date);
         if (!period || seen.has(`${template.id}|${period.key}`)) continue;
         seen.add(`${template.id}|${period.key}`);
         const report = reports.find((item) => item.templateId === template.id && item.periodKey === period.key);
         if (!report && period.dueDate > today) continue;
-        const status = report ? (report.late ? "late" : "submitted") : isLate(template, period, today) ? "missing" : "pending";
+        const status = report ? (report.late ? "late" : "submitted") : isLate(template, period, today) ? unsubmittedLate(template, period, today) : "pending";
         rows.push({ templateId: template.id, templateName: template.name, periodKey: period.key, periodLabel: period.label, dueDate: period.dueDate, dueLabel: `${period.dueLabel} ${template.deadline}`, status, reportId: report?.id || null, submittedAt: report?.submittedAt || null });
       }
     }
@@ -357,8 +380,8 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
         const sent = new Set(context.reports.filter((report) => report.userId === key && report.templateId === template.id).map((report) => report.periodKey));
         const periods = new Map();
         for (let date = first; date <= last; date = addDays(date, 1)) {
-          const since = template.createdAt || template.updatedAt;
-          if (since && date < getLocalDateKey(new Date(since))) continue;
+          const since = startsOn(template);
+          if (since && date < since) continue;
           const period = periodOf(template, date);
           if (period && period.dueDate >= first && period.dueDate <= monthEnd && (period.dueDate <= today || sent.has(period.key))) periods.set(period.key, period);
         }
@@ -404,8 +427,8 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
       for (const user of activeUsers()) {
         for (const { template, period, report } of dueToday(user, date, context)) {
           // Skip days before the template existed, and periods that are not due yet unless already submitted.
-          const since = template.createdAt || template.updatedAt;
-          if (since && date < getLocalDateKey(new Date(since))) continue;
+          const since = startsOn(template);
+          if (since && date < since) continue;
           const key = `${getUserKey(user)}|${template.id}|${period.key}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -418,7 +441,7 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
             periodLabel: period.label,
             dueDate: period.dueDate,
             dueLabel: `${period.dueLabel} ${template.deadline}`,
-            status: report ? (report.late ? "late" : "submitted") : isLate(template, period, today) ? "missing" : "upcoming",
+            status: report ? (report.late ? "late" : "submitted") : isLate(template, period, today) ? unsubmittedLate(template, period, today) : "upcoming",
             reportId: report?.id || null,
             submittedAt: report?.submittedAt || null,
           });

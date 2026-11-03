@@ -83,6 +83,22 @@
       });
     }
 
+    // The signed-in person's own salary, entered by Admin/CEO on the Lương nhân viên page.
+    const salaryBox = root.querySelector('[data-kpi-salary]');
+    async function loadSalary() {
+      const response = await fetch('/api/salaries/me', { cache: 'no-store' });
+      if (!response.ok) return;
+      const { salary } = await response.json();
+      const has = salary && (salary.baseSalary !== null || salary.allowance !== null);
+      const vnd = (value) => (value === null || value === undefined ? 'Chưa có' : `${Number(value).toLocaleString('vi-VN')} ₫`);
+      salaryBox.innerHTML = has
+        ? `<div class="kpi-salary-head"><b>💰 Lương của bạn</b><small>Mỗi tháng${salary.updatedAt ? ` · cập nhật ${new Date(salary.updatedAt).toLocaleDateString('vi-VN')}` : ''}</small></div>
+          <div class="kpi-salary-grid"><div><span>Lương cơ bản</span><b>${vnd(salary.baseSalary)}</b></div><div><span>Phụ cấp</span><b>${vnd(salary.allowance)}</b></div><div class="is-total"><span>Tổng</span><b>${vnd((salary.baseSalary || 0) + (salary.allowance || 0))}</b></div></div>`
+        : '<div class="kpi-salary-head"><b>💰 Lương của bạn</b><small>Chưa có thông tin lương. Liên hệ Admin/CEO để được cập nhật.</small></div>';
+      salaryBox.hidden = false;
+    }
+    if (personal && salaryBox) loadSalary().catch(() => {});
+
     async function load() {
       list.innerHTML = '<p class="kpi-empty">Đang tải...</p>';
       const response = await fetch(`/api/work-reports/kpi?month=${monthInput.value}${personal ? '&scope=me' : ''}`, { cache: 'no-store' });

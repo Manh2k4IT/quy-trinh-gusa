@@ -1,6 +1,6 @@
 (() => {
   const storagePrefix = 'gusa-report-seen:';
-  const reportKeys = ['online', 'late', 'overview', 'personnel', 'payment'];
+  const reportKeys = ['online', 'late', 'overview', 'personnel', 'payment', 'accounting-team'];
   const status = document.querySelector('[data-report-notification-status]');
   let latestSummary = null;
   let loading = false;
