@@ -147,3 +147,32 @@ body[data-theme="dark"] .kpi-sheet-name b, body[data-theme="dark"] .kpi-sheet-po
 .kpi-sheet th { white-space: normal; line-height: 1.25; }
 .kpi-sheet th, .kpi-sheet td { padding: .5rem .55rem; }
 .kpi-sheet-name { min-width: 170px; }
+
+/* KPI approval. */
+.kpi-approval-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.kpi-approval { padding: .3rem .7rem; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+.kpi-approval.is-approved { color: #067647; background: #dcfae6; }
+.kpi-approval.is-pending { color: #b54708; background: #fef0c7; }
+.kpi-approval.is-revision { color: #c4320a; background: #ffead5; }
+.kpi-approval-actions { display: flex; gap: .4rem; }
+.kpi-approval-actions button { min-height: 36px; padding: 0 .9rem; border: 0; border-radius: 10px; font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; }
+.kpi-approval-actions .is-approve { color: #fff; background: #079455; }
+.kpi-approval-actions .is-revise { color: #c4320a; background: #fff; box-shadow: inset 0 0 0 1px #f9dbaf; }
+.kpi-approval-actions button:disabled { opacity: .6; cursor: wait; }
+.kpi-template.is-hidden { border-left-color: #d0d5dd; }
+.kpi-waiting { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; padding: .9rem 1rem; border-radius: 12px; background: #f8f9fc; }
+.kpi-waiting > span { font-size: 1.4rem; }
+.kpi-waiting > div { display: grid; flex: 1 1 220px; gap: .15rem; }
+.kpi-waiting b { color: #172b4d; }
+.kpi-waiting small { color: #667085; }
+.kpi-waiting.is-revision { background: #fef6ee; } .kpi-waiting.is-revision b { color: #c4320a; }
+.kpi-waiting a { padding: .5rem .9rem; border-radius: 10px; color: #fff; background: #6941c6; font-weight: 700; text-decoration: none; }
+body[data-theme="dark"] .kpi-waiting { background: #111827; } body[data-theme="dark"] .kpi-waiting b { color: #edf0f4; }
+
+.kpi-salary-grid b.is-waiting { color: #b54708; font-size: 1rem; }
+.kpi-salary-grid .is-total b.is-waiting { color: #fec84b; }
+.kpi-salary-note { margin: 0; color: #667085; font-size: .8rem; }
+
+.kpi-score.is-provisional { border: 1px dashed #fdb022; }
+
+.kpi-cap { display: block; margin-top: .2rem; color: #6941c6; font-size: .68rem; font-weight: 700; }

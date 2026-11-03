@@ -1568,8 +1568,10 @@ const recruitment = createRecruitment({ dataPath, users, getCurrentUser, isManag
 const kpiPercentFor = (userId, month) => {
   const user = users.get(userId);
   if (!user) return null;
-  const percents = (workReports.kpiSummary([user], month)[0]?.templates || []).map((template) => template.kpiPercent).filter((value) => value !== null);
-  return percents.length ? Math.round((percents.reduce((sum, value) => sum + value, 0) / percents.length) * 10) / 10 : null;
+  const templates = (workReports.kpiSummary([user], month)[0]?.templates || []).filter((template) => template.kpiPercent !== null);
+  if (!templates.length) return null;
+  const percent = Math.round((templates.reduce((sum, template) => sum + template.kpiPercent, 0) / templates.length) * 10) / 10;
+  return { percent, approved: templates.every((template) => template.approval?.status === "approved") };
 };
 const salaries = createSalaries({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, currentMonth: () => getLocalDateKey().slice(0, 7), kpiPercentFor });
 const workReports = createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getUserKey: getAttendanceUserKey, getLocalDateKey, getLocalMinutes, notify: sendUserNotification });

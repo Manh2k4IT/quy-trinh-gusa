@@ -19,7 +19,7 @@
   const sum = (key) => rows.reduce((total, row) => total + (row[key] || 0), 0);
   const hasAmounts = (row) => fields.some((field) => row[field.key] !== null);
   // P3 thực nhận = P3 định mức × % KPI (typed for the month, else from the KPI reports up to 100%, else 100%).
-  const appliedKpi = (typed, auto) => (typed !== null ? typed : auto !== null ? Math.min(auto, 100) : 100);
+  const appliedKpi = (typed, auto) => (typed !== null ? typed : auto !== null ? Math.min(auto, 200) : 100);
   const parsePercent = (text) => {
     const value = String(text || '').replace(',', '.').replace(/[^\d.]/g, '');
     return value ? Math.round(Number(value) * 10) / 10 : null;
@@ -37,11 +37,17 @@
     ].map(([kind, icon, label, value, note]) => `<div class="salary-stat ${kind}"><span aria-hidden="true">${icon}</span><small>${label}</small><b>${value}</b><em>${note}</em></div>`).join('');
   }
 
+  // Where the KPI % comes from; the approval state stands out in colour.
+  const kpiSource = (row) => {
+    if (row.kpiPercent !== null) return 'Nhập tay cho tháng này';
+    if (row.kpiAuto === null) return 'Chưa có KPI – tính 100%';
+    return `Từ KPI: ${percentText(row.kpiAuto)}${row.kpiAuto > 200 ? ' (tính tối đa 200%)' : ''} · <b class="salary-kpi-state ${row.kpiApproved ? 'is-approved' : 'is-pending'}">${row.kpiApproved ? 'đã duyệt' : 'chờ duyệt'}</b>`;
+  };
   // % KPI: an input showing what applies; the hint says where it comes from.
   const kpiCells = (row) => {
-    const source = row.kpiPercent !== null ? 'Nhập tay cho tháng này' : row.kpiAuto !== null ? `Từ KPI: ${percentText(row.kpiAuto)}${row.kpiAuto > 100 ? ' (tính tối đa 100%)' : ''}` : 'Chưa có KPI – tính 100%';
-    return `<td class="is-money"><input class="salary-kpi-input" inputmode="decimal" data-kpi value="${row.kpiPercent !== null ? percentText(row.kpiPercent) : ''}" placeholder="${percentText(appliedKpi(null, row.kpiAuto))}" aria-label="% KPI của ${escape(row.name)}" /><small class="salary-kpi-source" data-kpi-source>${escape(source)}</small></td>
-        <td class="is-money salary-p3-paid" data-p3-paid>${row.p3Paid !== null ? money(row.p3Paid) : '—'}</td>`;
+    const source = kpiSource(row);
+    return `<td class="is-money"><input class="salary-kpi-input" inputmode="decimal" data-kpi value="${row.kpiPercent !== null ? percentText(row.kpiPercent) : ''}" placeholder="${percentText(appliedKpi(null, row.kpiAuto))}" aria-label="% KPI của ${escape(row.name)}" /><small class="salary-kpi-source" data-kpi-source>${source}</small>${row.kpiPercent !== null && row.kpiAuto !== null && row.kpiPercent !== Math.min(row.kpiAuto, 200) ? `<button type="button" class="salary-kpi-reset" data-kpi-reset title="Bỏ số nhập tay, dùng % KPI đã tính">↺ Dùng KPI ${percentText(Math.min(row.kpiAuto, 200))}</button>` : ''}</td>
+        <td class="is-money salary-p3-paid"><span data-p3-paid>${row.p3Paid !== null ? money(row.p3Paid) : '—'}</span>${row.p3Paid !== null && row.kpiPercent === null && row.kpiAuto !== null && !row.kpiApproved ? '<small class="salary-kpi-wait">⏳ chờ duyệt KPI</small>' : ''}</td>`;
   };
 
   function renderList() {
@@ -94,7 +100,7 @@
       tr.querySelector('[data-total]').textContent = row.total !== null ? money(row.total) : '—';
       tr.querySelector('[data-p3-paid]').textContent = row.p3Paid !== null ? money(row.p3Paid) : '—';
       tr.querySelector('[data-kpi]').value = row.kpiPercent !== null ? percentText(row.kpiPercent) : '';
-      tr.querySelector('[data-kpi-source]').textContent = row.kpiPercent !== null ? 'Nhập tay cho tháng này' : row.kpiAuto !== null ? `Từ KPI: ${percentText(row.kpiAuto)}${row.kpiAuto > 100 ? ' (tính tối đa 100%)' : ''}` : 'Chưa có KPI – tính 100%';
+      tr.querySelector('[data-kpi-source]').innerHTML = kpiSource(row);
       tr.querySelectorAll('[data-field]').forEach((input) => input.classList.remove('is-inherited'));
       state.className = 'salary-state is-saved';
       state.textContent = `✓ Đã lưu cho ${monthLabel(monthInput.value)}`;
@@ -121,6 +127,16 @@
   });
   list.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && event.target.closest('[data-field], [data-kpi]')) { event.target.closest('[data-user]').dataset.confirm = '1'; event.target.blur(); }
+  });
+  // Back to the KPI result: clear the typed % and save the row.
+  list.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-kpi-reset]');
+    if (!button) return;
+    const tr = button.closest('[data-user]');
+    tr.querySelector('[data-kpi]').value = '';
+    button.remove();
+    showDraft(tr);
+    save(rows.find((row) => row.userId === tr.dataset.user), tr);
   });
   search.addEventListener('input', renderList);
 

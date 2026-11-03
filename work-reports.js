@@ -53,6 +53,8 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
   const reportsPath = dataPath("work-reports.json");
   const structurePath = dataPath("work-report-structure.json");
   const filesDirectory = dataPath("work-report-files");
+  // Admin/CEO approve each person's KPI per template and month, or send it back for changes.
+  const approvalsPath = dataPath("work-report-kpi-approvals.json");
   const text = (value, max) => String(value ?? "").trim().slice(0, max);
 
   const readJson = (file, fallback) => {
@@ -122,6 +124,43 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
   };
   // Not submitted and past its deadline: still "overdue" while the period runs (a late report is accepted), "missing" once it is over.
   const unsubmittedLate = (template, period, today) => (periodOf(template, today)?.key === period.key ? "overdue" : "missing");
+  const getApprovals = () => readJson(approvalsPath, {}) || {};
+  const approvalKey = (userKey, templateId, month) => `${userKey}|${templateId}|${month}`;
+  // The month a report counts toward: the month its period is due.
+  const reportMonth = (template, report) => (periodOf(template, report.date)?.dueDate || report.date || "").slice(0, 7);
+  // A decision holds until the report is changed after it; then the KPI waits for approval again.
+  function approvalFor(approvals, userKey, template, month, reports) {
+    const saved = approvals[approvalKey(userKey, template.id, month)];
+    if (!saved) return { status: "pending" };
+    const changed = reports.some((report) => report.userId === userKey && report.templateId === template.id && (report.updatedAt || report.submittedAt || "") > saved.at && reportMonth(template, report) === month);
+    return changed ? { status: "pending", resubmittedAfter: saved.status } : saved;
+  }
+  // KPI reports sent back for changes: they can be submitted again even after their period has passed.
+  function revisionDue(user, { templates, structure, reports } = {}) {
+    const key = getUserKey(user);
+    const approvals = getApprovals();
+    const allReports = reports || getReports();
+    return templatesFor(user, templates || getTemplates(), structure || getStructure()).filter((template) => template.kpi).flatMap((template) => Object.entries(approvals)
+      .filter(([approval, saved]) => approval.startsWith(`${key}|${template.id}|`) && saved.status === "revision")
+      .flatMap(([approval, saved]) => {
+        const month = approval.split("|")[2];
+        const report = allReports.filter((item) => item.userId === key && item.templateId === template.id && reportMonth(template, item) === month)
+          .sort((a, b) => (b.updatedAt || b.submittedAt || "").localeCompare(a.updatedAt || a.submittedAt || ""))[0];
+        if (!report || (report.updatedAt || report.submittedAt || "") > saved.at) return [];
+        const period = periodOf(template, report.date);
+        return period ? [{ template, period, report, revision: { note: saved.note || "", at: saved.at, by: saved.by || "" } }] : [];
+      }));
+  }
+  // Today's reports plus the ones sent back for changes, each period once.
+  function openItems(user, date = getLocalDateKey(), context = {}) {
+    const items = dueToday(user, date, context);
+    for (const extra of revisionDue(user, context)) {
+      const same = items.find((item) => item.template.id === extra.template.id && item.period.key === extra.period.key);
+      if (same) same.revision = extra.revision;
+      else items.push(extra);
+    }
+    return items;
+  }
   const isLate = (template, period, date = getLocalDateKey()) => date > period.dueDate || (date === period.dueDate && getLocalMinutes() > deadlineMinutes(template.deadline));
 
   // Every template that applies to the user today, with its period and this period's report.
@@ -186,6 +225,8 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
         ...(type === "number" && Number(item.target) > 0 ? { target: Number(item.target) } : {}),
         ...(type === "number" && item.kpiType === "ratio" ? { kpiType: "ratio" } : {}),
         ...(type === "number" && Number(item.weight) > 0 ? { weight: Math.min(1000, Number(item.weight)) } : {}),
+        // Above 100: points keep growing past the target, up to this completion rate.
+        ...(type === "number" && Number(item.maxRate) > 100 ? { maxRate: Math.min(300, Number(item.maxRate)) } : {}),
         extras: [...new Map((Array.isArray(item.extras) ? item.extras : []).filter((extra) => extraTypes.includes(extra?.type) && extra.type !== type).map((extra) => [extra.type, { type: extra.type, required: Boolean(extra.required) }])).values()],
         hint: text(item.hint, 200),
       };
@@ -216,9 +257,11 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
   async function submitReport(req, res, user) {
     const payload = await readBody(req, 30 * 1024 * 1024);
     const reports = getReports();
-    const due = dueToday(user, getLocalDateKey(), { reports });
+    const due = openItems(user, getLocalDateKey(), { reports });
     if (!due.length) return send(res, 404, "Hôm nay bạn không có mẫu báo cáo công việc cần nộp.");
-    const entry = payload.templateId ? due.find((item) => item.template.id === payload.templateId) : due[0];
+    const entry = payload.templateId
+      ? due.find((item) => item.template.id === payload.templateId && (!payload.periodKey || item.period.key === payload.periodKey))
+      : due[0];
     if (!entry) return send(res, 404, "Mẫu báo cáo này không áp dụng cho bạn hôm nay.");
     const { template, period, report: existing } = entry;
     if (period.opensOn && getLocalDateKey() < period.opensOn) return send(res, 409, `Báo cáo "${template.name}" mở nhập từ ngày ${shortDate(period.opensOn)}.`);
@@ -325,7 +368,8 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
       id: reportId,
       userId: getUserKey(user),
       userName: user.name || user.email,
-      date: getLocalDateKey(),
+      // A report sent back for changes keeps the day it belongs to.
+      date: entry.revision && existing ? existing.date : getLocalDateKey(),
       templateId: template.id,
       templateName: template.name,
       periodKey: period.key,
@@ -377,6 +421,7 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
   function kpiSummary(people, month) {
     const today = getLocalDateKey();
     const context = { templates: getTemplates().filter((template) => template.kpi), structure: getStructure(), reports: getReports() };
+    const approvals = getApprovals();
     const first = `${month}-01`;
     const monthEnd = `${month}-${String(daysInMonth(first)).padStart(2, "0")}`;
     const last = monthEnd < today ? monthEnd : today;
@@ -409,8 +454,9 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
           const target = item.target ?? (ratio ? 100 : null);
           const achieved = !target || !values.length ? null : ratio ? (base > 0 ? Math.round(((total / base) * 100 / target) * 100) : null) : Math.round((total / target) * 100);
           const weight = item.weight ?? null;
-          const points = weight ? Math.round((weight * Math.min(achieved ?? 0, 100)) / 100) : null;
-          return { itemId: item.id, label: item.label, kpiType: ratio ? "ratio" : "count", count: values.length, total, base, average, target, achieved, weight, points };
+          const cap = item.maxRate || 100;
+          const points = weight ? Math.round((weight * Math.min(achieved ?? 0, cap)) / 100) : null;
+          return { itemId: item.id, label: item.label, kpiType: ratio ? "ratio" : "count", count: values.length, total, base, average, target, achieved, weight, points, cap };
         });
         return {
           templateId: template.id,
@@ -418,6 +464,7 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
           due: periods.size,
           submitted: reports.filter((report) => periods.has(report.periodKey)).length,
           late: reports.filter((report) => report.late).length,
+          approval: reports.length ? approvalFor(approvals, key, template, month, context.reports) : { status: "empty" },
           metrics,
           // Weighted score when the template has điểm chuẩn, otherwise the average "% đạt" (each capped at 100%).
           ...(() => {
@@ -425,7 +472,7 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
             const weightTotal = weighted.reduce((sum, metric) => sum + metric.weight, 0);
             const score = weighted.reduce((sum, metric) => sum + metric.points, 0);
             const rated = metrics.filter((metric) => metric.achieved !== null);
-            const kpiPercent = weightTotal ? Math.round((score / weightTotal) * 1000) / 10 : rated.length ? Math.round((rated.reduce((sum, metric) => sum + Math.min(metric.achieved, 100), 0) / rated.length) * 10) / 10 : null;
+            const kpiPercent = weightTotal ? Math.round((score / weightTotal) * 1000) / 10 : rated.length ? Math.round((rated.reduce((sum, metric) => sum + Math.min(metric.achieved, metric.cap), 0) / rated.length) * 10) / 10 : null;
             return { score: weightTotal ? score : null, weightTotal: weightTotal || null, kpiPercent };
           })(),
           reports: reports.map(publicReport).map((report) => {
@@ -530,15 +577,37 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
     try {
       if (req.method === "GET" && pathname === "/api/work-reports/today") {
         const date = getLocalDateKey();
-        const items = dueToday(user, date).map(({ template, period, report }) => ({ template, period, report: publicReport(report), late: !report && isLate(template, period) }));
+        const items = openItems(user, date).map(({ template, period, report, revision }) => ({ template, period, report: publicReport(report), late: !report && isLate(template, period), ...(revision ? { revision } : {}) }));
         return sendJson(res, 200, { date, items, canManage: manager }), true;
       }
       if (req.method === "POST" && pathname === "/api/work-reports") return await submitReport(req, res, user), true;
       if (req.method === "GET" && pathname === "/api/work-reports/history") return sendJson(res, 200, { rows: history(user) }), true;
+      if (req.method === "POST" && pathname === "/api/work-reports/kpi/approval") {
+        if (!manager) return send(res, 403, "Chỉ Admin/CEO được duyệt KPI."), true;
+        const payload = await readBody(req, 8 * 1024);
+        const person = users.get(String(payload.userId || ""));
+        const template = getTemplates().find((item) => item.id === payload.templateId && item.kpi);
+        const month = /^\d{4}-\d{2}$/.test(payload.month || "") ? payload.month : "";
+        if (!person || !template || !month) return send(res, 400, "Thiếu nhân viên, mẫu KPI hoặc tháng."), true;
+        if (!["approve", "revision"].includes(payload.action)) return send(res, 400, "Thao tác không hợp lệ."), true;
+        const note = text(payload.note, 1000);
+        if (payload.action === "revision" && !note) return send(res, 400, "Vui lòng ghi nội dung cần chỉnh sửa."), true;
+        const approvals = getApprovals();
+        approvals[approvalKey(getUserKey(person), template.id, month)] = { status: payload.action === "approve" ? "approved" : "revision", note, at: new Date(now()).toISOString(), by: user.name || user.email || "" };
+        writeJson(approvalsPath, approvals);
+        const monthLabel = `${Number(month.slice(5))}/${month.slice(0, 4)}`;
+        notify([person], payload.action === "approve"
+          ? { title: "KPI đã được duyệt", body: `KPI "${template.name}" tháng ${monthLabel} đã được duyệt. Xem trong Lương & KPI.`, path: "/kpi.html" }
+          : { title: "KPI cần chỉnh sửa", body: `KPI "${template.name}" tháng ${monthLabel}: ${note}`, path: "/work-report.html" }).catch(() => {});
+        return sendJson(res, 200, { person: kpiSummary([person], month)[0] || null }), true;
+      }
       if (req.method === "GET" && pathname === "/api/work-reports/kpi") {
         const month = /^\d{4}-\d{2}$/.test(searchParams.get("month") || "") ? searchParams.get("month") : getLocalDateKey().slice(0, 7);
         const everyone = manager && searchParams.get("scope") !== "me";
-        return sendJson(res, 200, { month, canManage: everyone, people: kpiSummary(everyone ? activeUsers() : [user], month) }), true;
+        const people = kpiSummary(everyone ? activeUsers() : [user], month);
+        // Before approval the person sees their report and its scoring as provisional; pay (P3) waits for approval.
+        if (!everyone) people.forEach((person) => { person.templates = person.templates.map((entry) => (entry.approval.status === "approved" ? entry : { ...entry, hidden: true })); });
+        return sendJson(res, 200, { month, canManage: everyone, people }), true;
       }
 
       const photoMatch = /^\/api\/work-reports\/([\w-]+)\/(?:photos|files)\/([\w.-]+)$/.exec(pathname);
@@ -656,7 +725,7 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
     }
   }
 
-  return { handle, checkoutBlock, notificationsFor, sendReminders, kpiSummary, dataFiles: ["work-report-templates.json", "work-reports.json", "work-report-structure.json", "work-report-reminders.json"] };
+  return { handle, checkoutBlock, notificationsFor, sendReminders, kpiSummary, dataFiles: ["work-report-templates.json", "work-reports.json", "work-report-structure.json", "work-report-reminders.json", "work-report-kpi-approvals.json"] };
 }
 
 module.exports = { createWorkReports, periodOf };

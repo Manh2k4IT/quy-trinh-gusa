@@ -13,8 +13,9 @@ const fields = [
   { key: "insurance", label: "Khấu trừ BHXH", deduction: true },
 ];
 // P3 is paid by the KPI result: P3 thực nhận = P3 định mức × % KPI. The KPI % comes from the KPI reports
-// (capped at 100%) unless Admin/CEO typed one for the month; with no KPI at all it counts as 100%.
-const kpiCap = 100;
+// unless Admin/CEO typed one for the month; with no KPI at all it counts as 100%.
+// Each KPI item caps itself (100%, or more when it may exceed its target); this only guards against typos.
+const kpiCap = 200;
 const appliedKpi = (entered, auto) => (entered !== null ? entered : auto !== null ? Math.min(auto, kpiCap) : 100);
 const totalOf = (amounts) => (fields.some((field) => amounts[field.key] !== null)
   ? fields.reduce((sum, field) => sum + (field.key === "p3" ? amounts.p3Paid || 0 : amounts[field.key] || 0) * (field.deduction ? -1 : 1), 0)
@@ -75,7 +76,7 @@ function createSalaries({ dataPath, users, getCurrentUser, isManagementUser, sen
           ...Object.fromEntries(fields.map((field) => [field.key, Number.isFinite(saved[field.key]) ? saved[field.key] : null])),
           // A typed KPI % belongs to its own month only; it is not carried forward.
           kpiPercent: from === month && Number.isFinite(saved.kpiPercent) ? saved.kpiPercent : null,
-          kpiAuto: kpiPercentFor(user.id, month),
+          ...(() => { const kpi = kpiPercentFor(user.id, month); const percent = kpi && typeof kpi === "object" ? kpi.percent : kpi ?? null; return { kpiAuto: percent, kpiApproved: kpi && typeof kpi === "object" ? kpi.approved : null }; })(),
           updatedAt: saved.updatedAt || null,
           // Set when the amounts come from an earlier month (or the old undated base) rather than this one.
           inheritedFrom: entry && from !== month ? from || "base" : null,
@@ -119,7 +120,9 @@ function createSalaries({ dataPath, users, getCurrentUser, isManagementUser, sen
       const me = getCurrentUser(req);
       if (!me || me.status !== "active") return send(res, 403, "Forbidden"), true;
       const row = rows(month).find((item) => item.userId === me.id) || null;
-      return sendJson(res, 200, { month, fields, salary: row && { ...Object.fromEntries(fields.map((field) => [field.key, row[field.key]])), kpiApplied: row.kpiApplied, kpiAuto: row.kpiAuto, p3Paid: row.p3Paid, total: row.total, updatedAt: row.updatedAt, inheritedFrom: row.inheritedFrom } }), true;
+      // P3 waits for the KPI behind it: an unapproved KPI result is not shown, nor the total that depends on it.
+      const kpiPending = Boolean(row && row.p3 !== null && row.kpiPercent === null && row.kpiAuto !== null && row.kpiApproved === false);
+      return sendJson(res, 200, { month, fields, salary: row && { ...Object.fromEntries(fields.map((field) => [field.key, row[field.key]])), kpiPending, kpiApplied: kpiPending ? null : row.kpiApplied, kpiAuto: kpiPending ? null : row.kpiAuto, kpiApproved: row.kpiApproved, p3Paid: kpiPending ? null : row.p3Paid, total: kpiPending ? null : row.total, updatedAt: row.updatedAt, inheritedFrom: row.inheritedFrom } }), true;
     }
     if (pathname !== "/api/salaries") return false;
     const user = getCurrentUser(req);

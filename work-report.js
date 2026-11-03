@@ -84,12 +84,14 @@
 
   // ---------- My reports: one collapsible card per template due in its current period ----------
   const openCards = new Set();
+  // A card is one template in one period (a report sent back for changes can sit next to the current one).
+  const cardKey = (entry) => `${entry.template.id}|${entry.period.key}`;
   function renderMine() {
     const panel = panels.mine;
     const items = today.items;
     // A weekly/monthly report whose input opens later shows locked and does not count as to-do yet.
     items.forEach((item) => { item.locked = !item.report && Boolean(item.period.opensOn) && today.date < item.period.opensOn; });
-    const done = items.filter((item) => item.report || item.locked).length;
+    const done = items.filter((item) => (item.report && !item.revision) || item.locked).length;
     statusChip.hidden = !items.length;
     statusChip.className = `wr-status ${done === items.length ? 'is-done' : 'is-missing'}`;
     statusChip.textContent = done === items.length ? (items.some((item) => item.locked) ? 'Chưa có báo cáo cần nộp lúc này' : `Đã nộp đủ ${items.length} báo cáo`) : `Còn ${items.length - done} báo cáo cần nộp`;
@@ -100,19 +102,19 @@
     // Reports still to do come first and start open; submitted ones stay folded until tapped.
     const rank = (item) => (item.report ? 2 : item.locked ? 1 : 0);
     const ordered = [...items].sort((a, b) => rank(a) - rank(b));
-    ordered.forEach((item) => { if (!item.report && !item.locked && !item.seenOpen) { openCards.add(item.template.id); item.seenOpen = true; } });
+    ordered.forEach((item) => { if ((!item.report || item.revision) && !item.locked && !item.seenOpen) { openCards.add(cardKey(item)); item.seenOpen = true; } });
     const submitted = items.filter((item) => item.report).length;
     const locked = items.filter((item) => item.locked).length;
     panel.innerHTML = `<div class="wr-summary"><span class="is-todo"><b>${items.length - done}</b> cần nộp</span><span class="is-done"><b>${submitted}</b> đã nộp</span>${locked ? `<span class="is-locked"><b>${locked}</b> chưa mở</span>` : ''}</div>`
       + ordered.map((entry) => {
         const { template, period, report } = entry;
-        const state = report ? (report.late ? ['is-late', `Nộp trễ · ${clock(report.submittedAt)}`] : ['is-done', `Đã nộp · ${clock(report.submittedAt)}`]) : entry.locked ? ['is-locked', `Mở từ ${period.opensOn.slice(8, 10)}/${period.opensOn.slice(5, 7)}`] : entry.late ? ['is-missing', 'Quá hạn'] : ['is-pending', 'Chưa nộp'];
-        const open = openCards.has(template.id);
-        return `<section class="wr-report-card ${state[0]}${open ? ' is-open' : ''}" data-template="${escape(template.id)}">
+        const state = entry.revision ? ['is-revision', 'Cần chỉnh sửa'] : report ? (report.late ? ['is-late', `Nộp trễ · ${clock(report.submittedAt)}`] : ['is-done', `Đã nộp · ${clock(report.submittedAt)}`]) : entry.locked ? ['is-locked', `Mở từ ${period.opensOn.slice(8, 10)}/${period.opensOn.slice(5, 7)}`] : entry.late ? ['is-missing', 'Quá hạn'] : ['is-pending', 'Chưa nộp'];
+        const open = openCards.has(cardKey(entry));
+        return `<section class="wr-report-card ${state[0]}${open ? ' is-open' : ''}" data-template="${escape(cardKey(entry))}">
           <button type="button" class="wr-card-head" data-toggle-card aria-expanded="${open}">
-            <span class="wr-card-icon" aria-hidden="true">${report ? '✓' : entry.locked ? '🔒' : '✎'}</span>
+            <span class="wr-card-icon" aria-hidden="true">${entry.revision ? '✎' : report ? '✓' : entry.locked ? '🔒' : '✎'}</span>
             <span class="wr-card-title"><span class="wr-card-tags">${kindTags(template)}</span><b>${escape(template.name)}</b><small>${escape(period.label)} · <span class="wr-due">Hạn ${escape(period.dueLabel)} ${escape(template.deadline)}</span> · ${template.items.length} mục</small></span>
-            <span class="wr-card-status"><span class="wr-pill ${state[0]}">${state[1]}</span><span class="wr-toggle-label">${open ? 'Thu gọn ▴' : report ? 'Xem / sửa ▾' : entry.locked ? 'Xem ▾' : 'Mở để nộp ▾'}</span></span>
+            <span class="wr-card-status"><span class="wr-pill ${state[0]}">${state[1]}</span><span class="wr-toggle-label">${open ? 'Thu gọn ▴' : entry.revision ? 'Sửa & nộp lại ▾' : report ? 'Xem / sửa ▾' : entry.locked ? 'Xem ▾' : 'Mở để nộp ▾'}</span></span>
           </button>
           <div class="wr-card-body"></div>
         </section>`;
@@ -124,19 +126,19 @@
         renderMine();
       };
     });
-    ordered.filter((entry) => openCards.has(entry.template.id)).forEach(renderForm);
+    ordered.filter((entry) => openCards.has(cardKey(entry))).forEach(renderForm);
   }
 
   function renderForm(entry) {
     const { template, period, report } = entry;
-    const card = panels.mine.querySelector(`[data-template="${CSS.escape(template.id)}"] .wr-card-body`);
+    const card = panels.mine.querySelector(`[data-template="${CSS.escape(cardKey(entry))}"] .wr-card-body`);
     if (entry.locked) {
       card.innerHTML = `<div class="wr-locked-note"><b>🔒 Báo cáo này mở nhập từ ngày ${escape(shortDate(period.opensOn))}</b><span>Hạn nộp ${escape(period.dueLabel)} ${escape(template.deadline)}. Gồm ${template.items.length} mục: ${template.items.map((item) => escape(item.label)).join(', ')}.</span></div>`;
       return;
     }
     const answers = Object.fromEntries((report?.answers || []).map((answer) => [answer.itemId, answer]));
     // One draft per item holding every input it has, seeded from the last submission.
-    const draft = drafts[template.id] ||= Object.fromEntries(template.items.map((item) => {
+    const draft = drafts[cardKey(entry)] ||= Object.fromEntries(template.items.map((item) => {
       const answer = answers[item.id] || {};
       return [item.id, {
         checked: answer.checked, value: answer.value, total: answer.total, note: answer.note || '', link: answer.link || '',
@@ -145,6 +147,7 @@
       }];
     }));
     card.innerHTML = `<form class="wr-form" novalidate>
+      ${entry.revision ? `<div class="wr-revision-note"><b>✎ ${escape(entry.revision.by || 'Admin/CEO')} yêu cầu chỉnh sửa KPI ${escape(period.label)}</b><span>${escape(entry.revision.note)}</span><small>Sửa số liệu bên dưới rồi bấm Nộp lại.</small></div>` : ''}
       ${template.requireBeforeCheckout && period.dueLabel === 'hôm nay' && !report ? '<p class="wr-note">🔒 Cần nộp báo cáo này trước khi check-out.</p>' : ''}
       ${template.items.map((item, index) => `<div class="wr-item">
         <div class="wr-item-label"><span class="wr-item-number">${index + 1}</span><b>${escape(item.label)}</b>${item.required ? '<em>Bắt buộc</em>' : ''}</div>
@@ -284,10 +287,11 @@
     button.disabled = true;
     button.textContent = 'Đang gửi...';
     try {
-      const { report } = await request('/api/work-reports', { method: 'POST', body: JSON.stringify({ templateId: entry.template.id, answers }) });
+      const { report } = await request('/api/work-reports', { method: 'POST', body: JSON.stringify({ templateId: entry.template.id, periodKey: entry.period.key, answers }) });
       entry.report = report;
-      delete drafts[entry.template.id];
-      openCards.delete(entry.template.id);
+      delete drafts[cardKey(entry)];
+      openCards.delete(cardKey(entry));
+      delete entry.revision;
       renderMine();
       window.refreshNotifications?.();
       openModal(`<div class="wr-done"><span aria-hidden="true">✓</span><h2>${report.late ? 'Đã nộp (trễ hạn)' : 'Đã nộp báo cáo'}</h2><p>Lúc ${clock(report.updatedAt)} · ${escape(report.templateName)}</p><button type="button" data-wr-close>Đã hiểu</button></div>`);
@@ -597,6 +601,7 @@
           <label>Kiểu chỉ số <select data-prop="kpiType"><option value="count" ${item.kpiType !== 'ratio' ? 'selected' : ''}>Số lượng</option><option value="ratio" ${item.kpiType === 'ratio' ? 'selected' : ''}>Tỷ lệ % (có ô Tổng)</option></select></label>
           <label>🎯 ${item.kpiType === 'ratio' ? 'Tỷ lệ cần đạt (%)' : 'Chỉ tiêu tháng'} <input type="number" min="0" step="any" value="${escape(item.target ?? '')}" placeholder="${item.kpiType === 'ratio' ? '100' : 'VD: 87000'}" data-prop="target" /></label>
           <label>⭐ Điểm chuẩn <input type="number" min="0" step="any" value="${escape(item.weight ?? '')}" placeholder="VD: 15" data-prop="weight" /></label>
+          <label>🚀 Tính vượt tối đa (%) <input type="number" min="100" max="300" step="any" value="${escape(item.maxRate ?? '')}" placeholder="Trống = không vượt (100%)" data-prop="maxRate" /></label>
           ${item.kpiType === 'ratio' ? `<p class="wr-kpi-help">Mỗi lần nộp, nhân viên nhập <b>Đã làm được</b> / <b>Tổng số phải làm</b> của riêng họ (VD: được giao 3 việc, làm xong 3 → 3/3 = 100%). Ô "Tỷ lệ cần đạt" là mức % chung cho mọi người, để trống = 100%.${item.target && item.target < 50 ? ` <b class="is-warn">⚠ ${escape(item.target)}% là rất thấp — có phải bạn đang nhập số việc? Số việc để nhân viên nhập ở ô Tổng.</b>` : ''}</p>` : ''}
         </div>` : ''}
         ${item.type === 'file' ? `<label class="wr-edit-count">Số file tối thiểu <input type="number" min="1" max="3" value="${item.minFiles || 1}" data-prop="minFiles" /></label>` : ''}
@@ -623,7 +628,7 @@
               <label>Đến ngày<input name="endDate" type="date" value="${escape(schedule.endDate || '')}" /></label></div>
             <small>Để trống "từ ngày / đến ngày" nếu mẫu áp dụng lâu dài.</small>
             <label class="wr-inline wr-toggle"><input type="checkbox" name="requireBeforeCheckout" ${state.requireBeforeCheckout ? 'checked' : ''} /> Chưa nộp thì không được check-out (vào ngày hạn nộp)</label>
-            <label class="wr-kpi-toggle"><input type="checkbox" name="kpi" ${state.kpi ? 'checked' : ''} /><span><b>📈 Mẫu báo cáo KPI</b><small>Báo cáo của mẫu này hiện trong trang Lương &amp; KPI. Mỗi mục nhập số đặt kiểu chỉ số, chỉ tiêu tháng và điểm chuẩn: Tỉ lệ hoàn thành = Giá trị ÷ Chỉ tiêu, Điểm đạt = Điểm chuẩn × tỉ lệ (tối đa 100%), % KPI = tổng Điểm đạt.</small>${state.kpi ? (() => { const total = state.items.reduce((sum, item) => sum + (item.type === 'number' && item.weight > 0 ? item.weight : 0), 0); return `<em class="wr-weight-total${total !== 100 ? ' is-off' : ''}" data-weight-total>Tổng điểm chuẩn: ${total.toLocaleString('vi-VN')}/100</em>`; })() : ''}</span></label>
+            <label class="wr-kpi-toggle"><input type="checkbox" name="kpi" ${state.kpi ? 'checked' : ''} /><span><b>📈 Mẫu báo cáo KPI</b><small>Báo cáo của mẫu này hiện trong trang Lương &amp; KPI. Mỗi mục nhập số đặt kiểu chỉ số, chỉ tiêu tháng và điểm chuẩn: Tỉ lệ hoàn thành = Giá trị ÷ Chỉ tiêu, Điểm đạt = Điểm chuẩn × tỉ lệ (tối đa 100%, hoặc tới mức "Tính vượt tối đa" nếu có đặt), % KPI = tổng Điểm đạt.</small>${state.kpi ? (() => { const total = state.items.reduce((sum, item) => sum + (item.type === 'number' && item.weight > 0 ? item.weight : 0), 0); return `<em class="wr-weight-total${total !== 100 ? ' is-off' : ''}" data-weight-total>Tổng điểm chuẩn: ${total.toLocaleString('vi-VN')}/100</em>`; })() : ''}</span></label>
           </fieldset>
           <fieldset><legend>Người nhận mẫu này</legend>
             <div class="wr-target-grid">
@@ -657,7 +662,7 @@
           item.extras = (item.extras || []).filter((extra) => extra.type !== item.type).map((extra) => ({ ...extra, required: Boolean(row.querySelector(`[data-extra-required="${extra.type}"]`)?.checked) }));
           row.querySelectorAll('[data-prop]').forEach((input) => {
             const prop = input.dataset.prop;
-            item[prop] = input.type === 'checkbox' ? input.checked : prop === 'options' ? input.value.split(',').map((value) => value.trim()).filter(Boolean) : ['minPhotos', 'minFiles'].includes(prop) ? Number(input.value) : ['target', 'weight'].includes(prop) ? (input.value === '' ? undefined : Number(input.value)) : input.value;
+            item[prop] = input.type === 'checkbox' ? input.checked : prop === 'options' ? input.value.split(',').map((value) => value.trim()).filter(Boolean) : ['minPhotos', 'minFiles'].includes(prop) ? Number(input.value) : ['target', 'weight', 'maxRate'].includes(prop) ? (input.value === '' ? undefined : Number(input.value)) : input.value;
           });
         });
       };

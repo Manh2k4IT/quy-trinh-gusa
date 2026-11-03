@@ -87,3 +87,11 @@ body[data-theme="dark"] .salary-table input.is-inherited { background: #111827; 
 .salary-person small { overflow-wrap: anywhere; }
 body[data-theme="dark"] .salary-table th:first-child, body[data-theme="dark"] .salary-table td:first-child { background: #1f2937; }
 body[data-theme="dark"] .salary-table thead th:first-child { background: #111827; }
+
+.salary-kpi-reset { display: block; margin: .25rem 0 0 auto; padding: .15rem .5rem; border: 1px solid #d6bbfb; border-radius: 999px; color: #6941c6; background: #f9f5ff; font: inherit; font-size: .7rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+.salary-kpi-wait { display: block; margin-top: .2rem; color: #b54708; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+
+.salary-kpi-state { font-weight: 800; }
+.salary-kpi-state.is-approved { color: #d92d20; }
+.salary-kpi-state.is-pending { color: #b54708; }

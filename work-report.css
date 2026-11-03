@@ -571,3 +571,11 @@ body[data-theme="dark"] .wr-kpi-item { background: #241d36; }
 
 .wr-kpi-help { grid-column: 1 / -1; margin: 0; color: #53389e; font-size: .76rem; line-height: 1.5; }
 .wr-kpi-help .is-warn { display: block; margin-top: .2rem; color: #b54708; }
+
+.wr-report-card.is-revision { border-left-color: #f79009; }
+.wr-pill.is-revision { color: #c4320a; background: #ffead5; }
+.wr-revision-note { display: grid; gap: .25rem; padding: .8rem 1rem; border: 1px solid #f9dbaf; border-radius: 12px; background: #fef6ee; }
+.wr-revision-note b { color: #c4320a; } .wr-revision-note span { color: #172b4d; } .wr-revision-note small { color: #667085; }
+
+.wr-kpi-item { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr); }
+@media (max-width: 760px) { .wr-kpi-item { grid-template-columns: 1fr 1fr; } .wr-kpi-item label:first-child { grid-column: 1 / -1; } }

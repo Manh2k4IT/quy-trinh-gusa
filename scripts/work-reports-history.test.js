@@ -102,7 +102,7 @@ test('KPI summary: only KPI templates, submission rate and number items against 
     const [entry] = a.templates;
     assert.deepEqual([entry.due, entry.submitted, entry.late], [3, 2, 1]);
     // The month adds up its reports: 80 + 120 = 200 against a monthly target of 100.
-    assert.deepEqual(entry.metrics, [{ itemId: 'sales', label: 'Doanh thu', kpiType: 'count', count: 2, total: 200, base: null, average: 100, target: 100, achieved: 200, weight: null, points: null }]);
+    assert.deepEqual(entry.metrics, [{ itemId: 'sales', label: 'Doanh thu', kpiType: 'count', count: 2, total: 200, base: null, average: 100, target: 100, achieved: 200, weight: null, points: null, cap: 100 }]);
     assert.equal(entry.kpiPercent, 100);
     assert.deepEqual(entry.reports.map((item) => item.values.sales), [80, 120]);
     // The personal Lương & KPI page asks for scope=me: an Admin then sees only themself.
@@ -183,7 +183,7 @@ test("KPI score follows the KPI sheet: completion rate per item, points from đi
   fs.writeFileSync(path.join(directory, "work-reports.json"), JSON.stringify([{ id: "r", userId: "a", date: "2026-11-28", templateId: "mkt", templateName: "KPI Marketing", periodKey: "M:2026-11", late: false, submittedAt: "2026-11-28T09:00:00Z", answers }]));
   let response;
   const reports = createWorkReports({
-    dataPath: (name) => path.join(directory, name), users: new Map([["a", person]]), getCurrentUser: () => person, isManagementUser: () => false,
+    dataPath: (name) => path.join(directory, name), users: new Map([["a", person]]), getCurrentUser: () => person, isManagementUser: () => true,
     sendJson: (res, status, body) => { response = { status, body }; }, send: (res, status, body) => { response = { status, body }; },
     getUserKey: (item) => item.id, getLocalDateKey: (date) => (date ? date.toISOString().slice(0, 10) : "2026-11-30"), getLocalMinutes: () => 22 * 60,
   });
@@ -192,6 +192,85 @@ test("KPI score follows the KPI sheet: completion rate per item, points from đi
     const [entry] = response.body.people[0].templates;
     assert.deepEqual(entry.metrics.map((metric) => [metric.itemId, metric.achieved, metric.points]), [["views", 85, 13], ["seo", 90, 23], ["posts", 100, 30], ["projects", 104, 20], ["other", 102, 5], ["ontime", 104, 5]]);
     assert.deepEqual([entry.score, entry.weightTotal, entry.kpiPercent], [96, 100, 96]);
+  } finally {
+    fs.rmSync(directory, { recursive: true });
+  }
+});
+
+test("KPI approval: hidden from the person until approved; a revision reopens the report even after its month", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-work-kpi-approval-"));
+  const staff = { id: "a", name: "A", status: "active" };
+  const boss = { id: "boss", name: "Sếp", status: "active", role: "admin" };
+  fs.writeFileSync(path.join(directory, "work-report-templates.json"), JSON.stringify([{ id: "mkt", name: "KPI Marketing", kpi: true, deadline: "21:00", createdAt: "2026-11-01T00:00:00Z", targets: { userIds: ["a"] }, schedule: { frequency: "monthly", monthDay: 28 }, items: [{ id: "views", label: "Lượt xem", type: "number", target: 100, weight: 100 }] }]));
+  fs.writeFileSync(path.join(directory, "work-reports.json"), JSON.stringify([{ id: "r", userId: "a", date: "2026-11-27", templateId: "mkt", templateName: "KPI Marketing", periodKey: "M:2026-11", periodLabel: "Tháng 11/2026", late: false, submittedAt: "2026-11-27T09:00:00Z", updatedAt: "2026-11-27T09:00:00Z", answers: [{ itemId: "views", type: "number", value: 80 }] }]));
+  let viewer = staff;
+  let today = "2026-11-30";
+  let tick = 0;
+  let response;
+  const sent = [];
+  const reports = createWorkReports({
+    dataPath: (name) => path.join(directory, name), users: new Map([["a", staff], ["boss", boss]]), getCurrentUser: () => viewer, isManagementUser: (user) => user?.role === "admin",
+    sendJson: (res, status, body) => { response = { status, body }; }, send: (res, status, body) => { response = { status, body }; },
+    getUserKey: (item) => item.id, getLocalDateKey: (date) => (date ? date.toISOString().slice(0, 10) : today), getLocalMinutes: () => 10 * 60,
+    notify: async (people, message) => { sent.push([people.map((person) => person.id), message.title]); },
+    now: () => Date.parse(`${today}T10:00:00Z`) + (tick += 1000),
+  });
+  const call = (url, method = "GET", payload) => reports.handle(Object.assign((async function* () { if (payload) yield JSON.stringify(payload); })(), { url, method }), {});
+  const mine = async () => { viewer = staff; await call("/api/work-reports/kpi?month=2026-11&scope=me"); return response.body.people[0].templates[0]; };
+  try {
+    // Before approval the person sees what they submitted and its provisional scoring.
+    assert.deepEqual(await mine().then((entry) => [entry.approval.status, entry.hidden, entry.metrics[0].total, entry.metrics[0].achieved, entry.metrics[0].points, entry.kpiPercent, entry.reports.length]), ["pending", true, 80, 80, 80, 80, 1]);
+    viewer = boss;
+    await call("/api/work-reports/kpi?month=2026-11");
+    assert.deepEqual(response.body.people[0].templates[0].kpiPercent, 80);
+    // Sent back after the month has ended.
+    today = "2026-12-02";
+    await call("/api/work-reports/kpi/approval", "POST", { userId: "a", templateId: "mkt", month: "2026-11", action: "revision" });
+    assert.equal(response.status, 400);
+    await call("/api/work-reports/kpi/approval", "POST", { userId: "a", templateId: "mkt", month: "2026-11", action: "revision", note: "Lượt xem sai, kiểm tra lại" });
+    assert.equal(response.body.person.templates[0].approval.status, "revision");
+    viewer = staff;
+    await call("/api/work-reports/today");
+    const reopened = response.body.items.find((item) => item.period.key === "M:2026-11");
+    assert.equal(reopened.revision.note, "Lượt xem sai, kiểm tra lại");
+    await call("/api/work-reports", "POST", { templateId: "mkt", periodKey: "M:2026-11", answers: [{ itemId: "views", value: 95 }] });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.report.date, "2026-11-27");
+    assert.deepEqual(await mine().then((entry) => [entry.approval.status, entry.hidden]), ["pending", true]);
+    await call("/api/work-reports/today");
+    assert.equal(response.body.items.some((item) => item.period.key === "M:2026-11"), false);
+    viewer = boss;
+    await call("/api/work-reports/kpi/approval", "POST", { userId: "a", templateId: "mkt", month: "2026-11", action: "approve" });
+    assert.deepEqual(await mine().then((entry) => [entry.approval.status, entry.hidden, entry.kpiPercent]), ["approved", undefined, 95]);
+    viewer = staff;
+    await call("/api/work-reports/kpi/approval", "POST", { userId: "a", templateId: "mkt", month: "2026-11", action: "approve" });
+    assert.equal(response.status, 403);
+    assert.deepEqual(sent.map(([people, title]) => [people.join(), title]), [["a", "KPI cần chỉnh sửa"], ["a", "KPI đã được duyệt"]]);
+  } finally {
+    fs.rmSync(directory, { recursive: true });
+  }
+});
+
+test("an item may count beyond its target up to its own cap", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-work-kpi-exceed-"));
+  const person = { id: "a", name: "A", status: "active" };
+  fs.writeFileSync(path.join(directory, "work-report-templates.json"), JSON.stringify([{ id: "t", name: "KPI", kpi: true, deadline: "21:00", createdAt: "2026-11-01T00:00:00Z", targets: { userIds: ["a"] }, schedule: { frequency: "monthly", monthDay: 28 }, items: [
+    { id: "web", label: "Web", type: "number", target: 80000, weight: 90, maxRate: 120 },
+    { id: "seo", label: "SEO", type: "number", target: 10, weight: 10 },
+  ] }]));
+  fs.writeFileSync(path.join(directory, "work-reports.json"), JSON.stringify([{ id: "r", userId: "a", date: "2026-11-28", templateId: "t", templateName: "KPI", periodKey: "M:2026-11", late: false, submittedAt: "2026-11-28T09:00:00Z", answers: [{ itemId: "web", type: "number", value: 90000 }, { itemId: "seo", type: "number", value: 15 }] }]));
+  let response;
+  const reports = createWorkReports({
+    dataPath: (name) => path.join(directory, name), users: new Map([["a", person]]), getCurrentUser: () => person, isManagementUser: () => true,
+    sendJson: (res, status, body) => { response = { status, body }; }, send: (res, status, body) => { response = { status, body }; },
+    getUserKey: (item) => item.id, getLocalDateKey: (date) => (date ? date.toISOString().slice(0, 10) : "2026-11-30"), getLocalMinutes: () => 22 * 60,
+  });
+  try {
+    await reports.handle({ url: "/api/work-reports/kpi?month=2026-11", method: "GET" }, {});
+    const [entry] = response.body.people[0].templates;
+    // Web 113% counts in full (cap 120%) → 90 × 113% = 102; SEO 150% stays at 100% → 10.
+    assert.deepEqual(entry.metrics.map((metric) => [metric.achieved, metric.cap, metric.points]), [[113, 120, 102], [150, 100, 10]]);
+    assert.deepEqual([entry.score, entry.weightTotal, entry.kpiPercent], [112, 100, 112]);
   } finally {
     fs.rmSync(directory, { recursive: true });
   }
