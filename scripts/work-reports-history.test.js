@@ -101,7 +101,9 @@ test('KPI summary: only KPI templates, submission rate and number items against 
     assert.deepEqual(a.templates.map((template) => template.templateName), ['KPI bán hàng']);
     const [entry] = a.templates;
     assert.deepEqual([entry.due, entry.submitted, entry.late], [3, 2, 1]);
-    assert.deepEqual(entry.metrics, [{ itemId: 'sales', label: 'Doanh thu', count: 2, total: 200, average: 100, target: 100, achieved: 100 }]);
+    // The month adds up its reports: 80 + 120 = 200 against a monthly target of 100.
+    assert.deepEqual(entry.metrics, [{ itemId: 'sales', label: 'Doanh thu', kpiType: 'count', count: 2, total: 200, base: null, average: 100, target: 100, achieved: 200, weight: null, points: null }]);
+    assert.equal(entry.kpiPercent, 100);
     assert.deepEqual(entry.reports.map((item) => item.values.sales), [80, 120]);
     // The personal Lương & KPI page asks for scope=me: an Admin then sees only themself.
     await build(people.get('a'), true).handle({ url: '/api/work-reports/kpi?month=2026-11&scope=me', method: 'GET' }, {});
@@ -160,6 +162,36 @@ test('a report past its deadline stays "overdue" while its period runs, then bec
     today = '2026-12-01';
     assert.deepEqual(await statuses('/api/work-reports/history'), ['missing']);
     assert.deepEqual(await statuses('/api/work-reports/overview?from=2026-11-28&to=2026-11-30'), ['missing']);
+  } finally {
+    fs.rmSync(directory, { recursive: true });
+  }
+});
+
+test("KPI score follows the KPI sheet: completion rate per item, points from điểm chuẩn capped at 100%, KPI % = Σ points", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-work-kpi-score-"));
+  const person = { id: "a", name: "A", status: "active" };
+  const items = [
+    { id: "views", label: "Số lượt hiển thị website", type: "number", target: 87000, weight: 15 },
+    { id: "seo", label: "Số từ khóa SEO đạt TOP 10", type: "number", target: 10, weight: 25 },
+    { id: "posts", label: "Số bài đăng Web & Google Map", type: "number", target: 53, weight: 30 },
+    { id: "projects", label: "Tỷ lệ hoàn thành dự án", type: "number", kpiType: "ratio", target: 96, weight: 20 },
+    { id: "other", label: "Tỷ lệ hoàn thành việc khác", type: "number", kpiType: "ratio", target: 98, weight: 5 },
+    { id: "ontime", label: "Tỷ lệ báo cáo đúng hạn", type: "number", kpiType: "ratio", target: 96, weight: 5 },
+  ];
+  fs.writeFileSync(path.join(directory, "work-report-templates.json"), JSON.stringify([{ id: "mkt", name: "KPI Marketing", kpi: true, deadline: "21:00", createdAt: "2026-11-01T00:00:00Z", targets: { userIds: ["a"] }, schedule: { frequency: "monthly", monthDay: 28 }, items }]));
+  const answers = [["views", 73810], ["seo", 9], ["posts", 53], ["projects", 4, 4], ["other", 3, 3], ["ontime", 1, 1]].map(([itemId, value, total]) => ({ itemId, type: "number", value, ...(total ? { total } : {}) }));
+  fs.writeFileSync(path.join(directory, "work-reports.json"), JSON.stringify([{ id: "r", userId: "a", date: "2026-11-28", templateId: "mkt", templateName: "KPI Marketing", periodKey: "M:2026-11", late: false, submittedAt: "2026-11-28T09:00:00Z", answers }]));
+  let response;
+  const reports = createWorkReports({
+    dataPath: (name) => path.join(directory, name), users: new Map([["a", person]]), getCurrentUser: () => person, isManagementUser: () => false,
+    sendJson: (res, status, body) => { response = { status, body }; }, send: (res, status, body) => { response = { status, body }; },
+    getUserKey: (item) => item.id, getLocalDateKey: (date) => (date ? date.toISOString().slice(0, 10) : "2026-11-30"), getLocalMinutes: () => 22 * 60,
+  });
+  try {
+    await reports.handle({ url: "/api/work-reports/kpi?month=2026-11", method: "GET" }, {});
+    const [entry] = response.body.people[0].templates;
+    assert.deepEqual(entry.metrics.map((metric) => [metric.itemId, metric.achieved, metric.points]), [["views", 85, 13], ["seo", 90, 23], ["posts", 100, 30], ["projects", 104, 20], ["other", 102, 5], ["ontime", 104, 5]]);
+    assert.deepEqual([entry.score, entry.weightTotal, entry.kpiPercent], [96, 100, 96]);
   } finally {
     fs.rmSync(directory, { recursive: true });
   }

@@ -139,7 +139,7 @@
     const draft = drafts[template.id] ||= Object.fromEntries(template.items.map((item) => {
       const answer = answers[item.id] || {};
       return [item.id, {
-        checked: answer.checked, value: answer.value, note: answer.note || '', link: answer.link || '',
+        checked: answer.checked, value: answer.value, total: answer.total, note: answer.note || '', link: answer.link || '',
         photos: (answer.photos || []).map((photo) => ({ keep: photo.file, url: photo.url })),
         files: (answer.files || []).map((file) => ({ keep: file.file, name: file.name, size: file.size, url: file.url })),
       }];
@@ -199,6 +199,12 @@
     if (type === 'check') {
       field.innerHTML = `<button type="button" class="wr-check${value.checked ? ' is-checked' : ''}"><span aria-hidden="true">${value.checked ? '✓' : ''}</span>${value.checked ? 'Đã hoàn thành' : 'Bấm để đánh dấu đã hoàn thành'}</button>`;
       field.querySelector('button').onclick = () => { value.checked = !value.checked; rerender(); };
+    } else if (type === 'number' && item.kpiType === 'ratio' && !isExtra) {
+      field.innerHTML = `<div class="wr-ratio"><label>Đã làm được<input type="number" inputmode="decimal" step="any" min="0" value="${escape(value.value ?? '')}" placeholder="VD: 3" data-ratio="value" /></label><span aria-hidden="true">/</span><label>Tổng số phải làm<input type="number" inputmode="decimal" step="any" min="0" value="${escape(value.total ?? '')}" placeholder="VD: 3" data-ratio="total" /></label><small data-ratio-result></small></div>`;
+      const result = field.querySelector('[data-ratio-result]');
+      const show = () => { const v = Number(value.value); const t = Number(value.total); result.textContent = value.value !== '' && value.value != null && t > 0 ? `= ${Math.round((v / t) * 1000) / 10}% (cần đạt ${item.target || 100}%)` : `Cần đạt ${item.target || 100}%`; };
+      field.querySelectorAll('[data-ratio]').forEach((input) => { input.oninput = () => { value[input.dataset.ratio] = input.value; show(); }; });
+      show();
     } else if (type === 'number') {
       field.innerHTML = `<input type="number" inputmode="decimal" step="any" value="${escape(value.value ?? '')}" placeholder="Nhập số" />`;
       field.querySelector('input').oninput = (event) => { value.value = event.target.value; };
@@ -268,7 +274,10 @@
         else if (type === 'check') answer.checked = Boolean(value.checked);
         else if (type === 'link') answer.link = value.link || '';
         else if (type === 'text' && extra) answer.note = value.note || '';
-        else answer.value = value.value ?? '';
+        else {
+          answer.value = value.value ?? '';
+          if (type === 'number' && item.kpiType === 'ratio' && !extra) answer.total = value.total ?? '';
+        }
       });
       return answer;
     });
@@ -295,7 +304,8 @@
   function answerView(answer) {
     const pieces = [];
     if (answer.type === 'check') pieces.push(`<span>${answer.checked ? '✓ Đã hoàn thành' : '✗ Chưa hoàn thành'}</span>`);
-    if (['number', 'select', 'text'].includes(answer.type)) pieces.push(`<span>${escape(answer.value ?? '') || '—'}</span>`);
+    if (answer.type === 'number' && answer.total !== undefined && answer.total !== null) pieces.push(`<span>${escape(answer.value ?? '—')} / ${escape(answer.total)} (${answer.total > 0 && answer.value !== null ? Math.round((answer.value / answer.total) * 1000) / 10 : 0}%)</span>`);
+    else if (['number', 'select', 'text'].includes(answer.type)) pieces.push(`<span>${escape(answer.value ?? '') || '—'}</span>`);
     if (answer.link) pieces.push(`<a class="wr-link-view" href="${escape(answer.link)}" target="_blank" rel="noopener">🔗 ${escape(answer.link)}</a>`);
     else if (answer.type === 'link') pieces.push('<span>—</span>');
     if (answer.photos) pieces.push(`<div class="wr-photos is-readonly">${answer.photos.map((photo) => `<a href="${escape(photo.url)}" target="_blank" rel="noopener"><img src="${escape(photo.url)}" alt="${escape(answer.label)}" /></a>`).join('') || '<span>Không có ảnh</span>'}</div>`);
@@ -583,7 +593,12 @@
         <label class="wr-edit-type"><span>Kiểu</span><select data-prop="type">${Object.entries(typeLabels).map(([value, label]) => `<option value="${value}" ${item.type === value ? 'selected' : ''}>${typeIcons[value]}  ${label}</option>`).join('')}</select></label>
         <label class="wr-switch"><input type="checkbox" data-prop="required" ${item.required ? 'checked' : ''} /><span aria-hidden="true"></span>Bắt buộc</label>
         ${item.type === 'photo' ? `<label class="wr-edit-count">Số ảnh tối thiểu <input type="number" min="1" max="6" value="${item.minPhotos || 1}" data-prop="minPhotos" /></label>` : ''}
-        ${item.type === 'number' && state.kpi ? `<label class="wr-edit-count is-target">🎯 Chỉ tiêu mỗi kỳ <input type="number" min="0" step="any" value="${escape(item.target ?? '')}" placeholder="VD: 10000000" data-prop="target" /></label>` : ''}
+        ${item.type === 'number' && state.kpi ? `<div class="wr-kpi-item">
+          <label>Kiểu chỉ số <select data-prop="kpiType"><option value="count" ${item.kpiType !== 'ratio' ? 'selected' : ''}>Số lượng</option><option value="ratio" ${item.kpiType === 'ratio' ? 'selected' : ''}>Tỷ lệ % (có ô Tổng)</option></select></label>
+          <label>🎯 ${item.kpiType === 'ratio' ? 'Tỷ lệ cần đạt (%)' : 'Chỉ tiêu tháng'} <input type="number" min="0" step="any" value="${escape(item.target ?? '')}" placeholder="${item.kpiType === 'ratio' ? '100' : 'VD: 87000'}" data-prop="target" /></label>
+          <label>⭐ Điểm chuẩn <input type="number" min="0" step="any" value="${escape(item.weight ?? '')}" placeholder="VD: 15" data-prop="weight" /></label>
+          ${item.kpiType === 'ratio' ? `<p class="wr-kpi-help">Mỗi lần nộp, nhân viên nhập <b>Đã làm được</b> / <b>Tổng số phải làm</b> của riêng họ (VD: được giao 3 việc, làm xong 3 → 3/3 = 100%). Ô "Tỷ lệ cần đạt" là mức % chung cho mọi người, để trống = 100%.${item.target && item.target < 50 ? ` <b class="is-warn">⚠ ${escape(item.target)}% là rất thấp — có phải bạn đang nhập số việc? Số việc để nhân viên nhập ở ô Tổng.</b>` : ''}</p>` : ''}
+        </div>` : ''}
         ${item.type === 'file' ? `<label class="wr-edit-count">Số file tối thiểu <input type="number" min="1" max="3" value="${item.minFiles || 1}" data-prop="minFiles" /></label>` : ''}
       </div>
       <div class="wr-extras-row"><span>Kèm thêm:</span>${extraTypes.filter((type) => type !== item.type).map((type) => {
@@ -608,7 +623,7 @@
               <label>Đến ngày<input name="endDate" type="date" value="${escape(schedule.endDate || '')}" /></label></div>
             <small>Để trống "từ ngày / đến ngày" nếu mẫu áp dụng lâu dài.</small>
             <label class="wr-inline wr-toggle"><input type="checkbox" name="requireBeforeCheckout" ${state.requireBeforeCheckout ? 'checked' : ''} /> Chưa nộp thì không được check-out (vào ngày hạn nộp)</label>
-            <label class="wr-kpi-toggle"><input type="checkbox" name="kpi" ${state.kpi ? 'checked' : ''} /><span><b>📈 Mẫu báo cáo KPI</b><small>Báo cáo của mẫu này hiện trong trang Lương &amp; KPI. Các mục nhập số có thể đặt chỉ tiêu để tính % đạt.</small></span></label>
+            <label class="wr-kpi-toggle"><input type="checkbox" name="kpi" ${state.kpi ? 'checked' : ''} /><span><b>📈 Mẫu báo cáo KPI</b><small>Báo cáo của mẫu này hiện trong trang Lương &amp; KPI. Mỗi mục nhập số đặt kiểu chỉ số, chỉ tiêu tháng và điểm chuẩn: Tỉ lệ hoàn thành = Giá trị ÷ Chỉ tiêu, Điểm đạt = Điểm chuẩn × tỉ lệ (tối đa 100%), % KPI = tổng Điểm đạt.</small>${state.kpi ? (() => { const total = state.items.reduce((sum, item) => sum + (item.type === 'number' && item.weight > 0 ? item.weight : 0), 0); return `<em class="wr-weight-total${total !== 100 ? ' is-off' : ''}" data-weight-total>Tổng điểm chuẩn: ${total.toLocaleString('vi-VN')}/100</em>`; })() : ''}</span></label>
           </fieldset>
           <fieldset><legend>Người nhận mẫu này</legend>
             <div class="wr-target-grid">
@@ -642,7 +657,7 @@
           item.extras = (item.extras || []).filter((extra) => extra.type !== item.type).map((extra) => ({ ...extra, required: Boolean(row.querySelector(`[data-extra-required="${extra.type}"]`)?.checked) }));
           row.querySelectorAll('[data-prop]').forEach((input) => {
             const prop = input.dataset.prop;
-            item[prop] = input.type === 'checkbox' ? input.checked : prop === 'options' ? input.value.split(',').map((value) => value.trim()).filter(Boolean) : ['minPhotos', 'minFiles'].includes(prop) ? Number(input.value) : prop === 'target' ? (input.value === '' ? undefined : Number(input.value)) : input.value;
+            item[prop] = input.type === 'checkbox' ? input.checked : prop === 'options' ? input.value.split(',').map((value) => value.trim()).filter(Boolean) : ['minPhotos', 'minFiles'].includes(prop) ? Number(input.value) : ['target', 'weight'].includes(prop) ? (input.value === '' ? undefined : Number(input.value)) : input.value;
           });
         });
       };
@@ -650,7 +665,9 @@
       form.querySelectorAll('[data-filter-list]').forEach((search) => {
         search.oninput = () => search.parentElement.querySelectorAll('label').forEach((label) => { label.hidden = !label.textContent.toLowerCase().includes(search.value.trim().toLowerCase()); });
       });
-      form.querySelectorAll('[data-prop="type"]').forEach((select) => { select.onchange = () => { sync(); render(); }; });
+      form.querySelectorAll('[data-prop="type"], [data-prop="kpiType"]').forEach((select) => { select.onchange = () => { sync(); render(); }; });
+      form.querySelectorAll('[data-prop="target"]').forEach((input) => { input.onchange = () => { sync(); render(); }; });
+      form.querySelectorAll('[data-prop="weight"]').forEach((input) => { input.oninput = () => { sync(); const total = state.items.reduce((sum, item) => sum + (item.type === 'number' && item.weight > 0 ? item.weight : 0), 0); const note = form.querySelector('[data-weight-total]'); if (note) { note.textContent = `Tổng điểm chuẩn: ${total.toLocaleString('vi-VN')}/100`; note.classList.toggle('is-off', total !== 100); } }; });
       form.querySelectorAll('[data-toggle-extra]').forEach((button) => {
         button.onclick = () => {
           sync();

@@ -552,3 +552,22 @@ body[data-theme="dark"] .wr-legend-title { color: #cbd5e1; }
 .wr-ov-tools input[type="search"]:focus, .wr-ov-tools select:focus { border-color: #2e90fa; outline: none; box-shadow: 0 0 0 4px rgba(46, 144, 250, .15); }
 body[data-theme="dark"] .wr-ov-tools input[type="search"], body[data-theme="dark"] .wr-ov-tools select { border-color: #374151; color: #edf0f4; background-color: #1f2937; }
 @media (max-width: 760px) { .wr-ov-tools select { flex: 1 1 100%; } }
+
+/* KPI number items: kind, target and điểm chuẩn in the editor; value / Tổng in the form. */
+.wr-kpi-item { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, .8fr); gap: .5rem; padding: .6rem; border-radius: 12px; background: #f9f5ff; }
+.wr-kpi-item label { display: grid; gap: .25rem; color: #53389e; font-size: .78rem; font-weight: 700; }
+.wr-kpi-item select, .wr-kpi-item input { min-height: 38px; padding: 0 .6rem; border: 1px solid #d6bbfb; border-radius: 10px; background: #fff; font: inherit; font-size: .85rem; }
+.wr-weight-total { display: inline-block; margin-top: .35rem; padding: .15rem .55rem; border-radius: 999px; color: #067647; background: #dcfae6; font-size: .76rem; font-style: normal; font-weight: 800; }
+.wr-weight-total.is-off { color: #b54708; background: #fef0c7; }
+.wr-ratio { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; }
+.wr-ratio label { display: grid; flex: 1 1 120px; gap: .25rem; color: #475467; font-size: .78rem; font-weight: 700; }
+.wr-ratio input { min-height: 44px; padding: 0 .75rem; border: 1px solid #d5deea; border-radius: 12px; font: inherit; }
+.wr-ratio > span { padding-bottom: .7rem; color: #98a2b3; font-size: 1.2rem; font-weight: 700; }
+.wr-ratio small { flex-basis: 100%; color: #6941c6; font-size: .8rem; font-weight: 700; }
+body[data-theme="dark"] .wr-kpi-item { background: #241d36; }
+@media (max-width: 600px) { .wr-kpi-item { grid-template-columns: 1fr 1fr; } .wr-kpi-item label:first-child { grid-column: 1 / -1; } }
+
+.wr-kpi-item select, .wr-kpi-item input { width: 100%; min-width: 0; box-sizing: border-box; }
+
+.wr-kpi-help { grid-column: 1 / -1; margin: 0; color: #53389e; font-size: .76rem; line-height: 1.5; }
+.wr-kpi-help .is-warn { display: block; margin-top: .2rem; color: #b54708; }

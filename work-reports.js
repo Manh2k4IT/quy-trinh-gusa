@@ -184,6 +184,8 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
         ...(type === "photo" ? { minPhotos: Math.max(1, Math.min(maxPhotosPerItem, Math.round(Number(item.minPhotos) || 1))) } : {}),
         ...(type === "file" ? { minFiles: Math.max(1, Math.min(maxFilesPerItem, Math.round(Number(item.minFiles) || 1))) } : {}),
         ...(type === "number" && Number(item.target) > 0 ? { target: Number(item.target) } : {}),
+        ...(type === "number" && item.kpiType === "ratio" ? { kpiType: "ratio" } : {}),
+        ...(type === "number" && Number(item.weight) > 0 ? { weight: Math.min(1000, Number(item.weight)) } : {}),
         extras: [...new Map((Array.isArray(item.extras) ? item.extras : []).filter((extra) => extraTypes.includes(extra?.type) && extra.type !== type).map((extra) => [extra.type, { type: extra.type, required: Boolean(extra.required) }])).values()],
         hint: text(item.hint, 200),
       };
@@ -239,6 +241,14 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
         const value = Number(answer.value);
         if (hasValue && !Number.isFinite(value)) throw new Error(`Mục "${item.label}" phải là số.`);
         if (required && !hasValue) throw new Error(`Vui lòng nhập ${what}.`);
+        if (item.kpiType === "ratio" && !isExtra) {
+          const hasTotal = answer.total !== undefined && answer.total !== null && answer.total !== "";
+          const total = Number(answer.total);
+          if (hasTotal && !(Number.isFinite(total) && total > 0)) throw new Error(`"Tổng" của mục "${item.label}" phải là số lớn hơn 0.`);
+          if (hasValue && !hasTotal) throw new Error(`Vui lòng nhập "Tổng" cho mục "${item.label}".`);
+          if (hasTotal && hasValue && value > total) throw new Error(`Giá trị của mục "${item.label}" không được lớn hơn "Tổng".`);
+          return { value: hasValue ? value : null, total: hasTotal ? total : null };
+        }
         return { value: hasValue ? value : null };
       }
       if (type === "select") {
@@ -389,10 +399,18 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
           .filter((report) => report.userId === key && report.templateId === template.id && (periods.has(report.periodKey) || report.date?.startsWith(month)))
           .sort((a, b) => a.date.localeCompare(b.date));
         const metrics = template.items.filter((item) => item.type === "number").map((item) => {
-          const values = reports.map((report) => report.answers.find((answer) => answer.itemId === item.id)?.value).filter((value) => Number.isFinite(value));
+          const answers = reports.map((report) => report.answers.find((answer) => answer.itemId === item.id)).filter((answer) => Number.isFinite(answer?.value));
+          const values = answers.map((answer) => answer.value);
           const total = values.reduce((sum, value) => sum + value, 0);
           const average = values.length ? total / values.length : null;
-          return { itemId: item.id, label: item.label, count: values.length, total, average, target: item.target ?? null, achieved: item.target && average !== null ? Math.round((average / item.target) * 1000) / 10 : null };
+          const ratio = item.kpiType === "ratio";
+          const base = ratio ? answers.reduce((sum, answer) => sum + (Number.isFinite(answer.total) ? answer.total : 0), 0) : null;
+          // A ratio item is measured against 100% when no target was set.
+          const target = item.target ?? (ratio ? 100 : null);
+          const achieved = !target || !values.length ? null : ratio ? (base > 0 ? Math.round(((total / base) * 100 / target) * 100) : null) : Math.round((total / target) * 100);
+          const weight = item.weight ?? null;
+          const points = weight ? Math.round((weight * Math.min(achieved ?? 0, 100)) / 100) : null;
+          return { itemId: item.id, label: item.label, kpiType: ratio ? "ratio" : "count", count: values.length, total, base, average, target, achieved, weight, points };
         });
         return {
           templateId: template.id,
@@ -401,6 +419,15 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
           submitted: reports.filter((report) => periods.has(report.periodKey)).length,
           late: reports.filter((report) => report.late).length,
           metrics,
+          // Weighted score when the template has điểm chuẩn, otherwise the average "% đạt" (each capped at 100%).
+          ...(() => {
+            const weighted = metrics.filter((metric) => metric.weight);
+            const weightTotal = weighted.reduce((sum, metric) => sum + metric.weight, 0);
+            const score = weighted.reduce((sum, metric) => sum + metric.points, 0);
+            const rated = metrics.filter((metric) => metric.achieved !== null);
+            const kpiPercent = weightTotal ? Math.round((score / weightTotal) * 1000) / 10 : rated.length ? Math.round((rated.reduce((sum, metric) => sum + Math.min(metric.achieved, 100), 0) / rated.length) * 10) / 10 : null;
+            return { score: weightTotal ? score : null, weightTotal: weightTotal || null, kpiPercent };
+          })(),
           reports: reports.map(publicReport).map((report) => {
             const numbers = report.answers.filter((answer) => answer.type === "number");
             const attachments = Object.fromEntries(numbers.map((answer) => [answer.itemId, {
@@ -409,7 +436,7 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
               ...(answer.photos?.length ? { photos: answer.photos.map((photo) => ({ url: photo.url })) } : {}),
               ...(answer.files?.length ? { files: answer.files.map((file) => ({ name: file.name, url: file.url })) } : {}),
             }]).filter(([, attached]) => Object.keys(attached).length));
-            return { id: report.id, date: report.date, periodLabel: report.periodLabel || report.date, late: Boolean(report.late), values: Object.fromEntries(numbers.map((answer) => [answer.itemId, answer.value])), attachments };
+            return { id: report.id, date: report.date, periodLabel: report.periodLabel || report.date, late: Boolean(report.late), values: Object.fromEntries(numbers.map((answer) => [answer.itemId, answer.value])), totals: Object.fromEntries(numbers.filter((answer) => Number.isFinite(answer.total)).map((answer) => [answer.itemId, answer.total])), attachments };
           }),
         };
       });
@@ -629,7 +656,7 @@ function createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, 
     }
   }
 
-  return { handle, checkoutBlock, notificationsFor, sendReminders, dataFiles: ["work-report-templates.json", "work-reports.json", "work-report-structure.json", "work-report-reminders.json"] };
+  return { handle, checkoutBlock, notificationsFor, sendReminders, kpiSummary, dataFiles: ["work-report-templates.json", "work-reports.json", "work-report-structure.json", "work-report-reminders.json"] };
 }
 
 module.exports = { createWorkReports, periodOf };

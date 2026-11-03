@@ -1564,7 +1564,14 @@ Xem trên Gusa: ${url}`));
 
 
 const recruitment = createRecruitment({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getClientIp: (req) => getRequestIp(req, attendanceTrustedProxyHops), notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
-const salaries = createSalaries({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send });
+// A person's KPI result for a month: the KPI % of their KPI report templates (Σ điểm đạt ÷ Σ điểm chuẩn).
+const kpiPercentFor = (userId, month) => {
+  const user = users.get(userId);
+  if (!user) return null;
+  const percents = (workReports.kpiSummary([user], month)[0]?.templates || []).map((template) => template.kpiPercent).filter((value) => value !== null);
+  return percents.length ? Math.round((percents.reduce((sum, value) => sum + value, 0) / percents.length) * 10) / 10 : null;
+};
+const salaries = createSalaries({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, currentMonth: () => getLocalDateKey().slice(0, 7), kpiPercentFor });
 const workReports = createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getUserKey: getAttendanceUserKey, getLocalDateKey, getLocalMinutes, notify: sendUserNotification });
 // Reminds people who have not submitted a work report due today, an hour before its deadline.
 setInterval(() => { workReports.sendReminders().catch((error) => console.error("Work report reminders failed:", error.message)); }, 5 * 60 * 1000).unref();

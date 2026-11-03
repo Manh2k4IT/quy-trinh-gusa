@@ -34,12 +34,12 @@
       const due = entries.reduce((sum, entry) => sum + entry.due, 0);
       const submitted = entries.reduce((sum, entry) => sum + entry.submitted, 0);
       const late = entries.reduce((sum, entry) => sum + entry.late, 0);
-      const achieved = entries.flatMap((entry) => entry.metrics).map((metric) => metric.achieved).filter((value) => value !== null);
+      const achieved = entries.map((entry) => entry.kpiPercent).filter((value) => value !== null && value !== undefined);
       const averageAchieved = achieved.length ? achieved.reduce((sum, value) => sum + value, 0) / achieved.length : null;
       stats.innerHTML = [
         personal ? ['is-people', '📋', 'Mẫu KPI của bạn', entries.length] : ['is-people', '👥', 'Nhân viên có KPI', data.people.length],
         ['is-rate', '📝', 'Tỷ lệ nộp báo cáo', due ? `${Math.round((submitted / due) * 100)}%` : '—'],
-        [`is-achieved ${level(averageAchieved)}`, '🎯', 'Đạt chỉ tiêu (TB)', averageAchieved === null ? '—' : `${number(averageAchieved, 1)}%`],
+        [`is-achieved ${level(averageAchieved)}`, '🎯', '% KPI (TB)', averageAchieved === null ? '—' : `${number(averageAchieved, 1)}%`],
         ['is-late', '⏱', 'Báo cáo nộp trễ', late],
       ].map(([kind, icon, label, value]) => `<div class="kpi-stat ${kind}"><span aria-hidden="true">${icon}</span><small>${label}</small><b>${value}</b></div>`).join('');
     }
@@ -63,12 +63,24 @@
           return `<section class="kpi-template">
             <div class="kpi-template-head"><h3>📈 ${escape(entry.templateName)}</h3><span class="kpi-rate ${level(rate)}">Đã nộp ${entry.submitted}/${entry.due}${entry.late ? ` · ${entry.late} trễ` : ''}</span></div>
             ${bar(rate)}
-            ${numberMetrics.length ? `<div class="kpi-metrics">${numberMetrics.map((metric) => `<div class="kpi-metric">
-              <div class="kpi-metric-top"><b>${escape(metric.label)}</b>${metric.achieved !== null ? `<span class="kpi-percent ${level(metric.achieved)}">${number(metric.achieved, 1)}%</span>` : `<span class="kpi-percent is-none">${metric.target ? 'Chưa có số liệu' : 'Chưa đặt chỉ tiêu'}</span>`}</div>
-              ${metric.target ? bar(metric.achieved) : ''}
-              ${(() => { const latest = latestAttachment(entry, metric.itemId); return latest ? `<div class="kpi-attachments"><small>Kèm theo · ${escape(latest.periodLabel)}</small><div>${attachmentChips(latest.attachments[metric.itemId])}</div></div>` : ''; })()}
-              <dl><div><dt>Tổng tháng</dt><dd>${number(metric.total)}</dd></div><div><dt>Trung bình/kỳ</dt><dd>${number(metric.average, 1)}</dd></div><div><dt>Chỉ tiêu/kỳ</dt><dd>${number(metric.target)}</dd></div><div><dt>Số kỳ có số liệu</dt><dd>${metric.count}</dd></div></dl>
-            </div>`).join('')}</div>` : '<p class="kpi-note">Mẫu này chưa có mục nhập số nên chỉ tính tỷ lệ nộp báo cáo.</p>'}
+            ${numberMetrics.length ? `<div class="kpi-sheet-wrap"><table class="kpi-sheet">
+              <thead><tr><th>Chỉ số</th><th>Chỉ tiêu</th><th>Giá trị thống kê</th><th>Tổng</th><th>Điểm chuẩn</th><th>Tỉ lệ hoàn thành</th><th>Điểm đạt</th></tr></thead>
+              <tbody>${numberMetrics.map((metric) => {
+                const latest = latestAttachment(entry, metric.itemId);
+                const ratio = metric.kpiType === 'ratio';
+                return `<tr>
+                  <td class="kpi-sheet-name"><b>${escape(metric.label)}</b>${ratio ? '<small>Tỷ lệ %</small>' : ''}${latest ? `<div class="kpi-sheet-attach">${attachmentChips(latest.attachments[metric.itemId], true)}</div>` : ''}</td>
+                  <td>${metric.target ? `${number(metric.target, 2)}${ratio ? '%' : ''}` : '<span class="kpi-muted">Chưa đặt</span>'}</td>
+                  <td><b>${metric.count ? number(metric.total, 2) : '—'}</b></td>
+                  <td>${ratio ? (metric.base ? number(metric.base, 2) : '—') : ''}</td>
+                  <td>${metric.weight ? number(metric.weight, 1) : '—'}</td>
+                  <td>${metric.achieved !== null ? `<span class="kpi-percent ${level(metric.achieved)}">${number(metric.achieved, 1)}%</span>` : `<span class="kpi-muted">${metric.target ? 'Chưa có số liệu' : '—'}</span>`}</td>
+                  <td class="kpi-sheet-points">${metric.points !== null ? number(metric.points) : '—'}</td>
+                </tr>`;
+              }).join('')}</tbody>
+              ${entry.weightTotal ? `<tfoot><tr><td colspan="4">Tổng</td><td>${number(entry.weightTotal, 1)}</td><td></td><td class="kpi-sheet-points">${number(entry.score)}</td></tr></tfoot>` : ''}
+            </table></div>
+            ${entry.kpiPercent !== null ? `<div class="kpi-score ${level(entry.kpiPercent)}"><span>% KPI tháng</span><b>${number(entry.kpiPercent, 1)}%</b><small>${entry.weightTotal ? `= ${number(entry.score)} điểm đạt / ${number(entry.weightTotal, 1)} điểm chuẩn` : 'trung bình tỉ lệ hoàn thành (chưa đặt điểm chuẩn)'} · dùng để tính P3</small></div>` : ''}` : '<p class="kpi-note">Mẫu này chưa có mục nhập số nên chỉ tính tỷ lệ nộp báo cáo.</p>'}
             ${entry.reports.length ? `<button type="button" class="kpi-toggle" data-toggle-table="${escape(tableKey)}">${openTables.has(tableKey) ? 'Ẩn số liệu từng ngày ▴' : `Xem số liệu từng ngày (${entry.reports.length}) ▾`}</button>
               ${openTables.has(tableKey) ? `<div class="kpi-table-wrap"><table class="kpi-table"><thead><tr><th>Ngày</th>${numberMetrics.map((metric) => `<th>${escape(metric.label)}</th>`).join('')}<th>Trạng thái</th></tr></thead><tbody>${entry.reports.map((report) => `<tr><td>${escape(report.periodLabel)}</td>${numberMetrics.map((metric) => `<td>${number(report.values[metric.itemId], 1)}${report.attachments?.[metric.itemId] ? ` <span class="kpi-cell-attach">${attachmentChips(report.attachments[metric.itemId], true)}</span>` : ''}</td>`).join('')}<td><span class="kpi-chip ${report.late ? 'is-late' : 'is-done'}">${report.late ? 'Nộp trễ' : 'Đúng hạn'}</span></td></tr>`).join('')}</tbody></table></div>` : ''}` : ''}
           </section>`;
@@ -86,18 +98,21 @@
     // The signed-in person's own salary, entered by Admin/CEO on the Lương nhân viên page.
     const salaryBox = root.querySelector('[data-kpi-salary]');
     async function loadSalary() {
-      const response = await fetch('/api/salaries/me', { cache: 'no-store' });
+      const response = await fetch(`/api/salaries/me?month=${monthInput.value}`, { cache: 'no-store' });
       if (!response.ok) return;
-      const { salary } = await response.json();
-      const has = salary && (salary.baseSalary !== null || salary.allowance !== null);
+      const { salary, fields = [] } = await response.json();
+      const has = salary && salary.total !== null;
       const vnd = (value) => (value === null || value === undefined ? 'Chưa có' : `${Number(value).toLocaleString('vi-VN')} ₫`);
       salaryBox.innerHTML = has
-        ? `<div class="kpi-salary-head"><b>💰 Lương của bạn</b><small>Mỗi tháng${salary.updatedAt ? ` · cập nhật ${new Date(salary.updatedAt).toLocaleDateString('vi-VN')}` : ''}</small></div>
-          <div class="kpi-salary-grid"><div><span>Lương cơ bản</span><b>${vnd(salary.baseSalary)}</b></div><div><span>Phụ cấp</span><b>${vnd(salary.allowance)}</b></div><div class="is-total"><span>Tổng</span><b>${vnd((salary.baseSalary || 0) + (salary.allowance || 0))}</b></div></div>`
-        : '<div class="kpi-salary-head"><b>💰 Lương của bạn</b><small>Chưa có thông tin lương. Liên hệ Admin/CEO để được cập nhật.</small></div>';
+        ? `<div class="kpi-salary-head"><b>💰 Lương tháng ${Number(monthInput.value.slice(5))}/${monthInput.value.slice(0, 4)}</b><small>${salary.inheritedFrom && salary.inheritedFrom !== 'base' ? `Theo tháng ${Number(salary.inheritedFrom.slice(5))}/${salary.inheritedFrom.slice(0, 4)}` : 'Mỗi tháng'}${salary.updatedAt ? ` · cập nhật ${new Date(salary.updatedAt).toLocaleDateString('vi-VN')}` : ''}</small></div>
+          <div class="kpi-salary-grid">${fields.map((field) => `<div class="${field.deduction ? 'is-deduction' : ''}"><span>${field.label}</span><b>${field.deduction && salary[field.key] ? '−' : ''}${vnd(salary[field.key])}</b></div>${field.key === 'p3' ? `<div class="is-kpi"><span>P3 thực nhận · KPI ${Number(salary.kpiApplied).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span><b>${vnd(salary.p3Paid)}</b></div>` : ''}`).join('')}<div class="is-total"><span>Tổng thu nhập</span><b>${vnd(salary.total)}</b></div></div>`
+        : `<div class="kpi-salary-head"><b>💰 Lương tháng ${Number(monthInput.value.slice(5))}/${monthInput.value.slice(0, 4)}</b><small>Chưa có thông tin lương tháng này. Liên hệ Admin/CEO để được cập nhật.</small></div>`;
       salaryBox.hidden = false;
     }
-    if (personal && salaryBox) loadSalary().catch(() => {});
+    if (personal && salaryBox) {
+      loadSalary().catch(() => {});
+      monthInput.addEventListener('change', () => loadSalary().catch(() => {}));
+    }
 
     async function load() {
       list.innerHTML = '<p class="kpi-empty">Đang tải...</p>';

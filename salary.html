@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20261103-4" />
-    <link rel="stylesheet" href="salary.css?v=20261103-3" />
+    <link rel="stylesheet" href="salary.css?v=20261103-p3b" />
   </head>
   <body>
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -25,14 +25,14 @@
           <div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip is-selected" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div>
         </header>
         <section class="salary-content" aria-labelledby="salary-title">
-          <div class="salary-hero"><span class="salary-eyebrow">BIỂU MẪU · ADMIN/CEO</span><h1 id="salary-title">Lương nhân viên</h1><p>Danh sách tự đồng bộ theo các tài khoản Gmail đang hoạt động. Nhập lương cơ bản và phụ cấp, hệ thống tự lưu khi rời ô.</p></div>
+          <div class="salary-hero"><div><span class="salary-eyebrow">BIỂU MẪU · ADMIN/CEO</span><h1 id="salary-title">Lương nhân viên</h1></div><label class="salary-month">Tháng<input type="month" data-salary-month /></label></div>
           <div class="salary-stats" data-salary-stats></div>
           <input type="search" class="salary-search" placeholder="Tìm theo tên hoặc Gmail..." data-salary-search />
           <div data-salary-list aria-live="polite"><p class="salary-empty">Đang tải...</p></div>
         </section>
       </main>
     </div>
-    <script src="salary.js?v=20261103-roles"></script>
+    <script src="salary.js?v=20261103-p3"></script>
     <script src="admin-menu.js?v=20261103-acct"></script>
   </body>
 </html>
