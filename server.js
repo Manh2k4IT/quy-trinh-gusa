@@ -1935,22 +1935,30 @@ async function updateAttendanceOverviewStatus(req, res) {
   const attendance = getAttendance();
   const records = attendance[userId] || {};
   const record = records[date] || { date };
+  // A day marked as worked counts only once it has both times; missing ones take the shift's start and end (Vietnam time).
+  const completeByAdmin = () => {
+    const shift = getAttendanceShift(record.site, record.attendanceType);
+    const at = (minutes) => new Date(`${date}T${formatShiftTime(minutes)}:00+07:00`).toISOString();
+    if (!record.checkIn) { record.checkIn = at(shift.lateAfter); record.checkInByAdmin = true; }
+    if (!record.checkOut) { record.checkOut = at(shift.checkOutFrom); record.checkOutByAdmin = true; }
+    record.status = "completed";
+  };
   if (status === "present") {
-    record.status = "working";
-    record.checkIn ||= new Date().toISOString();
     record.workMode = "office";
     record.attendanceType = "full-day";
     delete record.onlineProof;
+    completeByAdmin();
   } else if (status === "half-day") {
-    record.status = "working";
-    record.checkIn ||= new Date().toISOString();
     record.workMode = "office";
     record.attendanceType = record.attendanceType === "half-day-afternoon" ? "half-day-afternoon" : "half-day-morning";
     delete record.onlineProof;
+    completeByAdmin();
   } else if (status === "absent") {
     record.status = "absent";
     delete record.checkIn;
     delete record.checkOut;
+    delete record.checkInByAdmin;
+    delete record.checkOutByAdmin;
     delete record.workMode;
     delete record.attendanceType;
     delete record.onlineProof;
@@ -1958,6 +1966,8 @@ async function updateAttendanceOverviewStatus(req, res) {
     record.status = status;
     delete record.checkIn;
     delete record.checkOut;
+    delete record.checkInByAdmin;
+    delete record.checkOutByAdmin;
     delete record.attendanceType;
     if (status === "online") record.workMode = "online";
     else delete record.workMode;

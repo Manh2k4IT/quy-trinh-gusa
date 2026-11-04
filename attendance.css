@@ -722,7 +722,7 @@ body[data-theme="dark"] .attendance-secondary[data-check-out]:not(:disabled) { c
 .attendance-legend-dot.is-no-checkout, .legend-dot.is-no-checkout { background: #ea580c; }
 .attendance-legend-dot.is-working { background: #0284c7; }
 .legend-pill.no-checkout { background: #ffedd5; color: #c2410c; }
-.attendance-day-no-checkout { color: #c2410c; background: #ffedd5; font-weight: 800; }
+.attendance-day-no-checkout { color: #c2410c; background: #ffedd5; }
 .attendance-day-working { color: #0369a1; background: #e0f2fe; }
 
 /* "Chưa check-out" card: red once a day was left without check-out. */
@@ -731,8 +731,6 @@ body[data-theme="dark"] .attendance-secondary[data-check-out]:not(:disabled) { c
 .stat-no-checkout .attendance-stat-title > span:first-child { color: #ea580c; background: #ffedd5; font-weight: 800; }
 .stat-no-checkout strong { color: #ea580c; }
 
-.attendance-day-value.attendance-no-checkout { border: 1px solid #fb923c; }
-.attendance-day.attendance-day-no-checkout { box-shadow: inset 0 0 0 1px #fb923c; }
 
 /* "Ngày chưa check-out" list under the workday calendar. */
 .attendance-missing-summary { display: grid; gap: .7rem; margin-top: 1.2rem; padding: 1.1rem; border: 1px solid #fed7aa; border-radius: 18px; background: linear-gradient(145deg, #fff, #fff7ed); }
@@ -752,3 +750,8 @@ body[data-theme="dark"] .attendance-missing-summary { border-color: #7c2d12; bac
 body[data-theme="dark"] .attendance-missing-list li { background: #252a31; box-shadow: inset 0 0 0 1px #7c2d12; }
 body[data-theme="dark"] .attendance-missing-list li b { color: #edf0f4; }
 @media (max-width: 600px) { .attendance-missing-list li { flex-direction: column; align-items: flex-start; } }
+
+/* Every state uses the same filled dot; only the colour changes. */
+.attendance-day-no-checkout .attendance-status-dot { background: #ea580c; color: #ea580c; }
+.attendance-day-working .attendance-status-dot { background: #0284c7; color: #0284c7; }
+.legend-dot.is-working { background: #0284c7; }

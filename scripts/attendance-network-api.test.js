@@ -228,6 +228,25 @@ test('Quận 4 needs neither GPS nor the office network, even with an IP list an
   }
 });
 
+test('Admin marking a day "Đã công" fills the missing check-out so the day counts', async () => {
+  resetRecords();
+  setClock('08:10');
+  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-in', mode: 'office' } })).status, 200);
+  const mark = (status) => request('/api/attendance-overview/status', 'admin', { method: 'POST', payload: { userId: 'employee', date: day, status } });
+  let { record } = await (await mark('present')).json();
+  assert.equal(record.status, 'completed');
+  assert.equal(new Date(record.checkIn).toISOString().slice(11, 16), '01:10');
+  // Quận 4 shift ends 17:25 (10:25 UTC).
+  assert.equal(new Date(record.checkOut).toISOString().slice(11, 16), '10:25');
+  assert.equal(record.checkOutByAdmin, true);
+  // A day without any check-in starts at the shift start, so it is not late.
+  ({ record } = await (await mark('absent')).json());
+  assert.equal(record.checkIn, undefined);
+  ({ record } = await (await mark('present')).json());
+  assert.equal(new Date(record.checkIn).toISOString().slice(11, 16), '01:30');
+  assert.equal(record.checkInByAdmin, true);
+});
+
 test('Admin/CEO can clear a late mark while the day still counts as worked', async () => {
   resetRecords();
   setClock('09:00');
