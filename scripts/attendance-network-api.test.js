@@ -245,6 +245,9 @@ test('Admin marking a day "Đã công" fills the missing check-out so the day co
   ({ record } = await (await mark('present')).json());
   assert.equal(new Date(record.checkIn).toISOString().slice(11, 16), '01:30');
   assert.equal(record.checkInByAdmin, true);
+  // Back to "working": checked in, no check-out.
+  ({ record } = await (await mark('working')).json());
+  assert.deepEqual([record.status, typeof record.checkIn, record.checkOut, record.checkOutByAdmin], ['working', 'string', undefined, undefined]);
 });
 
 test('Admin/CEO can clear a late mark while the day still counts as worked', async () => {

@@ -361,8 +361,8 @@ function openStatusPicker(cell, user, date, current) {
 	activeStatusPicker?.remove();
 	const picker = document.createElement('div');
 	picker.className = 'attendance-status-picker';
-	const options = [['absent', 'Không công'], ['present', 'Đã công'], ['half-day', 'Làm 1/2 ngày'], ['leave', 'Nghỉ phép'], ['unauthorized-leave', 'Nghỉ KP'], ['online', 'Online']];
-	picker.innerHTML = options.map(([value, label]) => `<button type="button" data-status-value="${value}">${label}</button>`).join('');
+	const options = [['absent', 'Không công'], ['present', 'Đã công'], ['working', 'Đang làm việc (chưa check-out)'], ['half-day', 'Làm 1/2 ngày'], ['leave', 'Nghỉ phép'], ['unauthorized-leave', 'Nghỉ KP'], ['online', 'Online']];
+	picker.innerHTML = options.map(([value, label]) => `<button type="button" data-status-value="${value}"><i class="legend-dot is-pick-${value}" aria-hidden="true"></i>${label}</button>`).join('');
 	document.body.append(picker);
 	const box = cell.getBoundingClientRect();
 	picker.style.left = `${Math.min(box.left, window.innerWidth - picker.offsetWidth - 8)}px`;

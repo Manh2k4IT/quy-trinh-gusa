@@ -755,3 +755,14 @@ body[data-theme="dark"] .attendance-missing-list li b { color: #edf0f4; }
 .attendance-day-no-checkout .attendance-status-dot { background: #ea580c; color: #ea580c; }
 .attendance-day-working .attendance-status-dot { background: #0284c7; color: #0284c7; }
 .legend-dot.is-working { background: #0284c7; }
+
+/* Status picker: a colour dot per choice, matching the legend. */
+.attendance-status-picker button { display: flex; align-items: center; gap: .55rem; }
+.attendance-status-picker .legend-dot { display: inline-block; flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.is-pick-absent { background: #d69e2e; }
+.legend-dot.is-pick-present { background: #2f9e68; }
+.legend-dot.is-pick-working { background: #0284c7; }
+.legend-dot.is-pick-half-day { background: #8b5cf6; }
+.legend-dot.is-pick-leave { background: #d65a68; }
+.legend-dot.is-pick-unauthorized-leave { background: #6b7280; }
+.legend-dot.is-pick-online { background: #178b98; }

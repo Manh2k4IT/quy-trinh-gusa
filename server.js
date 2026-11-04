@@ -1931,7 +1931,7 @@ async function updateAttendanceOverviewStatus(req, res) {
   const userId = String(payload.userId || "");
   const date = String(payload.date || "");
   const status = String(payload.status || "");
-  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !["absent", "present", "half-day", "leave", "unauthorized-leave", "online"].includes(status)) return send(res, 400, "Dữ liệu trạng thái không hợp lệ");
+  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !["absent", "present", "half-day", "working", "leave", "unauthorized-leave", "online"].includes(status)) return send(res, 400, "Dữ liệu trạng thái không hợp lệ");
   const attendance = getAttendance();
   const records = attendance[userId] || {};
   const record = records[date] || { date };
@@ -1953,6 +1953,19 @@ async function updateAttendanceOverviewStatus(req, res) {
     record.attendanceType = record.attendanceType === "half-day-afternoon" ? "half-day-afternoon" : "half-day-morning";
     delete record.onlineProof;
     completeByAdmin();
+  } else if (status === "working") {
+    // Checked in, no check-out yet: a missing check-in takes the shift start; any check-out is removed.
+    if (!["office", "online"].includes(record.workMode)) record.workMode = "office";
+    record.attendanceType ||= "full-day";
+    if (!record.checkIn) {
+      const shift = getAttendanceShift(record.site, record.attendanceType);
+      record.checkIn = new Date(`${date}T${formatShiftTime(shift.lateAfter)}:00+07:00`).toISOString();
+      record.checkInByAdmin = true;
+    }
+    delete record.checkOut;
+    delete record.checkOutByAdmin;
+    delete record.halfDayApproved;
+    record.status = "working";
   } else if (status === "absent") {
     record.status = "absent";
     delete record.checkIn;
