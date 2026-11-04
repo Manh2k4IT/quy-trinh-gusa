@@ -715,3 +715,40 @@ body[data-theme="dark"] .lr-meta, body[data-theme="dark"] .lr-stat span { color:
 }
 
 body[data-theme="dark"] .attendance-secondary[data-check-out]:not(:disabled) { color: #fff; background: linear-gradient(115deg, #e8772e, #d4621f); }
+
+/* Checked in but not checked out: today it is still running; a past day does not count. */
+.attendance-no-checkout { background: #ffedd5; color: #ea580c; }
+.attendance-working { background: #e0f2fe; color: #0284c7; }
+.attendance-legend-dot.is-no-checkout, .legend-dot.is-no-checkout { background: #ea580c; }
+.attendance-legend-dot.is-working { background: #0284c7; }
+.legend-pill.no-checkout { background: #ffedd5; color: #c2410c; }
+.attendance-day-no-checkout { color: #c2410c; background: #ffedd5; font-weight: 800; }
+.attendance-day-working { color: #0369a1; background: #e0f2fe; }
+
+/* "Chưa check-out" card: red once a day was left without check-out. */
+.attendance-stats .stat-no-checkout { border-color: #fed7aa; background: linear-gradient(145deg, #fff, #fff7ed); }
+.stat-no-checkout .attendance-stat-title { color: #c2410c; }
+.stat-no-checkout .attendance-stat-title > span:first-child { color: #ea580c; background: #ffedd5; font-weight: 800; }
+.stat-no-checkout strong { color: #ea580c; }
+
+.attendance-day-value.attendance-no-checkout { border: 1px solid #fb923c; }
+.attendance-day.attendance-day-no-checkout { box-shadow: inset 0 0 0 1px #fb923c; }
+
+/* "Ngày chưa check-out" list under the workday calendar. */
+.attendance-missing-summary { display: grid; gap: .7rem; margin-top: 1.2rem; padding: 1.1rem; border: 1px solid #fed7aa; border-radius: 18px; background: linear-gradient(145deg, #fff, #fff7ed); }
+.attendance-missing-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.attendance-missing-head h3 { margin: 0; color: #c2410c; font-size: 1.05rem; }
+.attendance-missing-count { padding: .3rem .75rem; border-radius: 999px; color: #c2410c; background: #ffedd5; font-size: .82rem; font-weight: 800; }
+.attendance-missing-count.is-clear { color: #067647; background: #dcfae6; }
+.attendance-missing-list { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.attendance-missing-list li { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding: .65rem .85rem; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px #fed7aa; }
+.attendance-missing-list li div { display: grid; gap: .15rem; min-width: 0; }
+.attendance-missing-list li b { color: #1f2f3d; font-size: .92rem; text-transform: capitalize; }
+.attendance-missing-list li span { color: #667085; font-size: .8rem; }
+.attendance-missing-list strong { flex-shrink: 0; padding: .3rem .65rem; border-radius: 999px; color: #c2410c; background: #ffedd5; font-size: .8rem; }
+.attendance-missing-hint { margin: 0; color: #9a3412; font-size: .8rem; }
+.attendance-missing-empty { margin: 0; color: #067647; font-weight: 600; }
+body[data-theme="dark"] .attendance-missing-summary { border-color: #7c2d12; background: #1f2937; }
+body[data-theme="dark"] .attendance-missing-list li { background: #252a31; box-shadow: inset 0 0 0 1px #7c2d12; }
+body[data-theme="dark"] .attendance-missing-list li b { color: #edf0f4; }
+@media (max-width: 600px) { .attendance-missing-list li { flex-direction: column; align-items: flex-start; } }

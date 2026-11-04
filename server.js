@@ -1849,7 +1849,8 @@ async function updateAttendance(req, res) {
   const site = action === "check-in" ? (mode === "office" ? normalizeAttendanceSite(payload.site) : "q4") : normalizeAttendanceSite(record.site);
   let siteProof = null;
   if (needsOfficeNetwork(action, mode, record)) {
-    const point = getAttendanceSites().sites[site];
+    // Quận 4 needs no check (neither GPS nor office network); other offices are checked by their GPS point.
+    const point = site === "q4" ? null : getAttendanceSites().sites[site];
     const label = ATTENDANCE_SITES[site].label;
     if (point) {
       const result = checkSiteLocation(point, label, payload.location);
@@ -1857,11 +1858,6 @@ async function updateAttendance(req, res) {
       siteProof = result.proof;
     } else if (site !== "q4") {
       return sendJson(res, 403, { message: `Admin/CEO chưa lưu vị trí chấm công ${label}.` });
-    } else {
-      const { allowedIps } = getAttendanceNetwork();
-      if (allowedIps.length && !isAllowedOfficeIp(getRequestIp(req, attendanceTrustedProxyHops), allowedIps)) {
-        return sendJson(res, 403, { message: "Bạn cần kết nối mạng công ty đã được Admin/CEO cho phép để check-in hoặc check-out tại công ty." });
-      }
     }
   }
   const now = new Date().toISOString();

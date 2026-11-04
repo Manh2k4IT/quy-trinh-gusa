@@ -108,66 +108,6 @@ test('only active Admin/CEO can read or change IP configuration; invalid saves p
   assert.equal((await request('/ATTENDANCE-NETWORK.JSON')).status, 403);
 });
 
-test('configured office check-in denies outside networks, missing headers and spoofed prefix; matching IPv4/IPv6 succeeds', async () => {
-  await setIps(['8.8.8.8', '2606:4700:4700::1111']);
-  assert.equal((await (await request('/api/attendance-network')).json()).currentIp, '8.8.8.8');
-  const payload = { action: 'check-in', mode: 'office' };
-  for (const ip of ['1.1.1.1', null, '8.8.8.8, 1.1.1.1']) {
-    resetRecords();
-    const response = await request('/api/attendance', 'employee', { method: 'POST', payload, ip });
-    assert.equal(response.status, 403);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory, 'attendance.json'))), {});
-  }
-  for (const ip of ['8.8.8.8', '::ffff:8.8.8.8', '2606:4700:4700:0000::1111']) {
-    resetRecords();
-    const response = await request('/api/attendance', 'employee', { method: 'POST', payload, ip });
-    assert.equal(response.status, 200);
-    assert.equal((await response.json()).record.workMode, 'office');
-  }
-});
-
-test('office checkout cannot bypass network checks by claiming online; actual online attendance remains unaffected', async () => {
-  await setIps(['8.8.8.8']);
-  resetRecords({ employee: { [day]: { date: day, workMode: 'office', checkIn: `${day}T01:00:00Z` } } });
-  fs.writeFileSync(path.join(directory, 'clock.txt'), `${day}T12:00:00Z`);
-  const payload = { action: 'check-out', mode: 'online' };
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload, ip: '1.1.1.1' })).status, 403);
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload })).status, 200);
-  resetRecords({ employee: { [day]: { date: day, checkIn: `${day}T01:00:00Z` } } });
-  fs.writeFileSync(path.join(directory, 'clock.txt'), `${day}T12:00:00Z`);
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload, ip: '1.1.1.1' })).status, 403);
-  resetRecords();
-  const online = await request('/api/attendance', 'employee', { method: 'POST', ip: '1.1.1.1', payload: {
-    action: 'check-in', mode: 'online',
-    onlineProof: { photoCapturedAt: `${day}T01:00:00Z`, photoData: 'data:image/png;base64,dGVzdA==', latitude: 10, longitude: 106 },
-  } });
-  assert.equal(online.status, 200);
-  fs.writeFileSync(path.join(directory, 'clock.txt'), `${day}T12:00:00Z`);
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '1.1.1.1', payload: { action: 'check-out', mode: 'office' } })).status, 200);
-});
-
-test('office /64 admits desktop and phone, denies other networks for both check-in and checkout', async () => {
-  await setIps(['2402:800:6370:b5c8::/64']);
-  const desktop = '2402:800:6370:b5c8:2c78:af15:42d4:6c18';
-  const phone = '2402:800:6370:b5c8:20d0:e79f:cc2:c727';
-  const settings = await (await request('/api/attendance-network', 'admin', { ip: phone })).json();
-  assert.equal(settings.currentIp, phone);
-  assert.equal(settings.currentNetwork, '2402:800:6370:b5c8::/64');
-  for (const ip of [desktop, phone]) {
-    resetRecords();
-    assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip, payload: { action: 'check-in', mode: 'office' } })).status, 200);
-  }
-  for (const ip of ['2402:800:6370:b5c9::1', '1.1.1.1']) {
-    resetRecords();
-    assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip, payload: { action: 'check-in', mode: 'office' } })).status, 403);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory, 'attendance.json'))), {});
-  }
-  resetRecords({ employee: { [day]: { date: day, workMode: 'office', checkIn: `${day}T01:00:00Z` } } });
-  fs.writeFileSync(path.join(directory, 'clock.txt'), `${day}T12:00:00Z`);
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '2402:800:6370:b5c9::1', payload: { action: 'check-out', mode: 'online' } })).status, 403);
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: phone, payload: { action: 'check-out', mode: 'office' } })).status, 200);
-});
-
 test('empty list preserves unrestricted office attendance, including half-day shifts', async () => {
   await setIps([]);
   resetRecords();
@@ -175,17 +115,6 @@ test('empty list preserves unrestricted office attendance, including half-day sh
   resetRecords();
   fs.writeFileSync(path.join(directory, 'clock.txt'), `${day}T06:00:00Z`);
   assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '1.1.1.1', payload: { action: 'check-in', mode: 'office', attendanceType: 'half-day-afternoon' } })).status, 200);
-});
-
-test('configuration survives restart and corrupt settings fail closed rather than disabling restrictions', async () => {
-  await setIps(['8.8.8.8']);
-  await stopServer();
-  await startServer();
-  assert.deepEqual((await (await request('/api/attendance-network')).json()).allowedIps, ['8.8.8.8']);
-  fs.writeFileSync(path.join(directory, 'attendance-network.json'), '{bad');
-  resetRecords();
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-in', mode: 'office' } })).status, 500);
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory, 'attendance.json'))), {});
 });
 
 function setClock(localTime) {
@@ -214,7 +143,7 @@ test('only active Admin/CEO can read or save the Bến Thành point, and invalid
   assert.equal((await request('/attendance-sites.json', null)).status, 404);
 });
 
-test('Bến Thành check-in uses GPS instead of office Wi-Fi and its own late time', async () => {
+test('Bến Thành check-in uses GPS and its own late time', async () => {
   await setIps(['1.1.1.1']);
   await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { site: 'ben-thanh', point: null } });
   resetRecords();
@@ -239,11 +168,10 @@ test('Bến Thành check-in uses GPS instead of office Wi-Fi and its own late ti
   assert.equal(record.lateMinutes, 10);
   assert.equal(typeof record.siteCheckIn.distanceMeters, 'number');
 
-  // The same time at Quận 4 is late from 08:30 and still needs office Wi-Fi.
+  // The same time at Quận 4 is late from 08:30, from any network and without GPS.
   resetRecords();
   setClock('09:10');
-  assert.equal((await checkIn(nearBenThanh, 'q4')).status, 403);
-  response = await request('/api/attendance', 'employee', { method: 'POST', ip: '1.1.1.1', payload: { action: 'check-in', mode: 'office' } });
+  response = await request('/api/attendance', 'employee', { method: 'POST', ip: '9.9.9.9', payload: { action: 'check-in', mode: 'office' } });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).record.lateMinutes, 40);
   await setIps([]);
@@ -271,42 +199,33 @@ test('Bến Thành check-out opens at 17:00 (13:00 for the morning shift) and ne
   setClock('13:01');
   assert.equal((await attend('check-out')).status, 200);
 
-  // Quận 4 keeps its 17:30 check-out.
+  // Quận 4 check-out opens at 17:25.
   resetRecords();
   setClock('08:00');
   assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-in', mode: 'office' } })).status, 200);
-  setClock('17:05');
+  setClock('17:24');
   assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-out', mode: 'office' } })).status, 400);
+  setClock('17:25');
+  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', payload: { action: 'check-out', mode: 'office' } })).status, 200);
 });
 
-test('Quận 4 switches from office Wi-Fi to GPS once its point is saved', async () => {
-  const q4Point = { latitude: 10.7579, longitude: 106.7054, radiusMeters: 150 };
-  const nearQ4 = { latitude: 10.7581, longitude: 106.7055, accuracy: 20 };
+test('Quận 4 needs neither GPS nor the office network, even with an IP list and a saved point', async () => {
   await setIps(['1.1.1.1']);
+  assert.equal((await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { site: 'q4', point: { latitude: 10.7579, longitude: 106.7054, radiusMeters: 150 } } })).status, 200);
   resetRecords();
   setClock('08:00');
-  const checkIn = (location, ip = '9.9.9.9') => request('/api/attendance', 'employee', { method: 'POST', ip, payload: { action: 'check-in', mode: 'office', location } });
-
-  // Without a saved point the old Wi-Fi rule still applies.
-  assert.equal((await checkIn(nearQ4)).status, 403);
-
-  assert.equal((await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { site: 'q4', point: q4Point } })).status, 200);
-  const far = await checkIn(nearBenThanh, '1.1.1.1');
-  assert.equal(far.status, 403);
-  assert.match((await far.json()).message, /Quận 4/);
-  const response = await checkIn(nearQ4);
-  assert.equal(response.status, 200);
-  const { record } = await response.json();
-  assert.equal(record.site, undefined);
-  assert.equal(record.late, false);
-  assert.equal(typeof record.siteCheckIn.distanceMeters, 'number');
-
-  setClock('17:35');
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '9.9.9.9', payload: { action: 'check-out', mode: 'office' } })).status, 403);
-  assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '9.9.9.9', payload: { action: 'check-out', mode: 'office', location: nearQ4 } })).status, 200);
-
-  await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { site: 'q4', point: null } });
-  await setIps([]);
+  try {
+    const response = await request('/api/attendance', 'employee', { method: 'POST', ip: '9.9.9.9', payload: { action: 'check-in', mode: 'office' } });
+    assert.equal(response.status, 200);
+    const { record } = await response.json();
+    assert.equal(record.site, undefined);
+    assert.equal(record.siteCheckIn, undefined);
+    setClock('17:35');
+    assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '9.9.9.9', payload: { action: 'check-out', mode: 'office' } })).status, 200);
+  } finally {
+    await request('/api/attendance-sites', 'admin', { method: 'POST', payload: { site: 'q4', point: null } });
+    await setIps([]);
+  }
 });
 
 test('Admin/CEO can clear a late mark while the day still counts as worked', async () => {

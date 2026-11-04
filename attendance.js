@@ -131,7 +131,7 @@ if (isOnlineAttendance) {
 
 if (attendanceSite === 'q4' && !isOnlineAttendance && !isWorkdayOverview) {
   document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Chấm công tại Quận 4'));
-  document.querySelector('.attendance-heading p')?.replaceChildren(document.createTextNode('Giờ làm 08:30–17:30. Bật vị trí (GPS) khi check-in và check-out tại công ty.'));
+  document.querySelector('.attendance-heading p')?.replaceChildren(document.createTextNode('Giờ làm 08:30–17:30. Check-in và check-out tại công ty.'));
   document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Chấm công Quận 4'));
 }
 if (attendanceSite === 'ben-thanh') {
@@ -140,7 +140,7 @@ if (attendanceSite === 'ben-thanh') {
   document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Chấm công Bến Thành'));
 }
 
-// Office check-in and check-out are verified by the device position instead of office Wi-Fi.
+// Bến Thành check-in and check-out are verified by the device position (Quận 4 is not checked).
 function getAttendanceLocation() {
   const geolocation = window.desktopSettings?.getCurrentPosition ? window.desktopSettings : navigator.geolocation;
   if (!geolocation) return Promise.reject(new Error('Thiết bị không hỗ trợ chia sẻ vị trí.'));
@@ -266,7 +266,14 @@ function getStatusMeta(record, date) {
 
   if (record?.status === 'leave') return { className: 'leave', short: 'N', label: 'Xin nghỉ phép' };
   if (record?.status === 'unauthorized-leave') return { className: 'unauthorized-leave', short: 'KP', label: 'Nghỉ không phép' };
-  if (record?.workMode === 'online' || record?.onlineProof || record?.status === 'online') return { className: 'online', short: 'OL', label: 'Đã chấm công online' };
+  // A day counts once it is checked out (or a half day was approved), like the "Ngày công" card.
+  if (record?.checkIn && !record.checkOut && !record.halfDayApproved) {
+    return date.getTime() === today.getTime()
+      ? { className: 'working', short: '…', label: 'Đang làm việc – tính công khi check-out' }
+      : { className: 'no-checkout', short: '!', label: 'Chưa check-out – không tính công' };
+  }
+  if (record?.checkIn && record.checkOut && (record.workMode === 'online' || record.onlineProof)) return { className: 'present', short: 'X', label: 'Đã chấm công (online)' };
+  if (record?.workMode === 'online' || record?.onlineProof || record?.status === 'online') return { className: 'online', short: 'OL', label: 'Xin làm online' };
 
   if (record?.attendanceType === 'half-day-morning' || record?.attendanceType === 'half-day-afternoon') return { className: 'half-day', short: '1/2', label: 'Làm 1/2 ngày' };
 
@@ -280,6 +287,26 @@ function getStatusMeta(record, date) {
 let lateSummaryPlace = 'all';
 const latePlaceOf = (record) => (record.workMode === 'online' || record.onlineProof ? 'online' : record.site === 'ben-thanh' ? 'ben-thanh' : 'q4');
 const monthLabel = (value) => `Tháng ${Number(value.slice(5, 7))}/${value.slice(0, 4)}`;
+
+// Days of the month checked in but never checked out (today is still open): they do not count as worked.
+function renderMissingCheckoutSummary(monthEntries) {
+  const missing = monthEntries
+    .filter((record) => record.date < todayKey() && record.checkIn && !record.checkOut && !record.halfDayApproved)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const rows = missing.map((record) => {
+    const date = new Date(`${record.date}T00:00:00`);
+    const weekday = date.toLocaleDateString('vi-VN', { weekday: 'long' });
+    const place = record.workMode === 'online' || record.onlineProof ? 'Làm online' : `Khu vực ${record.site === 'ben-thanh' ? 'Bến Thành' : 'Quận 4'}`;
+    const shift = { 'half-day-morning': 'Nửa ngày sáng', 'half-day-afternoon': 'Nửa ngày chiều' }[record.attendanceType] || 'Cả ngày';
+    return `<li><div><b>${weekday}, ${date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</b><span>Check-in ${formatTime(record.checkIn)} · ${shift} · ${place} · không có check-out</span></div><strong>Không tính công</strong></li>`;
+  }).join('');
+  return `
+    <section class="attendance-missing-summary">
+      <div class="attendance-missing-head"><h3>Ngày chưa check-out ${monthLabel(monthSelect.value).toLowerCase()}</h3><span class="attendance-missing-count ${missing.length ? '' : 'is-clear'}">${missing.length ? `${missing.length} ngày không tính công` : 'Đủ check-out'}</span></div>
+      ${rows ? `<ul class="attendance-missing-list">${rows}</ul><p class="attendance-missing-hint">Những ngày này đã check-in nhưng không check-out nên chưa được cộng ngày công. Liên hệ Admin/CEO nếu cần điều chỉnh.</p>` : '<p class="attendance-missing-empty">Tháng này bạn đã check-out đủ các ngày đã check-in. 👍</p>'}
+    </section>
+  `;
+}
 
 function renderLateSummary(monthEntries) {
   const lateEntries = monthEntries
@@ -319,18 +346,13 @@ function renderLateSummary(monthEntries) {
   `;
 }
 
-// Hours worked in the month, including the shift still running today; refreshed every minute.
+// Days of the month checked in but never checked out (today is still open); refreshed every minute.
 function updateHoursStat(entryList = Object.values(records).filter((record) => !monthSelect.value || record.date?.startsWith(monthSelect.value))) {
-  const now = Date.now();
   const running = entryList.find((record) => record.date === todayKey() && record.checkIn && !record.checkOut);
-  const totalHours = entryList.reduce((sum, record) => {
-    if (record.checkIn && record.checkOut) return sum + (new Date(record.checkOut) - new Date(record.checkIn)) / 3600000;
-    if (record === running) return sum + Math.max(0, now - new Date(record.checkIn)) / 3600000;
-    return sum;
-  }, 0);
-  document.querySelector('[data-stat-hours]').textContent = `${totalHours.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h`;
-  const hoursNote = document.querySelector('.stat-hours small');
-  if (hoursNote) hoursNote.textContent = running ? `tổng thời gian · hôm nay đang làm từ ${formatTime(running.checkIn)}` : 'tổng thời gian';
+  const missing = entryList.filter((record) => record.date < todayKey() && record.checkIn && !record.checkOut && !record.halfDayApproved).length;
+  document.querySelector('[data-stat-no-checkout]').textContent = missing;
+  const missingNote = document.querySelector('.stat-no-checkout small');
+  if (missingNote) missingNote.textContent = missing ? 'lần trong tháng · không tính công' : 'lần trong tháng · đã check-out đủ';
   const daysNote = document.querySelector('.stat-days small');
   if (daysNote) daysNote.textContent = running ? 'quy đổi trong tháng này · hôm nay được cộng khi check-out' : 'quy đổi trong tháng này';
 }
@@ -368,7 +390,7 @@ function renderRecords() {
   }
 
   const name = document.querySelectorAll('[data-user-name]')[0]?.textContent || 'Nhân viên';
-  const statusCounter = { present: 0, absent: 0, leave: 0, online: 0, 'unauthorized-leave': 0, 'half-day': 0 };
+  const statusCounter = { present: 0, absent: 0, leave: 0, online: 0, 'unauthorized-leave': 0, 'half-day': 0, 'no-checkout': 0 };
 
   const rows = monthWeeks.map((weekDates, weekIndex) => {
     const headerCells = weekDates.map((date) => {
@@ -386,6 +408,7 @@ function renderRecords() {
       else if (meta.className === 'online') statusCounter.online += 1;
       else if (meta.className === 'unauthorized-leave') statusCounter['unauthorized-leave'] += 1;
       else if (meta.className === 'half-day') statusCounter['half-day'] += 1;
+      else if (meta.className === 'no-checkout') statusCounter['no-checkout'] += 1;
       return `<div class="attendance-day-value attendance-${meta.className}" title="${meta.label}">${meta.className === 'future' ? '' : '<span class="attendance-dot"></span>'}</div>`;
     }).join('');
 
@@ -410,6 +433,7 @@ function renderRecords() {
           <span class="legend-pill unauthorized"><span class="legend-dot"></span> ${statusCounter['unauthorized-leave']}</span>
           <span class="legend-pill half-day"><span class="legend-dot"></span> ${statusCounter['half-day']}</span>
           <span class="legend-pill absent"><span class="legend-dot"></span> ${statusCounter.absent}</span>
+          ${statusCounter['no-checkout'] ? `<span class="legend-pill no-checkout" title="Ngày chưa check-out, không tính công"><span class="legend-dot"></span> ${statusCounter['no-checkout']}</span>` : ''}
         </div>
       </div>
       <div class="attendance-status-legend">
@@ -419,8 +443,11 @@ function renderRecords() {
         <span><i class="attendance-legend-dot is-online"></i> Xin làm online</span>
         <span><i class="attendance-legend-dot is-half-day"></i> Làm 1/2 ngày</span>
         <span><i class="attendance-legend-dot is-unauthorized"></i> Nghỉ không phép</span>
+        <span><i class="attendance-legend-dot is-no-checkout"></i> Chưa check-out (không tính công)</span>
+        <span><i class="attendance-legend-dot is-working"></i> Đang làm việc</span>
       </div>
       ${rows}
+      ${renderMissingCheckoutSummary(entryList)}
       ${renderLateSummary(entryList)}
     </div>
   `;
@@ -479,7 +506,7 @@ function describeAttendanceResult(action, record) {
   };
 }
 
-async function submitAttendance(action) { if (attendanceBusy) return; attendanceBusy = true; checkIn.disabled = true; checkOut.disabled = true; message.textContent = 'Đang cập nhật...'; try { const selectedType = document.querySelector('input[name="attendanceType"]:checked')?.value || 'full-day'; const today = records?.[todayKey()]; const officeSite = action === 'check-in' ? (isOnlineAttendance ? null : attendanceSite) : (today?.workMode === 'online' ? null : today?.site || 'q4'); let location; if (officeSite) { message.textContent = 'Đang lấy vị trí...'; try { location = await getAttendanceLocation(); } catch (error) { if (officeSite !== 'q4') throw error; } message.textContent = 'Đang cập nhật...'; } const response = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, mode: isOnlineAttendance ? 'online' : 'office', site: attendanceSite, attendanceType: selectedType, onlineProof, location }) }); const responseText = await response.text(); let data = {}; try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; } if (!response.ok) throw Object.assign(new Error(data.message || 'Không thể cập nhật chấm công.'), { needsWorkReport: data.needsWorkReport === true }); message.textContent = action === 'check-in' ? 'Đã check-in thành công.' : 'Đã check-out thành công.'; if (data.record) showAttendanceDialog(describeAttendanceResult(action, data.record)); attendanceBusy = false; await loadAttendance(); } catch (error) { attendanceBusy = false; message.textContent = error.message; showAttendanceDialog(error.needsWorkReport
+async function submitAttendance(action) { if (attendanceBusy) return; attendanceBusy = true; checkIn.disabled = true; checkOut.disabled = true; message.textContent = 'Đang cập nhật...'; try { const selectedType = document.querySelector('input[name="attendanceType"]:checked')?.value || 'full-day'; const today = records?.[todayKey()]; const officeSite = action === 'check-in' ? (isOnlineAttendance ? null : attendanceSite) : (today?.workMode === 'online' ? null : today?.site || 'q4'); let location; if (officeSite && officeSite !== 'q4') { message.textContent = 'Đang lấy vị trí...'; try { location = await getAttendanceLocation(); } catch (error) { if (officeSite !== 'q4') throw error; } message.textContent = 'Đang cập nhật...'; } const response = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, mode: isOnlineAttendance ? 'online' : 'office', site: attendanceSite, attendanceType: selectedType, onlineProof, location }) }); const responseText = await response.text(); let data = {}; try { data = responseText ? JSON.parse(responseText) : {}; } catch { data.message = responseText; } if (!response.ok) throw Object.assign(new Error(data.message || 'Không thể cập nhật chấm công.'), { needsWorkReport: data.needsWorkReport === true }); message.textContent = action === 'check-in' ? 'Đã check-in thành công.' : 'Đã check-out thành công.'; if (data.record) showAttendanceDialog(describeAttendanceResult(action, data.record)); attendanceBusy = false; await loadAttendance(); } catch (error) { attendanceBusy = false; message.textContent = error.message; showAttendanceDialog(error.needsWorkReport
   ? { success: false, title: 'Chưa nộp báo cáo công việc', lines: [error.message], action: { label: 'Nộp báo cáo ngay', href: 'work-report.html' } }
   : { success: false, title: action === 'check-in' ? 'Chưa check-in được' : 'Chưa check-out được', lines: [error.message] }); setStatus(records); } }
 const today = new Date(); for (let offset = 0; offset < 12; offset += 1) { const date = new Date(today.getFullYear(), today.getMonth() - offset, 1); const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; monthSelect.append(new Option(date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }), value)); }

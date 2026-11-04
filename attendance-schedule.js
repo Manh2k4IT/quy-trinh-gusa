@@ -4,9 +4,9 @@
     q4: {
       label: "Quận 4",
       shifts: {
-        "full-day": { checkInFrom: 6 * 60, checkInTo: 12 * 60, lateAfter: 8 * 60 + 30, checkOutFrom: 17 * 60 + 30 },
-        "half-day-morning": { checkInFrom: 6 * 60, checkInTo: 12 * 60, lateAfter: 8 * 60 + 30, checkOutFrom: 17 * 60 + 30 },
-        "half-day-afternoon": { checkInFrom: 11 * 60, checkInTo: 15 * 60, lateAfter: 13 * 60, checkOutFrom: 17 * 60 + 30 },
+        "full-day": { checkInFrom: 6 * 60, checkInTo: 12 * 60, lateAfter: 8 * 60 + 30, checkOutFrom: 17 * 60 + 25 },
+        "half-day-morning": { checkInFrom: 6 * 60, checkInTo: 12 * 60, lateAfter: 8 * 60 + 30, checkOutFrom: 17 * 60 + 25 },
+        "half-day-afternoon": { checkInFrom: 11 * 60, checkInTo: 15 * 60, lateAfter: 13 * 60, checkOutFrom: 17 * 60 + 25 },
       },
     },
     "ben-thanh": {
