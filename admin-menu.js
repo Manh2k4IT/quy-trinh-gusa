@@ -549,9 +549,29 @@ function initializeNotificationCenter(user) {
       });
     });
   };
+  // Đã mở một việc ở trang khác (vd. xem chi tiết đề xuất) thì chuông cũng coi là đã xem.
+  window.markNotificationSeen = (...ids) => {
+    const seen = readSeen();
+    ids.forEach((id) => seen.add(id));
+    saveSeen(seen);
+    render();
+  };
+  // Đang ở đúng trang mà thông báo dẫn tới (vd. link Zalo ?proposalId=...) là đã xem thông báo đó.
+  const opensCurrentPage = (item) => {
+    const target = new URL(item.url, location.origin);
+    if (target.pathname !== location.pathname || !target.search) return false;
+    const current = new URLSearchParams(location.search);
+    return [...target.searchParams].every(([key, value]) => current.get(key) === value);
+  };
   window.refreshNotifications = () => fetch('/api/notifications', { cache: 'no-store' })
     .then((response) => response.ok ? response.json() : { items: [] })
-    .then((data) => { items = data.items || []; render(); })
+    .then((data) => {
+      items = data.items || [];
+      const seen = readSeen();
+      const opened = items.filter((item) => opensCurrentPage(item) && !seen.has(seenIdOf(item)));
+      if (opened.length) window.markNotificationSeen(...opened.map(seenIdOf));
+      else render();
+    })
     .catch(() => {});
   // Mở chuông là đã xem các thông báo kết quả; chúng vẫn hiện trong lần mở này và ẩn từ lần sau.
   button.addEventListener('click', () => {

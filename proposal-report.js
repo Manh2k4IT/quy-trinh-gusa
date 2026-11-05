@@ -213,6 +213,7 @@ function appendDetailField(label, value) {
 function openProposalDetail(proposalId) {
   const proposal = proposals.find((item) => item.id === proposalId);
   if (!proposal) return;
+  window.markNotificationSeen?.(`review-${proposalId}`);
 
   detailType.textContent = labels[proposal.type] || 'Đề xuất khác';
   detailName.textContent = proposal.userName || 'Nhân viên';

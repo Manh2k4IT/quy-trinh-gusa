@@ -891,6 +891,7 @@ function renderPresentationChart() {
   makePresentationLink(deputy, "P. GIÁM ĐỐC");
   makePresentationLink(internal, "KIỂM SOÁT NỘI BỘ");
   makePresentationLink(techSpecialist, "CHUYÊN VIÊN HỆ THỐNG CÔNG NGHỆ");
+  internalGroups.querySelectorAll(":scope > div").forEach((group) => makePresentationLink(group, group.textContent.split(String.fromCharCode(10)).join(" ")));
   top.append(leaders);
   chartTree.append(top);
   const departments = document.createElement("div");
