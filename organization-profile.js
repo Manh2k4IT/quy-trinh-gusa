@@ -220,10 +220,111 @@ function formatTenure(member) {
   return `${years ? `${years} năm` : ""}${years && months ? " " : ""}${months ? `${months} tháng` : ""}`;
 }
 
+const overviewStatuses = [
+  { value: "all", label: "Tất cả" },
+  { value: "working", label: "Đang làm việc" },
+];
+
+function memberCounts() {
+  const counts = { all: members.length, working: 0, leave: 0, former: 0 };
+  members.forEach((member) => { counts[member.status || "working"] = (counts[member.status || "working"] || 0) + 1; });
+  return counts;
+}
+
+function initialsOf(text) {
+  const words = String(text || "").replace(/[^\p{L}\p{N}\s&]/gu, " ").split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
+function renderOverview() {
+  const heading = document.querySelector(".profile-page-heading");
+  if (!heading) return;
+  heading.classList.add("profile-hero");
+  let badge = heading.querySelector(".profile-hero-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "profile-hero-badge";
+    badge.setAttribute("aria-hidden", "true");
+    heading.prepend(badge);
+  }
+  if (!badge.querySelector("img")) badge.innerHTML = '<img src="logo1.jpg" alt="" />';
+  let stats = heading.querySelector(".profile-hero-stats");
+  if (!stats) {
+    stats = document.createElement("div");
+    stats.className = "profile-hero-stats";
+    heading.append(stats);
+  }
+  const counts = memberCounts();
+  stats.replaceChildren(...[
+    ["Tổng nhân sự", counts.all, "total"],
+    ["Đang làm việc", counts.working, "working"],
+  ].map(([label, value, tone]) => {
+    const tile = document.createElement("div");
+    tile.className = `profile-stat profile-stat-${tone}`;
+    const number = document.createElement("strong");
+    number.textContent = value;
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    tile.append(number, caption);
+    return tile;
+  }));
+  renderFilterChips(counts);
+}
+
+function renderFilterChips(counts) {
+  const filters = memberStatusFilter.closest(".member-filters");
+  if (!filters) return;
+  memberStatusFilter.hidden = true;
+  let chips = filters.querySelector(".member-filter-chips");
+  if (!chips) {
+    chips = document.createElement("div");
+    chips.className = "member-filter-chips";
+    chips.setAttribute("role", "tablist");
+    chips.setAttribute("aria-label", "Lọc theo trạng thái");
+    filters.append(chips);
+  }
+  chips.replaceChildren(...overviewStatuses.map((status) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "member-filter-chip";
+    chip.setAttribute("role", "tab");
+    const selected = memberStatusFilter.value === status.value;
+    chip.classList.toggle("is-active", selected);
+    chip.setAttribute("aria-selected", String(selected));
+    chip.innerHTML = `<span></span><em>${counts[status.value] || 0}</em>`;
+    chip.querySelector("span").textContent = status.label;
+    chip.addEventListener("click", () => {
+      memberStatusFilter.value = status.value;
+      memberStatusFilter.dispatchEvent(new Event("change"));
+    });
+    return chip;
+  }));
+}
+
+function renderEmptyState(title, text) {
+  const empty = document.createElement("div");
+  empty.className = "member-empty member-empty-state";
+  empty.innerHTML = '<span class="member-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/></svg></span><strong></strong><p></p>';
+  empty.querySelector("strong").textContent = title;
+  empty.querySelector("p").textContent = text;
+  if (isAdmin && !members.length) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "member-empty-action";
+    button.textContent = "+ Thêm thành viên đầu tiên";
+    button.addEventListener("click", () => openMemberForm());
+    empty.append(button);
+  }
+  memberList.replaceChildren(empty);
+}
+
 function renderMembers() {
+  renderOverview();
   memberList.replaceChildren();
   if (!members.length) {
-    memberList.innerHTML = "<p class=\"member-empty\">Chưa có thành viên trong phòng ban này.</p>";
+    renderEmptyState("Chưa có thành viên", isAdmin ? "Thêm nhân sự để hiển thị trên hồ sơ và sơ đồ tổ chức." : "Phòng ban này chưa được cập nhật nhân sự.");
     return;
   }
     const queryText = topSearch?.value.trim().toLowerCase() || "";
@@ -234,7 +335,7 @@ function renderMembers() {
       return matchesText && matchesStatus;
   });
   if (!filteredMembers.length) {
-    memberList.innerHTML = "<p class=\"member-empty\">Chưa có thành viên phù hợp.</p>";
+    renderEmptyState("Không có thành viên phù hợp", "Thử chọn trạng thái khác hoặc xoá từ khoá tìm kiếm.");
     return;
   }
   filteredMembers.forEach((member) => {
@@ -248,25 +349,39 @@ function renderMembers() {
     body.className = "member-card-body";
     const identity = document.createElement("span");
     identity.className = "member-card-identity";
+    const nameRow = document.createElement("span");
+    nameRow.className = "member-card-name-row";
     const name = document.createElement("strong");
     name.textContent = member.name;
-    const title = document.createElement("small");
-    title.className = "member-card-title";
-    title.textContent = `Chức danh: ${member.title || "Chưa cập nhật"}`;
-    const contact = document.createElement("span");
-    contact.textContent = member.email || member.phone || "Chưa có thông tin liên hệ";
-    const workTime = document.createElement("span");
-    workTime.className = "member-card-work-time";
-    workTime.textContent = `Thâm niên: ${formatTenure(member)}`;
-    identity.append(name, title, contact);
-    identity.append(workTime);
     const status = document.createElement("span");
     status.className = `member-status member-status-${member.status || "working"}`;
     status.textContent = statusLabels[member.status || "working"];
-    identity.append(status);
+    nameRow.append(name, status);
+    const title = document.createElement("small");
+    title.className = "member-card-title";
+    title.textContent = member.title || "Chưa cập nhật chức danh";
+    const meta = document.createElement("span");
+    meta.className = "member-card-meta";
+    const metaItem = (iconPath, text, muted) => {
+      const item = document.createElement("span");
+      item.className = `member-card-meta-item${muted ? " is-muted" : ""}`;
+      item.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPath}</svg><span></span>`;
+      item.querySelector("span").textContent = text;
+      return item;
+    };
+    const contactText = member.email || member.phone || "";
+    meta.append(metaItem(member.email ? '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>' : '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>', contactText || "Chưa có liên hệ", !contactText));
+    const tenure = member.startDate || member.workYears ? formatTenure(member) : "";
+    meta.append(metaItem('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', tenure ? `Thâm niên ${tenure}` : "Chưa có ngày bắt đầu", !tenure));
+    identity.append(nameRow, title, meta);
     const description = document.createElement("span");
     description.className = "member-card-description";
-    description.textContent = member.description || "Chưa có mô tả công việc";
+    const descriptionLabel = document.createElement("em");
+    descriptionLabel.textContent = "Mô tả công việc";
+    const descriptionText = document.createElement("span");
+    descriptionText.className = `member-card-description-text${member.description ? "" : " is-muted"}`;
+    descriptionText.textContent = member.description || "Chưa có mô tả công việc";
+    description.append(descriptionLabel, descriptionText);
     body.append(identity, description);
     link.append(avatar, body);
     if (isAdmin) {
@@ -302,7 +417,7 @@ async function loadPage() {
     isAdmin = me.user?.role === "admin" || me.user?.role === "ceo";
     members = [];
     nodeName.textContent = departmentName;
-    nodeRole.textContent = "Hồ sơ vị trí trong sơ đồ tổ chức";
+    nodeRole.textContent = "Phòng ban trong sơ đồ tổ chức Gusa";
     breadcrumbCurrent.textContent = `Sơ đồ tổ chức / ${departmentName}`;
     memberAdd.hidden = !isAdmin;
     renderMembers();
@@ -330,7 +445,7 @@ async function loadPage() {
   isAdmin = me.user?.role === "admin" || me.user?.role === "ceo";
   members = membersData.members || [];
   nodeName.textContent = node.name;
-  nodeRole.textContent = node.role || "Hồ sơ vị trí trong sơ đồ tổ chức";
+  nodeRole.textContent = node.role || "Phòng ban trong sơ đồ tổ chức Gusa";
   breadcrumbCurrent.textContent = `Sơ đồ tổ chức / ${node.name}`;
   memberAdd.hidden = !isAdmin;
   renderMembers();

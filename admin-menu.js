@@ -784,31 +784,31 @@ if (sidebarScroll) {
   sidebarScroll.innerHTML = `
     <p class="menu-label">DANH MỤC</p>
     <nav class="menu" aria-label="Danh mục chính">
-      <a class="menu-item" href="organization-chart.html"><span class="menu-icon">▤</span><span>Sơ đồ tổ chức</span></a>
-      <a class="menu-item" href="process-choice.html" data-feature="process"><span class="menu-icon">⌘</span><span>Quy Trình</span></a>
-      <a class="menu-item" href="kpi.html" data-feature="kpi"><span class="menu-icon">▣</span><span>Lương &amp; KPI</span></a>
-      <a class="menu-item" href="recruitment.html" data-feature="recruitment"><span class="menu-icon">♙</span><span>Tuyển dụng</span></a>
+      <a class="menu-item" href="organization-chart.html"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/></svg></span><span>Sơ đồ tổ chức</span></a>
+      <a class="menu-item" href="process-choice.html" data-feature="process"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M6.5 10v3.5a2 2 0 0 0 2 2H14"/><path d="m11.5 13 2.5 2.5-2.5 2.5"/></svg></span><span>Quy Trình</span></a>
+      <a class="menu-item" href="kpi.html" data-feature="kpi"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/><path d="M15 7h5v5"/></svg></span><span>Lương &amp; KPI</span></a>
+      <a class="menu-item" href="recruitment.html" data-feature="recruitment"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 20a7 7 0 0 1 10.5-6"/><circle cx="17.5" cy="17" r="3"/><path d="m21.5 21-1.8-1.8"/></svg></span><span>Tuyển dụng</span></a>
     </nav>
     <p class="menu-label">CHẤM CÔNG</p>
     <nav class="menu" aria-label="Menu chấm công">
-      <a class="menu-item" href="attendance-choice.html" data-feature="attendance"><span class="menu-icon">◷</span><span>Chấm công</span></a>
-      <a class="menu-item" href="attendance.html?view=days" data-feature="attendance-days"><span class="menu-icon">▦</span><span>Tổng ngày công</span></a>
-      <a class="menu-item" href="announcements.html" data-feature="announcements"><span class="menu-icon">✉</span><span>Thông báo chung</span></a>
+      <a class="menu-item" href="attendance-choice.html" data-feature="attendance"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9.5 2.5h5"/></svg></span><span>Chấm công</span></a>
+      <a class="menu-item" href="attendance.html?view=days" data-feature="attendance-days"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="m9 15.5 2 2 4-4"/></svg></span><span>Tổng ngày công</span></a>
+      <a class="menu-item" href="announcements.html" data-feature="announcements"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l8 4.5v-13L7 10H4a1 1 0 0 0-1 1Z"/><path d="M18.5 9a4 4 0 0 1 0 6"/></svg></span><span>Thông báo chung</span></a>
     </nav>
     <p class="menu-label">BIỂU MẪU</p>
     <nav class="menu" aria-label="Menu biểu mẫu">
-      <a class="menu-item" href="proposal-choice.html" data-feature="proposals"><span class="menu-icon">☷</span><span>Đề xuất</span></a>
-      <a class="menu-item" href="work-report.html" data-feature="work-report"><span class="menu-icon">✎</span><span>Báo cáo công việc</span></a>
+      <a class="menu-item" href="proposal-choice.html" data-feature="proposals"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.8h6V4"/><path d="M9 11h6M9 15h4"/></svg></span><span>Đề xuất</span></a>
+      <a class="menu-item" href="work-report.html" data-feature="work-report"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg></span><span>Báo cáo công việc</span></a>
     </nav>
     <nav class="menu" aria-label="Menu báo cáo">
-      <a class="menu-item" href="report-choice.html" data-feature="reports" data-report-menu hidden><span class="menu-icon">▥</span><span>Báo cáo chung</span></a>
-      <a class="menu-item" href="salary.html" data-salary-menu hidden><span class="menu-icon">₫</span><span>Lương nhân viên</span></a>
+      <a class="menu-item" href="report-choice.html" data-feature="reports" data-report-menu hidden><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><rect x="5" y="11" width="3" height="7" rx="0.8"/><rect x="10.5" y="6" width="3" height="12" rx="0.8"/><rect x="16" y="13" width="3" height="5" rx="0.8"/></svg></span><span>Báo cáo chung</span></a>
+      <a class="menu-item" href="salary.html" data-salary-menu hidden><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span><span>Lương nhân viên</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
-    <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon">⚙</span><span>Cài đặt</span></a></nav>
+    <nav class="menu"><a class="menu-item" href="interface-settings.html"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11M18 6h3M3 12h3M10 12h11M3 18h13M20 18h1"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></span><span>Cài đặt</span></a></nav>
     <p class="menu-label" data-admin-menu-label>QUẢN TRỊ</p>
     <nav class="menu" aria-label="Menu quản trị" data-admin-menu>
-      <a class="menu-item" href="user-management.html"><span class="menu-icon">⚙</span><span>Quản lý user</span></a>
+      <a class="menu-item" href="user-management.html"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6Z"/><circle cx="12" cy="10" r="2.5"/><path d="M8.3 16.5a4.2 4.2 0 0 1 7.4 0"/></svg></span><span>Quản lý user</span></a>
     </nav>`;
 
   const currentPath = window.location.pathname.split('/').pop() || 'index.html';

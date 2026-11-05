@@ -185,6 +185,81 @@ nodeForm.elements.parentId.closest("label").after(placementField);
 const placementSelect = nodeForm.elements.placement;
 let nodes = [];
 let freeLines = [];
+let memberSummary = {};
+
+// Line icons for the presentation chart, keyed by the compact department name.
+const PRESENTATION_ICON_PATHS = {
+  gusaacademy: '<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2.5 9 2.5 12 0v-5"/><path d="M22 10v5"/>',
+  hethongchinhanh: '<path d="M3 9 4.5 4h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M10 20v-5h4v5"/>',
+  marketing: '<path d="M3 11v2a1 1 0 0 0 1 1h3l7 4V6L7 10H4a1 1 0 0 0-1 1Z"/><path d="M18 8.5a5 5 0 0 1 0 7"/>',
+  tckt: '<rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8.5 6.5h7"/><path d="M8.5 11h1M14.5 11h1M8.5 14.5h1M14.5 14.5h1M8.5 18h1M14.5 18h1"/>',
+  hcns: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/>',
+  thumuakhovan: '<path d="M2 6h12v10H2Z"/><path d="M14 10h4l4 4v2h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
+  rd: '<path d="M9 2.5h6"/><path d="M10 2.5V8l-5.4 10.4A1.8 1.8 0 0 0 6.2 21h11.6a1.8 1.8 0 0 0 1.6-2.6L14 8V2.5"/><path d="M7 15h10"/>',
+  cskh: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.2"/><rect x="17" y="14" width="4" height="6" rx="1.2"/><path d="M19 20c0 1.2-1.3 2-3 2h-2"/>',
+  phapche: '<path d="M12 3v18"/><path d="M7 21h10"/><path d="M5 7h14"/><path d="M5 7 2.5 13a2.5 2.5 0 0 0 5 0Z"/><path d="M19 7l-2.5 6a2.5 2.5 0 0 0 5 0Z"/>',
+};
+
+function presentationIcon(key) {
+  const paths = PRESENTATION_ICON_PATHS[key];
+  if (!paths) return null;
+  const wrap = document.createElement("span");
+  wrap.className = "presentation-department-icon";
+  wrap.setAttribute("aria-hidden", "true");
+  wrap.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  return wrap;
+}
+
+// Head count and first faces for a node and everything below it.
+function presentationPeople(rootId) {
+  if (!rootId) return { count: 0, people: [] };
+  const ids = [rootId];
+  for (let index = 0; index < ids.length; index += 1) {
+    nodes.forEach((node) => { if (node.parentId === ids[index] && !ids.includes(node.id)) ids.push(node.id); });
+  }
+  return ids.reduce((total, id) => {
+    const entry = memberSummary[id];
+    if (!entry) return total;
+    return { count: total.count + entry.count, people: total.people.concat(entry.people) };
+  }, { count: 0, people: [] });
+}
+
+function presentationFace(person, className) {
+  const face = document.createElement("span");
+  face.className = className;
+  face.title = person.title ? `${person.name} · ${person.title}` : person.name;
+  const initial = () => { face.textContent = (person.name || "?").trim().charAt(0).toUpperCase() || "?"; };
+  if (person.avatar) {
+    const image = document.createElement("img");
+    image.src = person.avatar;
+    image.alt = "";
+    image.loading = "lazy";
+    image.addEventListener("error", () => { image.remove(); initial(); });
+    face.append(image);
+  } else initial();
+  return face;
+}
+
+function presentationPeopleRow(summary) {
+  const row = document.createElement("span");
+  row.className = "presentation-people";
+  const faces = document.createElement("span");
+  faces.className = "presentation-people-faces";
+  const shown = summary.people.slice(0, 4);
+  shown.forEach((person) => faces.append(presentationFace(person, "presentation-face")));
+  if (summary.count > shown.length && shown.length) {
+    const more = document.createElement("span");
+    more.className = "presentation-face presentation-face-more";
+    more.textContent = `+${summary.count - shown.length}`;
+    faces.append(more);
+  }
+  if (shown.length) row.append(faces);
+  const count = document.createElement("span");
+  count.className = "presentation-people-count";
+  count.textContent = `${summary.count} người`;
+  row.append(count);
+  return row;
+}
 let editingId = null;
 let isAdmin = false;
 let canvasPositions = new Map();
@@ -888,6 +963,11 @@ function renderPresentationChart() {
       }
     });
   };
+  [[director, "GIÁM ĐỐC"], [deputy, "P. GIÁM ĐỐC"]].forEach(([element, name]) => {
+    const node = nodes.find((item) => normalizeSearchText(item.name) === normalizeSearchText(name));
+    const leaderPerson = presentationPeople(node?.id).people[0];
+    if (leaderPerson) element.prepend(presentationFace(leaderPerson, "presentation-leader-avatar"));
+  });
   makePresentationLink(director, "GIÁM ĐỐC");
   makePresentationLink(deputy, "P. GIÁM ĐỐC");
   makePresentationLink(internal, "KIỂM SOÁT NỘI BỘ");
@@ -920,6 +1000,10 @@ function renderPresentationChart() {
     });
     const heading = document.createElement("header");
     heading.innerHTML = `<strong>${department.name.replace(/\n/g, "<br />")}</strong>`;
+    const icon = presentationIcon(compactNodeName(department.name));
+    if (icon) heading.prepend(icon);
+    const people = presentationPeople(matchingNode?.id);
+    if (people.count) heading.append(presentationPeopleRow(people));
     column.append(heading);
     const groups = document.createElement("div");
     groups.className = "presentation-groups";
@@ -957,7 +1041,8 @@ function fitPresentationBoard() {
       if (!director) return;
       const viewportRect = chartTreeViewport.getBoundingClientRect();
       const directorRect = director.getBoundingClientRect();
-      chartTreeViewport.scrollLeft = Math.max(0, directorRect.left + directorRect.width / 2 - (viewportRect.left + viewportRect.width / 2));
+      // Absolute target (includes the current scroll), so a re-render after the member summary loads keeps the director centred instead of jumping back to the left edge.
+      chartTreeViewport.scrollLeft = Math.max(0, chartTreeViewport.scrollLeft + directorRect.left + directorRect.width / 2 - (viewportRect.left + viewportRect.width / 2));
     });
     return;
   }
@@ -968,6 +1053,7 @@ function fitPresentationBoard() {
 }
 
 window.addEventListener("resize", fitPresentationBoard);
+document.fonts?.ready.then(() => requestAnimationFrame(fitPresentationBoard));
 
 async function saveChart() {
   chartStatus.textContent = "Đang lưu sơ đồ...";
@@ -1029,6 +1115,14 @@ Promise.all([fetch("/api/organization-chart", { cache: "no-store" }), fetch("/ap
     nodes = Array.isArray(data.nodes) ? data.nodes : [];
     freeLines = Array.isArray(data.freeLines) ? data.freeLines : [];
     renderChart();
+    fetch("/api/organization-members-summary", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => {
+        if (!result?.summary) return;
+        memberSummary = result.summary;
+        renderChart();
+      })
+      .catch(() => {});
   })
   .catch(async () => {
     try {

@@ -2032,6 +2032,42 @@ function serveOrganizationMembers(req, res, nodeId) {
   sendJson(res, 200, { members: getOrganizationMembers()[nodeId] || [] });
 }
 
+// Org chart overview: head count plus up to five faces per node. Data-URL avatars are
+// served separately so the chart never downloads megabytes of base64 in one response.
+function organizationAvatarUrl(nodeId, member) {
+  const avatar = String(member.avatar || "");
+  if (/^https?:\/\//i.test(avatar)) return avatar;
+  if (!avatar.startsWith("data:image/")) return "";
+  return `/api/organization-member-avatar/${encodeURIComponent(nodeId)}/${encodeURIComponent(member.id)}?v=${avatar.length}`;
+}
+
+function serveOrganizationMembersSummary(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const summary = {};
+  Object.entries(getOrganizationMembers()).forEach(([nodeId, members]) => {
+    if (!Array.isArray(members) || !members.length) return;
+    const active = members.filter((member) => (member.status || "working") !== "former");
+    summary[nodeId] = {
+      count: active.length,
+      people: active.slice(0, 5).map((member) => ({ name: String(member.name || ""), title: String(member.title || ""), avatar: organizationAvatarUrl(nodeId, member) })),
+    };
+  });
+  sendJson(res, 200, { summary });
+}
+
+function serveOrganizationMemberAvatar(req, res, path) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const [nodeId, memberId] = path.split("?")[0].split("/").map((part) => decodeURIComponent(part || ""));
+  const member = (getOrganizationMembers()[nodeId] || []).find((item) => item.id === memberId);
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(String(member?.avatar || ""));
+  if (!match) return send(res, 404, "Not found");
+  const data = Buffer.from(match[2], "base64");
+  res.writeHead(200, { "Content-Type": match[1], "Content-Length": data.length, "Cache-Control": "private, max-age=86400" });
+  res.end(data);
+}
+
 async function updateOrganizationMember(req, res, nodeId) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -2295,6 +2331,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && req.url.startsWith("/api/organization-profiles/")) {
       return await updateOrganizationProfile(req, res, decodeURIComponent(req.url.slice("/api/organization-profiles/".length)));
+    }
+    if (req.method === "GET" && req.url === "/api/organization-members-summary") return serveOrganizationMembersSummary(req, res);
+    if (req.method === "GET" && req.url.startsWith("/api/organization-member-avatar/")) {
+      return serveOrganizationMemberAvatar(req, res, req.url.slice("/api/organization-member-avatar/".length));
     }
     if (req.method === "GET" && req.url.startsWith("/api/organization-members/")) {
       return serveOrganizationMembers(req, res, decodeURIComponent(req.url.slice("/api/organization-members/".length)));
