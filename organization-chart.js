@@ -832,6 +832,7 @@ function renderPresentationChart() {
   document.querySelector("[data-presentation-view]")?.remove();
   document.querySelector("[data-canvas-color]")?.remove();
   const departmentData = [
+    { name: "GUSA\nACADEMY", tone: "rose", icon: "◇", groups: [] },
     { name: "HỆ THỐNG\nCHI NHÁNH", tone: "terracotta", icon: "♟", groups: [{ name: "CHI NHÁNH 1", items: ["Sale", "Vận hành"] }, { name: "CHI NHÁNH 2", items: ["Sale", "Vận hành"] }] },
     { name: "MARKETING", tone: "sage", icon: "⌁", groups: [{ name: "THƯƠNG HIỆU\n& CONTENT", items: ["Branding", "Content Marketing", "Digital Marketing"] }, { name: "DIGITAL\nMARKETING", items: ["Growth", "Website & SEO", "Social Media"] }, { name: "MEDIA\nCONTENT", items: ["Video", "Hình ảnh"] }] },
     { name: "TC - KT", tone: "sand", icon: "▣", groups: [{ name: "KẾ TOÁN\nTHUẾ", items: ["Kế toán", "Tài chính"] }, { name: "KẾ TOÁN\nNỘI BỘ", items: ["Vải", "Thời trang"] }] },
@@ -933,7 +934,7 @@ function renderPresentationChart() {
       });
       groups.append(group);
     });
-    column.append(groups);
+    if (department.groups.length) column.append(groups);
     departments.append(column);
   });
   chartTree.append(departments);
