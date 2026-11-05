@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20261105-5" />
-    <link rel="stylesheet" href="announcements.css?v=20261103-1" />
+    <link rel="stylesheet" href="announcements.css?v=20261105-rich" />
   </head>
   <body>
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -37,7 +37,16 @@
           <form class="announcement-composer" data-announcement-form hidden>
             <h2>Đăng thông báo mới</h2>
             <label>Tiêu đề<input name="title" maxlength="150" required placeholder="Ví dụ: Lịch nghỉ Tết Dương lịch 2027" /></label>
-            <label>Nội dung<textarea name="content" rows="5" maxlength="5000" required placeholder="Nhập nội dung thông báo..."></textarea></label>
+            <div class="announcement-field">
+              <span class="announcement-field-label" id="announcement-content-label" data-rich-label>Nội dung</span>
+              <div class="rich-editor is-empty" data-rich-editor>
+                <div class="rich-toolbar" role="toolbar" aria-label="Định dạng nội dung" data-rich-toolbar></div>
+                <div class="rich-content rich-text" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="announcement-content-label" data-placeholder="Nhập nội dung thông báo..." data-rich-content></div>
+                <div class="rich-footer"><span data-rich-hint>Mẹo: dán hoặc kéo thả ảnh trực tiếp vào khung soạn thảo.</span><span data-rich-count>0 ký tự</span></div>
+                <div class="rich-popover" data-rich-popover hidden></div>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden data-rich-file />
+              </div>
+            </div>
             <div class="announcement-composer-footer">
               <label class="announcement-check"><input type="checkbox" name="pinned" /> <span>📌 Ghim lên đầu</span></label>
               <label class="announcement-check"><input type="checkbox" name="important" /> <span>❗ Đánh dấu quan trọng</span></label>
@@ -58,7 +67,7 @@
         </section>
       </main>
     </div>
-    <script src="announcements.js?v=20261102-2"></script>
+    <script src="announcements.js?v=20261105-rich"></script>
     <script src="admin-menu.js?v=20261105-icons"></script>
   </body>
 </html>

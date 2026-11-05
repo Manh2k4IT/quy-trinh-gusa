@@ -1253,6 +1253,136 @@ function saveAnnouncements(announcements) {
   fs.renameSync(`${announcementsPath}.tmp`, announcementsPath);
 }
 
+// Rich announcement bodies arrive as HTML from the editor; keep only a small, harmless set of tags and styles.
+const announcementImageDirectory = () => dataPath("announcement-files");
+const announcementImageTypes = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
+const announcementTags = new Set(["p", "div", "br", "span", "b", "strong", "i", "em", "u", "s", "strike", "sub", "sup", "h2", "h3", "h4", "ul", "ol", "li", "blockquote", "a", "img", "hr", "table", "thead", "tbody", "tr", "th", "td"]);
+const announcementVoidTags = new Set(["br", "img", "hr"]);
+const announcementStyleRules = {
+  color: /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/i,
+  "background-color": /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/i,
+  "text-align": /^(left|right|center|justify|start|end)$/i,
+  "font-size": /^(x{0,3}-?small|medium|x{0,3}-?large|smaller|larger|\d{1,2}(\.\d+)?(px|pt|em|rem|%))$/i,
+  "font-weight": /^(bold|normal|[1-9]00)$/i,
+  "font-style": /^(italic|normal)$/i,
+  "text-decoration": /^[a-z\s-]+$/i,
+  "text-decoration-line": /^[a-z\s-]+$/i,
+  width: /^\d{1,3}(\.\d+)?%$/,
+  "margin-left": /^\d{1,3}px$/,
+  "padding-left": /^\d{1,3}px$/,
+};
+
+function escapeHtmlAttribute(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function decodeHtmlEntities(value) {
+  return String(value).replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (match, code) => {
+    const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " }[code.toLowerCase()];
+    if (named) return named;
+    const number = code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+    return Number.isFinite(number) && number > 0 && number < 0x110000 ? String.fromCodePoint(number) : "";
+  });
+}
+
+function safeAnnouncementUrl(value, { image = false } = {}) {
+  const url = decodeHtmlEntities(value).replace(/[\u0000- ]+/g, "");
+  if (image) return /^\/api\/announcements\/images\/[\w-]+\.(jpg|png|webp|gif)$/.test(url) || /^https:\/\/[^\s"'<>]+$/i.test(url) ? url : "";
+  return /^(https?:\/\/|mailto:|tel:)[^\s"'<>]+$/i.test(url) || /^\/[^/\s"'<>][^\s"'<>]*$/.test(url) || /^#[\w-]+$/.test(url) ? url : "";
+}
+
+function sanitizeAnnouncementHtml(html) {
+  const source = String(html || "").replace(/<!--[\s\S]*?-->/g, "").replace(/<(script|style|iframe|object|embed|noscript|template|svg|math|title|textarea)\b[\s\S]*?<\/\1\s*>/gi, "");
+  const open = [];
+  let output = "";
+  for (const token of source.split(/(<[^>]*>)/)) {
+    if (!token) continue;
+    if (!token.startsWith("<") || !token.endsWith(">")) {
+      output += token.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      continue;
+    }
+    const match = /^<\s*(\/)?\s*([a-z][a-z0-9]*)\b([\s\S]*?)\/?\s*>$/i.exec(token);
+    if (!match) continue;
+    const closing = Boolean(match[1]);
+    const tag = match[2].toLowerCase() === "strike" ? "s" : match[2].toLowerCase();
+    if (!announcementTags.has(tag)) continue;
+    if (closing) {
+      const index = open.lastIndexOf(tag);
+      if (index === -1) continue;
+      while (open.length > index) output += `</${open.pop()}>`;
+      continue;
+    }
+    const attributes = {};
+    for (const attribute of match[3].matchAll(/([a-z-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+))/gi)) {
+      attributes[attribute[1].toLowerCase()] = attribute[3] ?? attribute[4] ?? attribute[5] ?? "";
+    }
+    const kept = [];
+    const styles = decodeHtmlEntities(attributes.style || "").split(";").map((rule) => {
+      const [name, ...rest] = rule.split(":");
+      const property = (name || "").trim().toLowerCase();
+      const value = rest.join(":").trim().replace(/\s*!important$/i, "");
+      return announcementStyleRules[property]?.test(value) ? `${property}: ${value}` : "";
+    }).filter(Boolean);
+    if (styles.length) kept.push(`style="${escapeHtmlAttribute(styles.join("; "))}"`);
+    if (tag === "a") {
+      const href = safeAnnouncementUrl(attributes.href || "");
+      if (href) kept.push(`href="${escapeHtmlAttribute(href)}"`, 'target="_blank"', 'rel="noopener noreferrer"');
+    }
+    if (tag === "img") {
+      const src = safeAnnouncementUrl(attributes.src || "", { image: true });
+      if (!src) continue;
+      kept.push(`src="${escapeHtmlAttribute(src)}"`, `alt="${escapeHtmlAttribute(decodeHtmlEntities(attributes.alt || "").slice(0, 200))}"`, 'loading="lazy"');
+    }
+    if ((tag === "td" || tag === "th") && /^\d{1,2}$/.test(attributes.colspan || "")) kept.push(`colspan="${attributes.colspan}"`);
+    output += `<${tag}${kept.length ? ` ${kept.join(" ")}` : ""}>`;
+    if (!announcementVoidTags.has(tag)) open.push(tag);
+  }
+  while (open.length) output += `</${open.pop()}>`;
+  return output;
+}
+
+function announcementHtmlToText(html) {
+  return decodeHtmlEntities(String(html)
+    .replace(/<img\b[^>]*>/gi, " [Hình ảnh] ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h[2-4]|li|blockquote|tr)>/gi, "\n")
+    .replace(/<[^>]*>/g, ""))
+    .replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+async function uploadAnnouncementImage(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được chèn ảnh vào thông báo.");
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > 12 * 1024 * 1024) return send(res, 413, "Ảnh quá lớn (tối đa 8MB).");
+    chunks.push(chunk);
+  }
+  let payload;
+  try { payload = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); } catch { return send(res, 400, "Dữ liệu ảnh không hợp lệ."); }
+  const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(String(payload.data || ""));
+  if (!match) return send(res, 400, "Chỉ hỗ trợ ảnh JPG, PNG, WEBP hoặc GIF.");
+  const bytes = Buffer.from(match[2], "base64");
+  if (!bytes.length || bytes.length > 8 * 1024 * 1024) return send(res, 413, "Ảnh quá lớn (tối đa 8MB).");
+  const fileName = `${crypto.randomUUID()}.${announcementImageTypes[match[1].toLowerCase()]}`;
+  fs.mkdirSync(announcementImageDirectory(), { recursive: true });
+  fs.writeFileSync(path.join(announcementImageDirectory(), fileName), bytes);
+  sendJson(res, 201, { url: `/api/announcements/images/${fileName}` });
+}
+
+function serveAnnouncementImage(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const match = /^\/api\/announcements\/images\/([\w-]+)\.(jpg|png|webp|gif)$/.exec(req.url.split("?")[0]);
+  if (!match) return send(res, 404, "Not found");
+  const file = path.join(announcementImageDirectory(), `${match[1]}.${match[2]}`);
+  if (!fs.existsSync(file)) return send(res, 404, "Not found");
+  res.writeHead(200, { "Content-Type": { jpg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" }[match[2]], "Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" });
+  fs.createReadStream(file).pipe(res);
+}
+
 function serveAnnouncements(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -1316,16 +1446,20 @@ async function createAnnouncement(req, res) {
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (Buffer.byteLength(body, "utf8") > 32768) return send(res, 413, "Nội dung thông báo quá dài.");
+    if (Buffer.byteLength(body, "utf8") > 400 * 1024) return send(res, 413, "Nội dung thông báo quá dài.");
   }
-  const payload = JSON.parse(body || "{}");
+  let payload;
+  try { payload = JSON.parse(body || "{}"); } catch { return send(res, 400, "Dữ liệu không hợp lệ."); }
   const title = String(payload.title || "").trim().slice(0, 150);
-  const content = String(payload.content || "").trim().slice(0, 5000);
-  if (!title || !content) return send(res, 400, "Vui lòng nhập tiêu đề và nội dung thông báo.");
+  const contentHtml = payload.contentHtml ? sanitizeAnnouncementHtml(payload.contentHtml) : "";
+  if (contentHtml.length > 200000) return send(res, 413, "Nội dung thông báo quá dài.");
+  const content = (contentHtml ? announcementHtmlToText(contentHtml) : String(payload.content || "").trim()).slice(0, 20000);
+  if (!title || !content.trim()) return send(res, 400, "Vui lòng nhập tiêu đề và nội dung thông báo.");
   const announcement = {
     id: crypto.randomUUID(),
     title,
     content,
+    ...(contentHtml ? { contentHtml } : {}),
     pinned: Boolean(payload.pinned),
     important: Boolean(payload.important),
     authorId: getAttendanceUserKey(currentUser),
@@ -1346,6 +1480,12 @@ function deleteAnnouncement(req, res, id) {
   const remaining = announcements.filter((item) => item.id !== id);
   if (remaining.length === announcements.length) return send(res, 404, "Không tìm thấy thông báo.");
   saveAnnouncements(remaining);
+  // Remove the photos that only the deleted announcement used.
+  const imageFiles = (html) => [...String(html || "").matchAll(/\/api\/announcements\/images\/([\w-]+\.(?:jpg|png|webp|gif))/g)].map((match) => match[1]);
+  const stillUsed = new Set(remaining.flatMap((item) => imageFiles(item.contentHtml)));
+  announcements.filter((item) => item.id === id).flatMap((item) => imageFiles(item.contentHtml))
+    .filter((file) => !stillUsed.has(file))
+    .forEach((file) => fs.rm(path.join(announcementImageDirectory(), file), { force: true }, () => {}));
   sendJson(res, 200, { deleted: true });
 }
 
@@ -2290,6 +2430,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/menu-visibility") return await saveMenuVisibility(req, res);
     if (req.method === "GET" && req.url === "/api/announcements") return serveAnnouncements(req, res);
     if (req.method === "POST" && req.url === "/api/announcements") return await createAnnouncement(req, res);
+    if (req.method === "POST" && req.url === "/api/announcements/images") return await uploadAnnouncementImage(req, res);
+    if (req.method === "GET" && req.url.startsWith("/api/announcements/images/")) return serveAnnouncementImage(req, res);
     if (req.method === "DELETE" && req.url.startsWith("/api/announcements/")) return deleteAnnouncement(req, res, decodeURIComponent(req.url.slice("/api/announcements/".length)));
     if (req.method === "GET" && req.url === "/api/report-notifications") return serveReportNotifications(req, res);
     if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
