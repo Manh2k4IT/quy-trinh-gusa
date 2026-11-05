@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20261105-5" />
-    <link rel="stylesheet" href="announcements.css?v=20261105-rich" />
+    <link rel="stylesheet" href="announcements.css?v=20261105-files" />
   </head>
   <body>
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -47,6 +47,18 @@
                 <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden data-rich-file />
               </div>
             </div>
+            <div class="announcement-field">
+              <span class="announcement-field-label">File đính kèm</span>
+              <div class="announcement-attachments" data-attachments>
+                <button type="button" class="attachment-drop" data-attachment-pick>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v2.5A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V15"/></svg>
+                  <span><span><b>Tải file lên</b> hoặc kéo thả file vào đây</span><small>PDF, Word, Excel, PowerPoint, ảnh, ZIP/RAR, MP4… · tối đa 25MB/file, 20 file</small></span>
+                </button>
+                <ul class="attachment-list" data-attachment-list></ul>
+                <p class="attachment-error" data-attachment-error role="alert"></p>
+                <input type="file" multiple hidden data-attachment-input accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.gif,.zip,.rar,.7z,.mp4,.mp3" />
+              </div>
+            </div>
             <div class="announcement-composer-footer">
               <label class="announcement-check"><input type="checkbox" name="pinned" /> <span>📌 Ghim lên đầu</span></label>
               <label class="announcement-check"><input type="checkbox" name="important" /> <span>❗ Đánh dấu quan trọng</span></label>
@@ -67,7 +79,7 @@
         </section>
       </main>
     </div>
-    <script src="announcements.js?v=20261105-rich"></script>
+    <script src="announcements.js?v=20261105-files"></script>
     <script src="admin-menu.js?v=20261105-icons"></script>
   </body>
 </html>

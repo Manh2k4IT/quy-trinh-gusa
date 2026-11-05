@@ -109,11 +109,22 @@
     return output.innerHTML;
   };
 
+  const fileSize = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+  const fileKinds = { pdf: 'pdf', doc: 'doc', docx: 'doc', xls: 'xls', xlsx: 'xls', csv: 'xls', ppt: 'ppt', pptx: 'ppt', zip: 'zip', rar: 'zip', '7z': 'zip', jpg: 'img', jpeg: 'img', png: 'img', webp: 'img', gif: 'img', mp4: 'media', mp3: 'media' };
+  const fileBadge = (name) => {
+    const extension = (String(name).split('.').pop() || '').toLowerCase();
+    return `<span class="file-badge file-${fileKinds[extension] || 'other'}" aria-hidden="true">${escape(extension.slice(0, 4).toUpperCase() || 'FILE')}</span>`;
+  };
+  const attachmentLinks = (items) => (items?.length ? `<ul class="announcement-files">${items.map((item) => {
+    const url = `/api/announcements/files/${encodeURIComponent(item.file)}`;
+    return `<li><a class="announcement-file" href="${url}" target="_blank" rel="noopener">${fileBadge(item.name)}<span><b>${escape(item.name)}</b><small>${fileSize(item.size || 0)}</small></span></a><a class="announcement-file-download" href="${url}?download=1" download aria-label="Tải xuống ${escape(item.name)}" title="Tải xuống"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></a></li>`;
+  }).join('')}</ul>` : '');
+
   const render = () => {
     const read = readIds();
     const query = search.value.trim().toLowerCase();
     const visible = announcements.filter((item) => (filter === 'all' || (filter === 'unread' ? !read.has(item.id) : item.important))
-      && (!query || `${item.title} ${item.content}`.toLowerCase().includes(query)));
+      && (!query || `${item.title} ${item.content} ${(item.attachments || []).map((file) => file.name).join(' ')}`.toLowerCase().includes(query)));
     const unreadCount = announcements.filter((item) => !read.has(item.id)).length;
     filters.querySelector('[data-announcement-filter="unread"]').textContent = unreadCount ? `Chưa đọc (${unreadCount})` : 'Chưa đọc';
     list.innerHTML = visible.length ? visible.map((item) => {
@@ -129,6 +140,7 @@
         <p class="announcement-meta"><span class="announcement-author-dot">${escape((item.authorName || '?').charAt(0).toUpperCase())}</span>${escape(item.authorName)} · <time datetime="${escape(item.createdAt)}">${escape(timeLabel(item.createdAt))}</time></p>
         <div class="announcement-body${rich ? ' rich-text is-rich' : ''}${long ? ' is-collapsed' : ''}">${rich ? cleanHtml(item.contentHtml) : escape(item.content)}</div>
         ${long ? '<button class="announcement-more" type="button" data-toggle-announcement>Xem thêm</button>' : ''}
+        ${attachmentLinks(item.attachments)}
       </article>`;
     }).join('') : `<div class="announcement-empty"><span aria-hidden="true">📭</span><b>${announcements.length ? 'Không có thông báo phù hợp' : 'Chưa có thông báo nào'}</b><small>${announcements.length ? 'Thử đổi bộ lọc hoặc từ khóa tìm kiếm.' : 'Thông báo mới từ công ty sẽ hiện ở đây.'}</small></div>`;
   };
@@ -168,6 +180,7 @@
     quote: '<path d="M10 7H6a1 1 0 0 0-1 1v4h4v1a3 3 0 0 1-3 3"/><path d="M19 7h-4a1 1 0 0 0-1 1v4h4v1a3 3 0 0 1-3 3"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
     unlink: '<path d="m18.8 13.2 1.7-1.7a5 5 0 0 0-7-7l-1.7 1.7"/><path d="m5.2 10.8-1.7 1.7a5 5 0 0 0 7 7l1.7-1.7"/><path d="M4 4l16 16"/>',
+    attach: '<path d="m20 11.5-8.1 8.1a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/>',
     image: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5L5 20"/>',
     table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/>',
     hr: '<path d="M3 12h18"/><path d="M8 6h8M8 18h8" opacity=".45"/>',
@@ -192,7 +205,7 @@
     separator,
     `<div class="rich-group">${button('ul', 'Danh sách dấu chấm', 'data-state="insertUnorderedList"')}${button('ol', 'Danh sách đánh số', 'data-state="insertOrderedList"')}${button('outdent', 'Giảm thụt lề')}${button('indent', 'Tăng thụt lề')}${button('quote', 'Trích dẫn')}</div>`,
     separator,
-    `<div class="rich-group">${button('link', 'Chèn liên kết (Ctrl+K)')}${button('unlink', 'Bỏ liên kết')}${button('image', 'Chèn ảnh')}${button('table', 'Chèn bảng')}${button('hr', 'Đường kẻ ngang')}</div>`,
+    `<div class="rich-group">${button('link', 'Chèn liên kết (Ctrl+K)')}${button('unlink', 'Bỏ liên kết')}${button('image', 'Chèn ảnh')}${button('attach', 'Đính kèm file')}${button('table', 'Chèn bảng')}${button('hr', 'Đường kẻ ngang')}</div>`,
     separator,
     `<div class="rich-group">${button('clear', 'Xóa định dạng')}</div>`,
   ].join('');
@@ -246,8 +259,9 @@
     clearTimeout(draftTimer);
     draftTimer = setTimeout(() => {
       try {
-        if (isEditorEmpty() && !form.elements.title.value.trim()) localStorage.removeItem(draftKey);
-        else localStorage.setItem(draftKey, JSON.stringify({ title: form.elements.title.value, html: editor.innerHTML }));
+        const files = attachments.filter((item) => item.file).map(({ file, name, size }) => ({ file, name, size }));
+        if (isEditorEmpty() && !form.elements.title.value.trim() && !files.length) localStorage.removeItem(draftKey);
+        else localStorage.setItem(draftKey, JSON.stringify({ title: form.elements.title.value, html: editor.innerHTML, files }));
       } catch {}
     }, 400);
   };
@@ -529,6 +543,7 @@
     if (action === 'link') openLink(target);
     if (action === 'color' || action === 'highlight') openColors(action, target);
     if (action === 'image') openImage(target);
+    if (action === 'attach') { closePopover(); attachInput.click(); }
     if (action === 'table') openTable(target);
   });
   toolbar.querySelector('[data-rich-block]').addEventListener('change', (event) => exec('formatBlock', `<${event.target.value}>`));
@@ -598,7 +613,10 @@
     const range = document.caretRangeFromPoint?.(event.clientX, event.clientY)
       || (() => { const position = document.caretPositionFromPoint?.(event.clientX, event.clientY); if (!position) return null; const result = document.createRange(); result.setStart(position.offsetNode, position.offset); return result; })();
     if (range && insideEditor(range.startContainer)) savedRange = range;
-    insertImages(event.dataTransfer.files);
+    const dropped = [...event.dataTransfer.files];
+    const inline = dropped.filter((item) => /^image\/(jpeg|png|webp|gif)$/.test(item.type));
+    if (inline.length) insertImages(inline);
+    if (dropped.length > inline.length) addAttachments(dropped.filter((item) => !inline.includes(item)));
   });
   fileInput.addEventListener('change', () => {
     insertImages(fileInput.files);
@@ -607,13 +625,103 @@
   form.querySelector('[data-rich-label]').addEventListener('click', () => editor.focus());
   form.elements.title.addEventListener('input', changed);
 
+
+  // ---- File attachments: uploaded straight away, listed under the editor, sent with the announcement. ----
+  const attachBox = form.querySelector('[data-attachments]');
+  const attachList = form.querySelector('[data-attachment-list]');
+  const attachInput = form.querySelector('[data-attachment-input]');
+  const attachError = form.querySelector('[data-attachment-error]');
+  const attachmentExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'zip', 'rar', '7z', 'mp4', 'mp3'];
+  const maxAttachmentSize = 25 * 1024 * 1024;
+  let attachments = [];
+  let attachmentKey = 0;
+  const renderAttachments = () => {
+    attachBox.classList.toggle('has-files', attachments.length > 0);
+    attachList.innerHTML = attachments.map((item) => `<li class="attachment-chip${item.error ? ' is-error' : ''}${item.file ? '' : ' is-uploading'}" data-attachment-key="${item.key}">
+      ${fileBadge(item.name)}
+      <span class="attachment-chip-text"><b title="${escape(item.name)}">${escape(item.name)}</b><small>${item.error ? escape(item.error) : item.file ? fileSize(item.size) : `Đang tải lên... ${item.progress || 0}%`}</small></span>
+      ${item.file || item.error ? '' : `<span class="attachment-progress" style="width:${item.progress || 0}%"></span>`}
+      <button type="button" class="attachment-remove" data-remove-attachment="${item.key}" aria-label="Bỏ file ${escape(item.name)}" title="Bỏ file">×</button>
+    </li>`).join('');
+  };
+  const uploadAttachment = (item, file) => new Promise((resolve) => {
+    const request = new XMLHttpRequest();
+    item.request = request;
+    request.open('POST', '/api/announcements/files');
+    request.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      item.progress = Math.min(99, Math.round((event.loaded / event.total) * 100));
+      const chip = attachList.querySelector(`[data-attachment-key="${item.key}"]`);
+      if (chip) {
+        chip.querySelector('small').textContent = `Đang tải lên... ${item.progress}%`;
+        chip.querySelector('.attachment-progress')?.style.setProperty('width', `${item.progress}%`);
+      }
+    };
+    request.onload = () => {
+      if (request.status === 201) Object.assign(item, JSON.parse(request.responseText));
+      else item.error = request.responseText || 'Không tải được file.';
+      resolve();
+    };
+    request.onerror = () => { item.error = 'Mất kết nối khi tải file.'; resolve(); };
+    request.onabort = () => resolve();
+    request.send(file);
+  });
+  const addAttachments = async (files) => {
+    attachError.textContent = '';
+    const picked = [...files];
+    if (!picked.length) return;
+    if (attachments.length + picked.length > 20) { attachError.textContent = 'Tối đa 20 file cho mỗi thông báo.'; return; }
+    const jobs = [];
+    picked.forEach((file) => {
+      const extension = (file.name.split('.').pop() || '').toLowerCase();
+      const item = { key: ++attachmentKey, name: file.name, size: file.size, progress: 0 };
+      if (!file.name.includes('.') || !attachmentExtensions.includes(extension)) item.error = 'Định dạng chưa được hỗ trợ';
+      else if (file.size > maxAttachmentSize) item.error = 'File lớn hơn 25MB';
+      else if (!file.size) item.error = 'File rỗng';
+      attachments.push(item);
+      if (!item.error) jobs.push(uploadAttachment(item, file));
+    });
+    renderAttachments();
+    uploading += 1;
+    form.querySelector('[type="submit"]').disabled = true;
+    await Promise.all(jobs);
+    uploading -= 1;
+    if (!uploading) form.querySelector('[type="submit"]').disabled = false;
+    renderAttachments();
+    changed();
+  };
+  attachList.addEventListener('click', (event) => {
+    const remove = event.target.closest('[data-remove-attachment]');
+    if (!remove) return;
+    const item = attachments.find((entry) => entry.key === Number(remove.dataset.removeAttachment));
+    item?.request?.abort();
+    attachments = attachments.filter((entry) => entry !== item);
+    renderAttachments();
+    changed();
+  });
+  attachBox.querySelector('[data-attachment-pick]').addEventListener('click', () => attachInput.click());
+  attachInput.addEventListener('change', () => { addAttachments(attachInput.files); attachInput.value = ''; });
+  attachBox.addEventListener('dragover', (event) => {
+    if ([...event.dataTransfer.types].includes('Files')) { event.preventDefault(); attachBox.classList.add('is-dragging'); }
+  });
+  attachBox.addEventListener('dragleave', (event) => { if (!attachBox.contains(event.relatedTarget)) attachBox.classList.remove('is-dragging'); });
+  attachBox.addEventListener('drop', (event) => {
+    attachBox.classList.remove('is-dragging');
+    if (!event.dataTransfer.files.length) return;
+    event.preventDefault();
+    addAttachments(event.dataTransfer.files);
+  });
+
   try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch {}
   try {
     const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
     if (draft) {
       form.elements.title.value = draft.title || '';
       editor.innerHTML = cleanHtml(draft.html || '');
-      if (draft.html || draft.title) setHint('Đã khôi phục bản nháp chưa đăng.');
+      attachments = (Array.isArray(draft.files) ? draft.files : []).filter((item) => item?.file).map((item) => ({ ...item, key: ++attachmentKey }));
+      renderAttachments();
+      if (draft.html || draft.title || attachments.length) setHint('Đã khôi phục bản nháp chưa đăng.');
       setTimeout(() => setHint(''), 5000);
     }
   } catch {}
@@ -637,8 +745,9 @@
     const data = new FormData(form);
     closePopover();
     selectImage(null);
-    if (isEditorEmpty()) {
-      status.textContent = 'Vui lòng nhập nội dung thông báo.';
+    const ready = attachments.filter((item) => item.file);
+    if (isEditorEmpty() && !ready.length) {
+      status.textContent = 'Vui lòng nhập nội dung thông báo hoặc đính kèm file.';
       status.classList.add('is-error');
       editor.focus();
       return;
@@ -650,13 +759,16 @@
       const response = await fetch('/api/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: data.get('title'), content: editor.innerText.trim(), contentHtml: cleanHtml(editor.innerHTML), pinned: data.get('pinned') === 'on', important: data.get('important') === 'on' }),
+        body: JSON.stringify({ title: data.get('title'), content: editor.innerText.trim(), contentHtml: isEditorEmpty() ? '' : cleanHtml(editor.innerHTML), attachments: ready.map(({ file, name }) => ({ file, name })), pinned: data.get('pinned') === 'on', important: data.get('important') === 'on' }),
       });
       if (!response.ok) throw new Error(await response.text() || 'Không đăng được thông báo.');
       const { announcement } = await response.json();
       markRead([announcement.id]);
       form.reset();
       editor.innerHTML = '';
+      attachments = [];
+      renderAttachments();
+      attachError.textContent = '';
       clearTimeout(draftTimer);
       try { localStorage.removeItem(draftKey); } catch {}
       changed();

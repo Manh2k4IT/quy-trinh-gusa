@@ -1383,6 +1383,68 @@ function serveAnnouncementImage(req, res) {
   fs.createReadStream(file).pipe(res);
 }
 
+// Announcement attachments (documents, sheets, archives...): stored beside the images, downloaded under their original name.
+const announcementFileTypes = { pdf: "application/pdf", doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation", txt: "text/plain; charset=utf-8", csv: "text/csv; charset=utf-8", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif", zip: "application/zip", rar: "application/vnd.rar", "7z": "application/x-7z-compressed", mp4: "video/mp4", mp3: "audio/mpeg" };
+const announcementFileLimit = 25 * 1024 * 1024;
+const announcementFilePattern = /^[\w-]+\.(pdf|docx?|xlsx?|pptx?|txt|csv|jpe?g|png|webp|gif|zip|rar|7z|mp4|mp3)$/;
+
+async function uploadAnnouncementFile(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được đính kèm file vào thông báo.");
+  let name = "";
+  try { name = decodeURIComponent(String(req.headers["x-file-name"] || "")); } catch {}
+  name = path.basename(name.replace(/\\/g, "/")).replace(/[\u0000-\u001f"<>|*?:]/g, "").trim().slice(0, 180);
+  const extension = path.extname(name).slice(1).toLowerCase();
+  if (!name || !Object.hasOwn(announcementFileTypes, extension)) return send(res, 400, "Định dạng file chưa được hỗ trợ (PDF, Word, Excel, PowerPoint, TXT, CSV, ảnh, ZIP, RAR, 7Z, MP4, MP3).");
+  if (Number(req.headers["content-length"] || 0) > announcementFileLimit) return send(res, 413, "File quá lớn (tối đa 25MB).");
+  const fileName = `${crypto.randomUUID()}.${extension}`;
+  const target = path.join(announcementImageDirectory(), fileName);
+  fs.mkdirSync(announcementImageDirectory(), { recursive: true });
+  const output = fs.createWriteStream(target);
+  let writeError = null;
+  output.on("error", (error) => { writeError = error; });
+  let size = 0;
+  try {
+    for await (const chunk of req) {
+      size += chunk.length;
+      if (size > announcementFileLimit) throw Object.assign(new Error("File quá lớn (tối đa 25MB)."), { status: 413 });
+      if (writeError) throw writeError;
+      if (!output.write(chunk)) await new Promise((resolve) => { output.once("drain", resolve); output.once("error", resolve); });
+    }
+    await new Promise((resolve, reject) => output.end((error) => (error ? reject(error) : resolve())));
+  } catch (error) {
+    output.destroy();
+    fs.rm(target, { force: true }, () => {});
+    return send(res, error.status || 500, error.status ? error.message : "Không lưu được file.");
+  }
+  if (!size) {
+    fs.rm(target, { force: true }, () => {});
+    return send(res, 400, "File rỗng.");
+  }
+  sendJson(res, 201, { file: fileName, name, size });
+}
+
+function serveAnnouncementFile(req, res) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
+  const fileName = req.url.split("?")[0].slice("/api/announcements/files/".length);
+  if (!announcementFilePattern.test(fileName)) return send(res, 404, "Not found");
+  const file = path.join(announcementImageDirectory(), fileName);
+  if (!fs.existsSync(file)) return send(res, 404, "Not found");
+  const attachment = getAnnouncements().flatMap((item) => item.attachments || []).find((item) => item.file === fileName);
+  const name = attachment?.name || fileName;
+  const extension = path.extname(fileName).slice(1).toLowerCase();
+  const inline = /^(pdf|jpe?g|png|webp|gif|mp4|mp3)$/.test(extension) && new URL(req.url, "http://localhost").searchParams.get("download") !== "1";
+  res.writeHead(200, {
+    "Content-Type": announcementFileTypes[extension] || "application/octet-stream",
+    "Content-Length": fs.statSync(file).size,
+    "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "")}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+    "Cache-Control": "private, max-age=31536000, immutable",
+    "X-Content-Type-Options": "nosniff",
+  });
+  fs.createReadStream(file).pipe(res);
+}
+
 function serveAnnouncements(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -1454,12 +1516,22 @@ async function createAnnouncement(req, res) {
   const contentHtml = payload.contentHtml ? sanitizeAnnouncementHtml(payload.contentHtml) : "";
   if (contentHtml.length > 200000) return send(res, 413, "Nội dung thông báo quá dài.");
   const content = (contentHtml ? announcementHtmlToText(contentHtml) : String(payload.content || "").trim()).slice(0, 20000);
-  if (!title || !content.trim()) return send(res, 400, "Vui lòng nhập tiêu đề và nội dung thông báo.");
+  // Only files that were really uploaded here may be attached.
+  const attachments = (Array.isArray(payload.attachments) ? payload.attachments : []).slice(0, 20).flatMap((item) => {
+    const stored = String(item?.file || "");
+    if (!announcementFilePattern.test(stored)) return [];
+    const location = path.join(announcementImageDirectory(), stored);
+    if (!fs.existsSync(location)) return [];
+    const name = String(item.name || stored).replace(/[\u0000-\u001f"<>|*?:\\/]/g, "").trim().slice(0, 180) || stored;
+    return [{ file: stored, name, size: fs.statSync(location).size }];
+  });
+  if (!title || (!content.trim() && !attachments.length)) return send(res, 400, "Vui lòng nhập tiêu đề và nội dung thông báo.");
   const announcement = {
     id: crypto.randomUUID(),
     title,
     content,
     ...(contentHtml ? { contentHtml } : {}),
+    ...(attachments.length ? { attachments } : {}),
     pinned: Boolean(payload.pinned),
     important: Boolean(payload.important),
     authorId: getAttendanceUserKey(currentUser),
@@ -1480,10 +1552,11 @@ function deleteAnnouncement(req, res, id) {
   const remaining = announcements.filter((item) => item.id !== id);
   if (remaining.length === announcements.length) return send(res, 404, "Không tìm thấy thông báo.");
   saveAnnouncements(remaining);
-  // Remove the photos that only the deleted announcement used.
-  const imageFiles = (html) => [...String(html || "").matchAll(/\/api\/announcements\/images\/([\w-]+\.(?:jpg|png|webp|gif))/g)].map((match) => match[1]);
-  const stillUsed = new Set(remaining.flatMap((item) => imageFiles(item.contentHtml)));
-  announcements.filter((item) => item.id === id).flatMap((item) => imageFiles(item.contentHtml))
+  // Remove the photos and attachments that only the deleted announcement used.
+  const imageFiles = (item) => [...String(item.contentHtml || "").matchAll(/\/api\/announcements\/images\/([\w-]+\.(?:jpg|png|webp|gif))/g)].map((match) => match[1])
+    .concat((item.attachments || []).map((attachment) => attachment.file));
+  const stillUsed = new Set(remaining.flatMap(imageFiles));
+  announcements.filter((item) => item.id === id).flatMap(imageFiles)
     .filter((file) => !stillUsed.has(file))
     .forEach((file) => fs.rm(path.join(announcementImageDirectory(), file), { force: true }, () => {}));
   sendJson(res, 200, { deleted: true });
@@ -2432,6 +2505,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/announcements") return await createAnnouncement(req, res);
     if (req.method === "POST" && req.url === "/api/announcements/images") return await uploadAnnouncementImage(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/announcements/images/")) return serveAnnouncementImage(req, res);
+    if (req.method === "POST" && req.url === "/api/announcements/files") return await uploadAnnouncementFile(req, res);
+    if (req.method === "GET" && req.url.startsWith("/api/announcements/files/")) return serveAnnouncementFile(req, res);
     if (req.method === "DELETE" && req.url.startsWith("/api/announcements/")) return deleteAnnouncement(req, res, decodeURIComponent(req.url.slice("/api/announcements/".length)));
     if (req.method === "GET" && req.url === "/api/report-notifications") return serveReportNotifications(req, res);
     if (req.url === "/api/push/devices" && req.method === "POST") return await registerPushDevice(req, res);
