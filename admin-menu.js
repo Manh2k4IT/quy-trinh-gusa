@@ -801,7 +801,7 @@ if (sidebarScroll) {
       <a class="menu-item" href="work-report.html" data-feature="work-report"><span class="menu-icon">✎</span><span>Báo cáo công việc</span></a>
     </nav>
     <nav class="menu" aria-label="Menu báo cáo">
-      <a class="menu-item" href="report-choice.html" data-feature="reports" data-report-menu hidden><span class="menu-icon">▥</span><span>Báo cáo</span></a>
+      <a class="menu-item" href="report-choice.html" data-feature="reports" data-report-menu hidden><span class="menu-icon">▥</span><span>Báo cáo chung</span></a>
       <a class="menu-item" href="salary.html" data-salary-menu hidden><span class="menu-icon">₫</span><span>Lương nhân viên</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
