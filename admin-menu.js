@@ -801,7 +801,7 @@ if (sidebarScroll) {
       <a class="menu-item" href="work-report.html" data-feature="work-report"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg></span><span>Báo cáo công việc</span></a>
     </nav>
     <nav class="menu" aria-label="Menu báo cáo">
-      <a class="menu-item" href="report-choice.html" data-feature="reports" data-report-menu hidden><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><rect x="5" y="11" width="3" height="7" rx="0.8"/><rect x="10.5" y="6" width="3" height="12" rx="0.8"/><rect x="16" y="13" width="3" height="5" rx="0.8"/></svg></span><span>Báo cáo chung</span></a>
+      <a class="menu-item" href="report-choice.html" data-feature="reports" data-report-menu hidden><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><rect x="5" y="11" width="3" height="7" rx="0.8"/><rect x="10.5" y="6" width="3" height="12" rx="0.8"/><rect x="16" y="13" width="3" height="5" rx="0.8"/></svg></span><span>Báo cáo phép + thanh toán</span></a>
       <a class="menu-item" href="salary.html" data-salary-menu hidden><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span><span>Lương nhân viên</span></a>
     </nav>
     <p class="menu-label">CÀI ĐẶT</p>
