@@ -210,7 +210,38 @@ lateReport.addEventListener('change', (event) => {
 
 function renderOnlineReport() {
 	const onlineEntries = users.flatMap((user) => Object.values(user.records || {}).filter((record) => record.date?.startsWith(monthSelect.value) && (record.workMode === 'online' || record.onlineProof)).map((record) => ({ user, record })));
-	lateReport.innerHTML = onlineEntries.length ? `<strong>Báo cáo nhân sự làm online tháng ${monthSelect.value}</strong><div class="attendance-late-report-list">${onlineEntries.sort((a, b) => `${a.record.date}${a.record.checkIn}`.localeCompare(`${b.record.date}${b.record.checkIn}`)).map(({ user, record }) => { const proof = record.onlineProof; const mapLink = proof ? `https://www.google.com/maps?q=${proof.latitude},${proof.longitude}` : ''; return `<span class="attendance-report-entry">${getReportAvatar(user)}<span class="attendance-report-details"><b>${user.name}</b><small>${record.date} · Vào: ${formatTime(record.checkIn)} · Ra: ${formatTime(record.checkOut)}</small>${proof?.photoData ? `<img class="attendance-online-report-photo" src="${proof.photoData}" alt="Ảnh nơi làm việc của ${user.name}">` : '<small>Chưa có ảnh nơi làm việc</small>'}${mapLink ? `<a href="${mapLink}" target="_blank" rel="noopener"><span class="attendance-location-icon" aria-hidden="true">⌖</span>Xem vị trí đã chia sẻ</a>` : '<small>Chưa có dữ liệu vị trí</small>'}</span></span>`; }).join('')}</div>` : '<strong>Chưa có nhân sự làm online trong tháng này.</strong>';
+	const [year, month] = monthSelect.value.split('-');
+	if (!onlineEntries.length) {
+		lateReport.innerHTML = `<div class="online-report-empty"><strong>Chưa có nhân sự làm online trong tháng ${Number(month)}/${year}.</strong></div>`;
+		return;
+	}
+	// Newest day first; within a day, earliest check-in first.
+	onlineEntries.sort((a, b) => b.record.date.localeCompare(a.record.date) || String(a.record.checkIn || '').localeCompare(String(b.record.checkIn || '')));
+	const people = new Set(onlineEntries.map(({ user }) => user.id)).size;
+	const withPhoto = onlineEntries.filter(({ record }) => record.onlineProof?.photoData).length;
+	const formatDay = (value) => {
+		const date = new Date(`${value}T00:00:00`);
+		return `${date.toLocaleDateString('vi-VN', { weekday: 'short' })}, ${value.split('-').reverse().join('/')}`;
+	};
+	const cards = onlineEntries.map(({ user, record }) => {
+		const proof = record.onlineProof;
+		const name = escapeReportText(user.name);
+		const latitude = Number(proof?.latitude);
+		const longitude = Number(proof?.longitude);
+		const mapLink = Number.isFinite(latitude) && Number.isFinite(longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : '';
+		const photo = proof?.photoData
+			? `<img class="online-report-photo" src="${escapeReportText(proof.photoData)}" alt="Ảnh nơi làm việc của ${name}" loading="lazy">`
+			: '<div class="online-report-photo is-empty"><span aria-hidden="true">▢</span>Chưa có ảnh nơi làm việc</div>';
+		const location = mapLink
+			? `<a class="online-report-location" href="${mapLink}" target="_blank" rel="noopener"><span aria-hidden="true">⌖</span>Xem vị trí</a>`
+			: '<span class="online-report-location is-empty">Chưa có vị trí</span>';
+		return `<article class="online-report-card">
+			<header>${getReportAvatar(user)}<div><b>${name}</b><small>${formatDay(record.date)}</small></div></header>
+			${photo}
+			<footer><span class="online-report-times"><span>Vào <b>${formatTime(record.checkIn)}</b></span><span>Ra <b>${formatTime(record.checkOut)}</b></span></span>${location}</footer>
+		</article>`;
+	}).join('');
+	lateReport.innerHTML = `<div class="online-report-head"><strong>Tháng ${Number(month)}/${year}</strong><span class="online-report-stats"><span><b>${onlineEntries.length}</b> lượt online</span><span><b>${people}</b> nhân sự</span><span><b>${withPhoto}</b> có ảnh</span></span></div><div class="online-report-grid">${cards}</div>`;
 }
 
 const reportMode = new URLSearchParams(window.location.search).get('report');
@@ -238,6 +269,7 @@ if (!reportMode) {
 if (reportMode === 'late' || reportMode === 'online') {
 	lateReport.hidden = false;
 	if (reportMode === 'online') {
+		document.body.classList.add('is-online-report');
 		document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Báo cáo nhân sự làm online'));
 		document.querySelector('.attendance-section-heading h2')?.replaceChildren(document.createTextNode('Báo cáo nhân sự làm online'));
 		document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Báo cáo nhân sự làm online'));

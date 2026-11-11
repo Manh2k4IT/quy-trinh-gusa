@@ -779,3 +779,41 @@ body[data-theme="dark"] .attendance-missing-list li b { color: #edf0f4; }
 .legend-dot.is-pick-unauthorized-leave { background: #6b7280; }
 .legend-dot.is-pick-online { background: #178b98; }
 .legend-dot.is-pick-other { background: #4a5fc8; }
+
+/* Online work report: a grid of compact cards with fixed-size photos. */
+body.is-online-report .attendance-late-report { display: block; padding: 1rem; border-color: #e3e8ef; border-radius: 16px; }
+.online-report-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; margin-bottom: .85rem; }
+.online-report-head > strong { color: #1d3047; font-size: .92rem; }
+.online-report-stats { display: flex; flex-wrap: wrap; gap: .4rem; }
+.online-report-stats span { padding: .3rem .65rem; border-radius: 999px; color: #0b6b76; background: #e3f5f6; font-size: .7rem; }
+.online-report-stats b { font-weight: 800; }
+.online-report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: .8rem; }
+.online-report-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e3e9f0; border-radius: 14px; background: #fff; box-shadow: 0 4px 14px rgba(31, 48, 71, .05); transition: box-shadow 160ms ease, transform 160ms ease; }
+.online-report-card:hover { box-shadow: 0 8px 22px rgba(31, 48, 71, .1); transform: translateY(-1px); }
+.online-report-card header { display: flex; align-items: center; gap: .6rem; padding: .7rem .8rem; }
+.online-report-card header > div { display: grid; min-width: 0; gap: .05rem; }
+.online-report-card header b { overflow: hidden; color: #1d3047; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.online-report-card header small { color: #6b7a8c; font-size: .68rem; text-transform: capitalize; }
+.online-report-card .attendance-report-avatar { flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.online-report-card .attendance-report-avatar-fallback { display: grid; place-items: center; color: #fff; background: var(--navy); font-size: .8rem; font-weight: 800; }
+.online-report-photo { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #eef2f6; }
+.online-report-photo.is-empty { display: grid; place-content: center; justify-items: center; gap: .25rem; color: #8a97a8; font-size: .7rem; }
+.online-report-photo.is-empty span { font-size: 1.4rem; line-height: 1; opacity: .6; }
+.online-report-card footer { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: auto; padding: .6rem .8rem; border-top: 1px solid #eef2f6; }
+.online-report-times { display: flex; gap: .7rem; color: #6b7a8c; font-size: .68rem; }
+.online-report-times b { color: #1d3047; font-weight: 700; }
+.online-report-location { display: inline-flex; align-items: center; gap: .3rem; padding: .3rem .6rem; border: 1px solid #cfe0ee; border-radius: 999px; color: var(--navy); background: #fff; font-size: .68rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.online-report-location:hover { background: var(--blue-100); }
+.online-report-location.is-empty { border-color: transparent; color: #9aa6b5; background: transparent; font-weight: 500; }
+.online-report-empty { padding: 1.5rem; color: #6b7a8c; text-align: center; }
+body[data-theme="dark"] .online-report-card { border-color: #454c57; background: #2d323a; box-shadow: none; }
+body[data-theme="dark"] .online-report-card header b, body[data-theme="dark"] .online-report-times b, body[data-theme="dark"] .online-report-head > strong { color: #edf0f4; }
+body[data-theme="dark"] .online-report-card footer { border-top-color: #3d444e; }
+body[data-theme="dark"] .online-report-photo { background: #252a31; }
+body[data-theme="dark"] .online-report-location { border-color: #4b535f; background: #252a31; }
+body[data-theme="dark"] .online-report-stats span { color: #8fdbe2; background: #1f4246; }
+@media (max-width: 650px) {
+	.online-report-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .55rem; }
+	.online-report-card header { padding: .55rem .6rem; }
+	.online-report-card footer { flex-wrap: wrap; padding: .5rem .6rem; }
+}
