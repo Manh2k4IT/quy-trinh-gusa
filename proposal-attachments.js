@@ -1,7 +1,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const FIELDS = { payment: "paymentFileData", late: "latePhotoData" };
+const FIELDS = { payment: "paymentFileData", late: "latePhotoData", evidence: "evidenceFileData" };
+const FLAGS = { payment: "hasPaymentFile", late: "hasLatePhoto", evidence: "hasEvidenceFile" };
 const ID_PATTERN = /^[A-Za-z0-9-]{1,80}$/;
 
 function createAttachmentStore(dataDirectory) {
@@ -33,7 +34,7 @@ function createAttachmentStore(dataDirectory) {
       const value = light[field];
       if (typeof value === "string" && value.startsWith("data:")) {
         if (!save(light.id, kind, value)) continue;
-        light[`has${kind === "payment" ? "PaymentFile" : "LatePhoto"}`] = true;
+        light[FLAGS[kind]] = true;
         delete light[field];
         changed = true;
       }
@@ -66,6 +67,7 @@ function createAttachmentStore(dataDirectory) {
     const result = { ...proposal };
     if (proposal.hasPaymentFile) result.paymentFileData = `/api/proposals/${proposal.id}/attachment/payment`;
     if (proposal.hasLatePhoto) result.latePhotoData = `/api/proposals/${proposal.id}/attachment/late`;
+    if (proposal.hasEvidenceFile) result.evidenceFileData = `/api/proposals/${proposal.id}/attachment/evidence`;
     return result;
   }
 
@@ -74,6 +76,7 @@ function createAttachmentStore(dataDirectory) {
     const result = { ...proposal };
     if (proposal.hasPaymentFile) result.paymentFileData = read(proposal.id, "payment");
     if (proposal.hasLatePhoto) result.latePhotoData = read(proposal.id, "late");
+    if (proposal.hasEvidenceFile) result.evidenceFileData = read(proposal.id, "evidence");
     return result;
   }
 

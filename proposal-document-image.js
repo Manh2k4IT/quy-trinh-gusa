@@ -26,7 +26,7 @@ async function renderPdfPages(pdfBuffer) {
 function renderProposalPages(proposal, { timeoutMs = 60000 } = {}) {
   const { fork } = require("node:child_process");
   const path = require("node:path");
-  const { latePhotoData, paymentFileData, ...documentFields } = proposal;
+  const { latePhotoData, paymentFileData, evidenceFileData, ...documentFields } = proposal;
   return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, "proposal-image-worker.js"), [], { execArgv: ["--max-old-space-size=192"], stdio: ["ignore", "inherit", "inherit", "ipc"] });
     let settled = false;

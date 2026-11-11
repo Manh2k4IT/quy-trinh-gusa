@@ -23,6 +23,11 @@ halfDayPeriodField.dataset.halfDayPeriod = '';
 halfDayPeriodField.innerHTML = '<legend>Buổi làm việc</legend><label><input type="radio" name="halfDayPeriod" value="half-day-morning" /> Buổi sáng</label><label><input type="radio" name="halfDayPeriod" value="half-day-afternoon" /> Buổi chiều</label>';
 timeField.before(halfDayPeriodField);
 const lateProof = form.querySelector('[data-late-proof]');
+const evidenceField = form.querySelector('[data-proposal-evidence]');
+const evidenceInput = form.querySelector('[data-evidence-file]');
+const evidenceLabel = form.querySelector('[data-evidence-label]');
+const evidenceRemove = form.querySelector('[data-evidence-remove]');
+let evidenceFile = null;
 const latePhotoInput = form.querySelector('[name="latePhoto"]');
 const locationButton = form.querySelector('[data-proposal-location]');
 const locationStatus = form.querySelector('[data-proposal-location-status]');
@@ -94,6 +99,8 @@ function updateDurationFields() {
     input.required = isHalfDay;
   });
   lateProof.hidden = typeInput.value !== 'late';
+  evidenceField.hidden = !isHalfDay;
+  if (!isHalfDay) clearEvidence();
   if (typeInput.value !== 'late') {
     latePhotoData = '';
     lateLocation = null;
@@ -102,6 +109,35 @@ function updateDurationFields() {
   }
   window.syncProposalDocument?.();
 }
+// Supporting document for half-day proposals, read as a data URL on submit.
+function clearEvidence() {
+  evidenceFile = null;
+  evidenceInput.value = '';
+  evidenceLabel.innerHTML = '<b>Chọn file</b> ảnh, PDF, Word, Excel · tối đa 7MB';
+  evidenceRemove.hidden = true;
+  evidenceField.classList.remove('has-file');
+}
+evidenceInput.addEventListener('change', () => {
+  const file = evidenceInput.files?.[0];
+  if (!file) return;
+  if (file.size > 7 * 1024 * 1024) {
+    status.textContent = 'Chứng từ không được vượt quá 7MB.';
+    clearEvidence();
+    return;
+  }
+  evidenceFile = file;
+  evidenceLabel.innerHTML = `<b>${escapeHtml(file.name)}</b> · ${file.size >= 1048576 ? `${(file.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`}`;
+  evidenceRemove.hidden = false;
+  evidenceField.classList.add('has-file');
+  status.textContent = '';
+});
+evidenceRemove.addEventListener('click', clearEvidence);
+const readAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.addEventListener('load', () => resolve(String(reader.result)));
+  reader.addEventListener('error', () => reject(new Error('Không đọc được file chứng từ.')));
+  reader.readAsDataURL(file);
+});
 const typeLabels = {
   late: 'Đề xuất đi trễ',
   'early-leave': 'Đề xuất về sớm',
@@ -168,6 +204,15 @@ form.addEventListener('submit', async (event) => {
     delete payload.dateTo;
   }
   delete payload.duration;
+  if (payload.type === 'half-day' && evidenceFile) {
+    try {
+      payload.evidenceFileName = evidenceFile.name;
+      payload.evidenceFileData = await readAsDataUrl(evidenceFile);
+    } catch (error) {
+      status.textContent = error.message;
+      return;
+    }
+  }
   submitButton.disabled = true;
   submitButton.textContent = 'ĐANG GỬI...';
   try {
@@ -197,7 +242,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.hidden = true;
       detail.hidden = false;
       detail.innerHTML = typedProposals.length
-        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong>${proposal.subject ? `<span>Nội dung: ${escapeHtml(proposal.subject)}</span>` : ''}<span>Ngày áp dụng: ${proposal.dateFrom && proposal.dateTo ? `${formatProposalDate(proposal.dateFrom)} đến ${formatProposalDate(proposal.dateTo)}` : formatProposalDate(proposal.date)}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}${proposal.signatureData ? `<img class="proposal-saved-signature" src="${escapeHtml(proposal.signatureData)}" alt="Chữ ký người đề xuất" />` : ''}</article>`).join('')
+        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong>${proposal.subject ? `<span>Nội dung: ${escapeHtml(proposal.subject)}</span>` : ''}<span>Ngày áp dụng: ${proposal.dateFrom && proposal.dateTo ? `${formatProposalDate(proposal.dateFrom)} đến ${formatProposalDate(proposal.dateTo)}` : formatProposalDate(proposal.date)}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.evidenceFileData ? `<a class="proposal-evidence-link" href="${escapeHtml(proposal.evidenceFileData)}" target="_blank" rel="noopener">📎 Chứng từ: ${escapeHtml(proposal.evidenceFileName || 'Xem file')}</a>` : ''}${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}${proposal.signatureData ? `<img class="proposal-saved-signature" src="${escapeHtml(proposal.signatureData)}" alt="Chữ ký người đề xuất" />` : ''}</article>`).join('')
         : '<p>Chưa có đề xuất nào.</p>';
       modal.hidden = false;
       detail.querySelectorAll('.proposal-detail-item').forEach((item, index) => {
@@ -225,7 +270,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       const dateText = proposal.dateFrom && proposal.dateTo ? `${formatProposalDate(proposal.dateFrom)} đến ${formatProposalDate(proposal.dateTo)}` : formatProposalDate(proposal.date);
       const statusText = proposal.status === 'approved' ? 'Đề xuất của bạn đã được duyệt' : proposal.status === 'rejected' ? 'Đề xuất của bạn đã bị từ chối' : 'Đề xuất đã được gửi đi';
       const statusClass = proposal.status === 'approved' ? 'is-approved' : proposal.status === 'rejected' ? 'is-rejected' : '';
-      detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong>${proposal.subject ? `<span>Nội dung: ${escapeHtml(proposal.subject)}</span>` : ''}<span>Ngày áp dụng: ${dateText}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}`;
+      detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong>${proposal.subject ? `<span>Nội dung: ${escapeHtml(proposal.subject)}</span>` : ''}<span>Ngày áp dụng: ${dateText}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>${proposal.evidenceFileData ? `<a class="proposal-evidence-link" href="${escapeHtml(proposal.evidenceFileData)}" target="_blank" rel="noopener">📎 Chứng từ: ${escapeHtml(proposal.evidenceFileName || 'Xem file')}</a>` : ''}${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}`;
       if (proposal.signatureData) {
         const signature = document.createElement('img');
         signature.className = 'proposal-saved-signature';
@@ -260,6 +305,7 @@ function closeModal() {
   latePhotoData = '';
   lateLocation = null;
   latePhotoInput.value = '';
+  clearEvidence();
   locationButton.disabled = false;
   locationButton.textContent = 'Chia sẻ vị trí';
   locationStatus.textContent = 'Chưa chia sẻ vị trí';

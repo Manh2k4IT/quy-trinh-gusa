@@ -46,6 +46,7 @@
       addressee: fields.type === 'payment' ? fields.paymentFlow === 'accountant' ? 'Kính gửi: Bộ phận Kế toán' : 'Kính gửi: Ban Giám đốc và Bộ phận Kế toán' : 'Kính gửi: Ban Giám đốc và Bộ phận quản lý nhân sự',
       reasonLabel: fields.type === 'payment' ? 'Nội dung / Lý do thanh toán:' : 'Lý do đề xuất:',
       commitment: fields.type === 'payment' ? 'Kính đề nghị bộ phận phụ trách xem xét và thanh toán khoản chi nêu trên. Tôi cam kết thông tin đề xuất và chứng từ cung cấp là chính xác.' : 'Kính mong Ban Giám đốc và bộ phận phụ trách xem xét. Tôi cam kết thông tin trên là chính xác và thực hiện bàn giao công việc theo quy định.',
+      evidenceRow: fields.type === 'half-day' && (fields.evidenceFileName || '').trim() ? ['Chứng từ đính kèm', fields.evidenceFileName.trim()] : null,
       subjectRow: fields.type === 'other' ? ['Nội dung đề xuất', String(fields.subject || '').trim() || 'Chưa nhập'] : null,
       paymentRows: fields.type === 'payment' ? [
         ['Luồng xử lý', fields.paymentFlow === 'accountant' ? 'Kế toán xác nhận trực tiếp' : 'CEO/Admin duyệt → Kế toán xác nhận'],
@@ -76,7 +77,7 @@ th,td{padding:9px 0;border-bottom:1px solid #e5e7eb;text-align:left;vertical-ali
 </style></head><body><article><header><p>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p><p class="motto">Độc lập - Tự do - Hạnh phúc</p></header>
 <h1>${escape(data.title)}</h1><p>${escape(data.addressee)}</p>
 <table><tr><th>Người đề xuất</th><td>${escape(data.name)}</td></tr>${data.subjectRow ? `<tr><th>${data.subjectRow[0]}</th><td>${escape(data.subjectRow[1])}</td></tr>` : ''}
-<tr><th>${fields.type === 'payment' ? 'Ngày đề xuất' : 'Ngày áp dụng'}</th><td>${data.dateText}</td></tr>${timeRow}${data.paymentRows.map(([label, value]) => `<tr><th>${label}</th><td>${escape(value)}</td></tr>`).join('')}</table>
+<tr><th>${fields.type === 'payment' ? 'Ngày đề xuất' : 'Ngày áp dụng'}</th><td>${data.dateText}</td></tr>${timeRow}${data.evidenceRow ? `<tr><th>${data.evidenceRow[0]}</th><td>${escape(data.evidenceRow[1])}</td></tr>` : ''}${data.paymentRows.map(([label, value]) => `<tr><th>${label}</th><td>${escape(value)}</td></tr>`).join('')}</table>
 <p><strong>${escape(data.reasonLabel)}</strong></p><div class="reason">${escape(fields.reason) || 'Nội dung lý do sẽ hiển thị tại đây khi bạn nhập.'}</div>
 <p>${escape(data.commitment)}</p>
 <div class="signatures"><div><p><strong>Người đề xuất</strong></p><p>(Ký, ghi rõ họ tên)</p><div class="signature-space">${signature}</div><p class="signature-name">${escape((fields.signatureName || '').trim())}</p></div><div><p><strong>Người phê duyệt</strong></p><p>(Ký, ghi rõ họ tên)</p><div class="signature-space">${confirmation}</div></div></div>

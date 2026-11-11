@@ -266,15 +266,20 @@ function openProposalDetail(proposalId) {
     detailFields.append(row);
   }
 
-  const hasAttachment = Boolean(proposal.paymentFileData || proposal.latePhotoData || proposal.latitude);
+  const fileUrl = proposal.paymentFileData || proposal.evidenceFileData;
+  const hasAttachment = Boolean(fileUrl || proposal.latePhotoData || proposal.latitude);
   detailAttachments.hidden = !hasAttachment;
-  detailFile.hidden = !proposal.paymentFileData;
+  detailFile.hidden = !fileUrl;
   detailPhoto.hidden = !proposal.latePhotoData;
   detailLocation.hidden = !proposal.latitude;
-  if (proposal.paymentFileData) {
-    detailFile.href = proposal.paymentFileData;
-    detailFile.download = proposal.paymentFileName || 'bieu-mau-de-xuat';
-    detailFileName.textContent = proposal.paymentFileName || 'Tải file biểu mẫu';
+  if (fileUrl) {
+    const fileName = proposal.paymentFileName || proposal.evidenceFileName;
+    detailFile.href = fileUrl;
+    detailFile.target = '_blank';
+    detailFile.rel = 'noopener';
+    detailFile.download = fileName || 'tep-dinh-kem';
+    detailFile.querySelector('span').textContent = proposal.paymentFileData ? 'FILE ĐÍNH KÈM' : 'CHỨNG TỪ ĐÍNH KÈM';
+    detailFileName.textContent = fileName || 'Tải file đính kèm';
   }
   if (proposal.latePhotoData) detailPhoto.src = proposal.latePhotoData;
   if (proposal.latitude) detailLocation.href = `https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}`;

@@ -221,6 +221,7 @@ const serverOnlyScripts = new Set([
   "work-reports.js",
   "documents.js",
   "document-thumbnail-worker.js",
+  "evidence-image-worker.js",
   "salaries.js",
 ]);
 
@@ -879,7 +880,7 @@ function getProposals() {
 async function serveProposalAttachment(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
-  const match = /^\/api\/proposals\/([^/]+)\/attachment\/(payment|late)/.exec(new URL(req.url, "http://localhost").pathname);
+  const match = /^\/api\/proposals\/([^/]+)\/attachment\/(payment|late|evidence)/.exec(new URL(req.url, "http://localhost").pathname);
   const proposal = match && getProposals().find((item) => item.id === decodeURIComponent(match[1]));
   if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
   if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && (canViewPaymentProposal(currentUser, proposal) || isAccountingTeamProposal(proposal)))) return send(res, 403, "Forbidden");
@@ -888,10 +889,13 @@ async function serveProposalAttachment(req, res) {
   if (!parsed) return send(res, 404, "Không có tệp đính kèm.");
   const body = Buffer.from(parsed[2], "base64");
   const isImage = /^image\/(jpeg|png|gif|webp)$/.test(parsed[1]);
+  const inline = isImage || parsed[1] === "application/pdf";
+  const fileName = String((match[2] === "payment" ? proposal.paymentFileName : match[2] === "evidence" ? proposal.evidenceFileName : "") || "");
+  const disposition = `${inline ? "inline" : "attachment"}${fileName ? `; filename="${fileName.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "")}"; filename*=UTF-8''${encodeURIComponent(fileName)}` : ""}`;
   res.writeHead(200, {
-    "Content-Type": isImage ? parsed[1] : "application/octet-stream",
+    "Content-Type": inline ? parsed[1] : "application/octet-stream",
     "Content-Length": body.length,
-    "Content-Disposition": isImage ? "inline" : "attachment",
+    "Content-Disposition": disposition,
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
   });
@@ -1707,6 +1711,44 @@ async function sendZaloProposalImages(proposal, { approved = false } = {}) {
       console.error("Zalo proposal image failed:", error.message);
     }
   }
+  // Half-day supporting document, only with the "needs review" notification (not the approved one):
+  // photos and PDFs become JPEG pages; office files are only linked from the message.
+  const evidence = !approved && proposal.hasEvidenceFile ? attachments.read(proposal.id, "evidence") : "";
+  const evidenceMatch = /^data:(image\/[\w.+-]+|application\/pdf);base64,(.+)$/s.exec(evidence);
+  if (evidence && !evidenceMatch) console.warn(`Zalo evidence skipped for proposal ${proposal.id}: not an image or PDF.`);
+  if (evidenceMatch) {
+    try {
+      const pages = await renderEvidenceImages(evidenceMatch[2], evidenceMatch[1]);
+      for (const [index, page] of pages.entries()) {
+        const suffix = pages.length > 1 ? ` (trang ${index + 1}/${pages.length})` : "";
+        const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Chứng từ của ${name}${suffix}`, groupOptions);
+        console.log(`Zalo evidence image ${index + 1}/${pages.length} (${groupOptions.kind}, ${page.length} bytes): ${sent ? "sent" : "not sent"}.`);
+      }
+    } catch (error) {
+      console.error("Zalo evidence image failed:", error.message);
+    }
+  }
+}
+
+// Converts a supporting document to JPEG pages in a child process (see evidence-image-worker.js).
+function renderEvidenceImages(base64, mime, { timeoutMs = 45000 } = {}) {
+  const { fork } = require("node:child_process");
+  return new Promise((resolve, reject) => {
+    const child = fork(path.join(__dirname, "evidence-image-worker.js"), [], { execArgv: ["--max-old-space-size=192"], stdio: ["ignore", "inherit", "inherit", "ipc"] });
+    let settled = false;
+    const finish = (error, pages) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (!child.killed) child.kill();
+      if (error) reject(error); else resolve(pages);
+    };
+    const timer = setTimeout(() => finish(new Error("Chuyển chứng từ sang ảnh quá thời gian cho phép.")), timeoutMs);
+    child.once("message", (message) => (message.error ? finish(new Error(message.error)) : finish(null, message.pages.map((page) => Buffer.from(page, "base64")))));
+    child.once("error", finish);
+    child.once("exit", (code) => finish(new Error(`Tiến trình chuyển chứng từ dừng đột ngột (mã ${code}).`)));
+    child.send({ base64, mime });
+  });
 }
 
 async function sendZaloReviewNotification(proposal, { managementApproval = false } = {}) {
@@ -1998,16 +2040,22 @@ async function createProposal(req, res) {
   const paymentFileName = String(payload.paymentFileName || "").trim().slice(0, 180);
   const paymentFileType = String(payload.paymentFileType || "").trim().slice(0, 120);
   const paymentFileData = typeof payload.paymentFileData === "string" ? payload.paymentFileData : "";
+  // Half-day proposals may carry one supporting document (image, PDF or office file).
+  const evidenceFileName = type === "half-day" ? String(payload.evidenceFileName || "").replace(/[\u0000-\u001f"<>|*?:\\/]/g, "").trim().slice(0, 180) : "";
+  const evidenceFileData = type === "half-day" && typeof payload.evidenceFileData === "string" ? payload.evidenceFileData : "";
+  const evidenceMime = /^data:([^;,]*)[;,]/.exec(evidenceFileData)?.[1] || "";
+  const validEvidence = (!evidenceFileName && !evidenceFileData) || (evidenceFileName && evidenceFileData.length <= 9.5 * 1024 * 1024 && /^(image\/(jpeg|png|gif|webp|heic|heif)|application\/(pdf|msword|vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet)|vnd\.ms-excel))$/.test(evidenceMime));
   const multipleLeave = ["leave", "unauthorized-leave", "other"].includes(type) && dateFrom && dateTo;
   const hasLateProof = type === "late" && typeof payload.latePhotoData === "string" && payload.latePhotoData.startsWith("data:image/") && payload.latePhotoData.length <= 7 * 1024 * 1024 && Number.isFinite(Number(payload.latitude)) && Number.isFinite(Number(payload.longitude));
   const validPayment = type === "payment" && category && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0;
   const validPaymentFile = type === "payment" && ((!paymentFileName && !paymentFileData) || (paymentFileName && paymentFileData.startsWith("data:") && paymentFileData.length <= 9.5 * 1024 * 1024));
   if (type === "other" && !subject) return send(res, 400, "Vui lòng nhập tên đề xuất (ví dụ: Đi công tác).");
   if (type === "half-day" && !["half-day-morning", "half-day-afternoon"].includes(halfDayPeriod)) return send(res, 400, "Vui lòng chọn buổi sáng hoặc buổi chiều.");
+  if (!validEvidence) return send(res, 400, "Chứng từ phải là ảnh, PDF, Word hoặc Excel và không quá 7MB.");
   if (type === "late" && !/^\d{2}:\d{2}$/.test(time)) return send(res, 400, "Vui lòng nhập giờ dự kiến đến công ty.");
   if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || !reason || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Đề xuất đi trễ cần có ảnh và vị trí xác nhận." : "Vui lòng nhập đầy đủ thông tin đề xuất.");
   const paymentFlow = payload.paymentFlow === "accountant" ? "accountant" : "ceo";
-  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod } : {}), ...(type === "other" ? { subject } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData, ...paymentTemplateFields } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
+  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod, ...(evidenceFileName ? { evidenceFileName, evidenceFileType: evidenceMime, evidenceFileData } : {}) } : {}), ...(type === "other" ? { subject } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData, ...paymentTemplateFields } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
   const proposals = getProposals();
   // A double tap or a network retry must not create a second proposal (and a second Zalo message).
   const duplicate = proposals.find((item) => item.userId === proposal.userId && item.status === "pending" && item.type === proposal.type
@@ -2544,7 +2592,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/api/proposals") return serveProposals(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/proposals?")) return serveProposals(req, res);
     if (req.method === "GET" && /^\/api\/proposals\/[^/]+\/document(?:\?|$)/.test(req.url)) return await serveProposalDocument(req, res);
-    if (req.method === "GET" && /^\/api\/proposals\/[^/]+\/attachment\/(?:payment|late)(?:\?|$)/.test(req.url)) return await serveProposalAttachment(req, res);
+    if (req.method === "GET" && /^\/api\/proposals\/[^/]+\/attachment\/(?:payment|late|evidence)(?:\?|$)/.test(req.url)) return await serveProposalAttachment(req, res);
     if (req.method === "POST" && req.url === "/api/proposals") return await createProposal(req, res);
     if (req.method === "POST" && req.url === "/api/proposals/status") return await updateProposalStatus(req, res);
     if (req.method === "POST" && req.url.startsWith("/api/proposals/") && req.url.endsWith("/zalo-resend")) {

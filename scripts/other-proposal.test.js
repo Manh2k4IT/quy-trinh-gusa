@@ -126,6 +126,33 @@ test("an approved other proposal marks every day of its range in attendance", as
   }
 });
 
+test("half-day proposals can attach a supporting document", async () => {
+  const base = { type: "half-day", date: "2026-11-20", halfDayPeriod: "half-day-morning", reason: "Lên phường khai báo", signatureName: "Nguyễn Văn A", signatureData: signaturePng() };
+  const pdf = `data:application/pdf;base64,${Buffer.from("%PDF-1.4 chung tu").toString("base64")}`;
+  assert.equal((await call("/api/proposals", "employee", { ...base, evidenceFileName: "virus.exe", evidenceFileData: "data:application/x-msdownload;base64,TVo=" })).status, 400);
+
+  const created = await call("/api/proposals", "employee", { ...base, evidenceFileName: "Giấy hẹn phường.pdf", evidenceFileData: pdf });
+  assert.equal(created.status, 201);
+  const { proposal } = await created.json();
+  assert.equal(proposal.evidenceFileName, "Giấy hẹn phường.pdf");
+  assert.equal(proposal.evidenceFileData, `/api/proposals/${proposal.id}/attachment/evidence`);
+  const stored = JSON.parse(fs.readFileSync(path.join(directory, "proposals.json"), "utf8")).find((item) => item.id === proposal.id);
+  assert.equal(stored.hasEvidenceFile, true);
+  assert.equal(stored.evidenceFileData, undefined);
+
+  const file = await call(proposal.evidenceFileData, "admin");
+  assert.equal(file.status, 200);
+  assert.equal(file.headers.get("content-type"), "application/pdf");
+  assert.match(file.headers.get("content-disposition"), /^inline; .*filename\*=UTF-8''Gi%E1%BA%A5y/);
+  assert.equal(await file.text(), "%PDF-1.4 chung tu");
+
+  const html = await (await call(`/api/proposals/${proposal.id}/document?format=html`, "employee")).text();
+  assert.ok(html.includes("Chứng từ đính kèm"));
+
+  // The document stays optional.
+  assert.equal((await call("/api/proposals", "employee", { ...base, date: "2026-11-21" })).status, 201);
+});
+
 test("the attendance overview can return a day range instead of a month", async () => {
   const days = async (query) => Object.keys((await (await call(`/api/attendance-overview?${query}`, "admin")).json()).users.find((user) => user.id === "employee").records).sort();
   assert.deepEqual(await days("from=2026-11-13&to=2026-11-14&report=online"), ["2026-11-13", "2026-11-14"]);

@@ -84,3 +84,22 @@ body .proposal-modal-card .proposal-form [data-proposal-status]:empty { display:
   .proposal-document-preview iframe { height: max(380px, calc(100dvh - 330px)); }
   .proposal-document-edit { display: block; width: 100%; min-height: 44px; margin-top: .8rem; }
 }
+
+/* Half-day supporting document. */
+.proposal-evidence { display: grid; gap: .45rem; }
+.proposal-evidence[hidden] { display: none; }
+.proposal-evidence-title { color: #344054; font-size: .82rem; font-weight: 700; }
+.proposal-evidence-title small { color: #8a97a8; font-weight: 500; }
+.proposal-evidence-drop { position: relative; display: flex !important; align-items: center; gap: .65rem; min-height: 52px; padding: .55rem .8rem; border: 1.5px dashed #c9d6e8; border-radius: 12px; color: #5d6b82; background: #f8fafd; font-size: .8rem; font-weight: 500; cursor: pointer; transition: border-color 150ms ease, background 150ms ease; }
+.proposal-evidence-drop:hover { border-color: var(--navy, #174b8e); background: #eef4ff; }
+.proposal-evidence.has-file .proposal-evidence-drop { border-style: solid; border-color: #9fd3b6; background: #f1faf5; }
+.proposal-evidence-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.proposal-evidence-drop b { color: var(--navy, #174b8e); overflow-wrap: anywhere; }
+.proposal-evidence-icon { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 10px; color: var(--navy, #174b8e); background: #e9f0fb; }
+.proposal-evidence-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.proposal-evidence-remove { justify-self: start; min-height: 30px; padding: 0 .7rem; border: 0; border-radius: 8px; color: #b42318; background: #fef0ee; font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer; }
+.proposal-evidence-remove[hidden] { display: none; }
+.proposal-evidence-link { color: var(--navy, #174b8e); font-weight: 700; text-decoration: none; }
+.proposal-evidence-link:hover { text-decoration: underline; }
+body[data-theme="dark"] .proposal-evidence-drop { border-color: #4b535f; color: #cbd5e1; background: #252a31; }
+body[data-theme="dark"] .proposal-evidence-title { color: #cbd5e1; }
