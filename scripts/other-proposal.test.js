@@ -126,6 +126,14 @@ test("an approved other proposal marks every day of its range in attendance", as
   }
 });
 
+test("the attendance overview can return a day range instead of a month", async () => {
+  const days = async (query) => Object.keys((await (await call(`/api/attendance-overview?${query}`, "admin")).json()).users.find((user) => user.id === "employee").records).sort();
+  assert.deepEqual(await days("from=2026-11-13&to=2026-11-14&report=online"), ["2026-11-13", "2026-11-14"]);
+  assert.deepEqual(await days("from=2026-11-12&to=2026-11-12&report=online"), ["2026-11-12"]);
+  // An invalid or reversed range falls back to the month.
+  assert.deepEqual(await days("month=2026-11&from=2026-11-14&to=2026-11-12"), ["2026-11-12", "2026-11-13", "2026-11-14"]);
+});
+
 test("admins can set or clear the other status on a day", async () => {
   const set = await call("/api/attendance-overview/status", "admin", { userId: "employee", date: "2026-11-14", status: "present" });
   assert.equal(set.status, 200);

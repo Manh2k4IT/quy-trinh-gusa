@@ -208,11 +208,105 @@ lateReport.addEventListener('change', (event) => {
 	renderLateReport();
 });
 
+// Period shown by the online report; defaults to today.
+const onlineFilter = { mode: 'today', from: todayKey(), to: todayKey() };
+function getOnlinePeriodLabel() {
+	const format = (value) => value.split('-').reverse().join('/');
+	const { mode, from, to } = onlineFilter;
+	if (mode === 'month') {
+		const [year, month] = from.split('-');
+		return { title: `Tháng ${Number(month)}/${year}`, empty: `trong tháng ${Number(month)}/${year}` };
+	}
+	if (from === to) {
+		const isToday = from === todayKey();
+		return { title: isToday ? `Hôm nay, ${format(from)}` : `Ngày ${format(from)}`, empty: isToday ? 'hôm nay' : `ngày ${format(from)}` };
+	}
+	return { title: `Từ ${format(from)} đến ${format(to)}`, empty: `từ ${format(from)} đến ${format(to)}` };
+}
+function setupOnlineFilter() {
+	// The page-level month picker is replaced by this filter.
+	const monthPicker = monthSelect.closest('.attendance-month');
+	if (monthPicker) monthPicker.style.display = 'none';
+	const today = todayKey();
+	const bar = document.createElement('div');
+	bar.className = 'online-filter';
+	bar.innerHTML = `<div class="online-filter-modes" role="group" aria-label="Lọc theo thời gian">
+		<button type="button" data-online-mode="today">Hôm nay</button><button type="button" data-online-mode="day">Theo ngày</button><button type="button" data-online-mode="range">Khoảng ngày</button><button type="button" data-online-mode="month">Theo tháng</button>
+	</div>
+	<div class="online-filter-inputs">
+		<button type="button" class="online-filter-step" data-online-step="-1" aria-label="Kỳ trước">‹</button>
+		<label data-online-for="day">Ngày<input type="date" data-online-day value="${today}" max="${today}"></label>
+		<label data-online-for="range">Từ<input type="date" data-online-from value="${today.slice(0, 8)}01" max="${today}"></label>
+		<label data-online-for="range">Đến<input type="date" data-online-to value="${today}" max="${today}"></label>
+		<label data-online-for="month">Tháng<input type="month" data-online-month value="${today.slice(0, 7)}" max="${today.slice(0, 7)}"></label>
+		<button type="button" class="online-filter-step" data-online-step="1" aria-label="Kỳ sau">›</button>
+	</div>`;
+	lateReport.before(bar);
+	const dayInput = bar.querySelector('[data-online-day]');
+	const fromInput = bar.querySelector('[data-online-from]');
+	const toInput = bar.querySelector('[data-online-to]');
+	const monthInput = bar.querySelector('[data-online-month]');
+	const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+	function apply() {
+		const { mode } = onlineFilter;
+		if (mode === 'today') {
+			onlineFilter.from = onlineFilter.to = todayKey();
+		} else if (mode === 'day') {
+			onlineFilter.from = onlineFilter.to = dayInput.value || todayKey();
+		} else if (mode === 'range') {
+			let from = fromInput.value || todayKey();
+			let to = toInput.value || from;
+			if (to < from) [from, to] = [to, from];
+			// The server returns at most a year at a time.
+			const earliest = dateKey(new Date(new Date(`${to}T00:00:00`).getTime() - 366 * 86400000));
+			if (from < earliest) from = earliest;
+			fromInput.value = from;
+			toInput.value = to;
+			onlineFilter.from = from;
+			onlineFilter.to = to;
+		} else {
+			const month = monthInput.value || todayKey().slice(0, 7);
+			const [year, monthNumber] = month.split('-').map(Number);
+			onlineFilter.from = `${month}-01`;
+			onlineFilter.to = dateKey(new Date(year, monthNumber, 0));
+		}
+		bar.querySelectorAll('[data-online-mode]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.onlineMode === mode)));
+		bar.querySelectorAll('[data-online-for]').forEach((label) => { label.hidden = label.dataset.onlineFor !== mode; });
+		bar.querySelectorAll('[data-online-step]').forEach((button) => { button.hidden = mode === 'today' || mode === 'range'; });
+		lateReport.innerHTML = '<div class="online-report-empty">Đang tải...</div>';
+		load().catch((error) => { lateReport.innerHTML = `<div class="online-report-empty">${escapeReportText(error.message)}</div>`; });
+	}
+	bar.addEventListener('click', (event) => {
+		const modeButton = event.target.closest('[data-online-mode]');
+		if (modeButton) {
+			onlineFilter.mode = modeButton.dataset.onlineMode;
+			apply();
+			return;
+		}
+		const step = event.target.closest('[data-online-step]');
+		if (!step) return;
+		const delta = Number(step.dataset.onlineStep);
+		if (onlineFilter.mode === 'day') {
+			const date = new Date(`${dayInput.value || todayKey()}T00:00:00`);
+			date.setDate(date.getDate() + delta);
+			dayInput.value = dateKey(date);
+		} else if (onlineFilter.mode === 'month') {
+			const [year, month] = (monthInput.value || todayKey().slice(0, 7)).split('-').map(Number);
+			const date = new Date(year, month - 1 + delta, 1);
+			monthInput.value = dateKey(date).slice(0, 7);
+		}
+		apply();
+	});
+	[dayInput, fromInput, toInput, monthInput].forEach((input) => input.addEventListener('change', apply));
+	onlineFilter.mode = 'today';
+	bar.querySelectorAll('[data-online-mode]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.onlineMode === 'today')));
+	bar.querySelectorAll('[data-online-for], [data-online-step]').forEach((element) => { element.hidden = true; });
+}
 function renderOnlineReport() {
-	const onlineEntries = users.flatMap((user) => Object.values(user.records || {}).filter((record) => record.date?.startsWith(monthSelect.value) && (record.workMode === 'online' || record.onlineProof)).map((record) => ({ user, record })));
-	const [year, month] = monthSelect.value.split('-');
+	const onlineEntries = users.flatMap((user) => Object.values(user.records || {}).filter((record) => record.date >= onlineFilter.from && record.date <= onlineFilter.to && (record.workMode === 'online' || record.onlineProof)).map((record) => ({ user, record })));
+	const period = getOnlinePeriodLabel();
 	if (!onlineEntries.length) {
-		lateReport.innerHTML = `<div class="online-report-empty"><strong>Chưa có nhân sự làm online trong tháng ${Number(month)}/${year}.</strong></div>`;
+		lateReport.innerHTML = `<div class="online-report-empty"><strong>Chưa có nhân sự làm online ${period.empty}.</strong></div>`;
 		return;
 	}
 	// Newest day first; within a day, earliest check-in first.
@@ -241,7 +335,7 @@ function renderOnlineReport() {
 			<footer><span class="online-report-times"><span>Vào <b>${formatTime(record.checkIn)}</b></span><span>Ra <b>${formatTime(record.checkOut)}</b></span></span>${location}</footer>
 		</article>`;
 	}).join('');
-	lateReport.innerHTML = `<div class="online-report-head"><strong>Tháng ${Number(month)}/${year}</strong><span class="online-report-stats"><span><b>${onlineEntries.length}</b> lượt online</span><span><b>${people}</b> nhân sự</span><span><b>${withPhoto}</b> có ảnh</span></span></div><div class="online-report-grid">${cards}</div>`;
+	lateReport.innerHTML = `<div class="online-report-head"><strong>${period.title}</strong><span class="online-report-stats"><span><b>${onlineEntries.length}</b> lượt online</span><span><b>${people}</b> nhân sự</span><span><b>${withPhoto}</b> có ảnh</span></span></div><div class="online-report-grid">${cards}</div>`;
 }
 
 const photoViewer = document.createElement('div');
@@ -302,6 +396,7 @@ if (reportMode === 'late' || reportMode === 'online') {
 	lateReport.hidden = false;
 	if (reportMode === 'online') {
 		document.body.classList.add('is-online-report');
+		setupOnlineFilter();
 		document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Báo cáo nhân sự làm online'));
 		document.querySelector('.attendance-section-heading h2')?.replaceChildren(document.createTextNode('Báo cáo nhân sự làm online'));
 		document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Báo cáo nhân sự làm online'));
@@ -471,7 +566,8 @@ function todayKey() { const now = new Date(); return `${now.getFullYear()}-${Str
 function render(usersToRender = users) { const selectedDate = new Date(`${monthSelect.value}-01T00:00:00`); const year = selectedDate.getFullYear(); const month = selectedDate.getMonth(); const days = new Date(year, month + 1, 0).getDate(); const dateKey = todayKey(); const filtered = usersToRender.filter((user) => { const query = search.value.trim().toLowerCase(); const record = user.records?.[dateKey]; const state = record?.checkOut ? 'completed' : record?.checkIn ? 'working' : 'not-checked'; return (!query || user.name.toLowerCase().includes(query)) && (statusFilter.value === 'all' || statusFilter.value === state); }); const states = users.map((user) => user.records?.[dateKey]?.checkOut ? 'completed' : user.records?.[dateKey]?.checkIn ? 'working' : 'not-checked'); document.querySelector('[data-admin-total]').textContent = users.length; document.querySelector('[data-admin-checked-in]').textContent = states.filter((s) => s !== 'not-checked').length; document.querySelector('[data-admin-completed]').textContent = states.filter((s) => s === 'completed').length; document.querySelector('[data-admin-not-checked]').textContent = states.filter((s) => s === 'not-checked').length; const headers = Array.from({ length: days }, (_, i) => { const date = new Date(year, month, i + 1); return `<th><span>${i + 1}</span><small>${date.toLocaleDateString('vi-VN', { weekday: 'short' }).replace('.', '')}</small></th>`; }).join(''); const rows = filtered.map((user, i) => { const cells = Array.from({ length: days }, (_, day) => { const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day + 1).padStart(2, '0')}`; const date = new Date(year, month, day + 1); const record = user.records?.[key]; const counted = record?.checkIn && (record.checkOut || record.halfDayApproved); const isToday = key === new Date().toLocaleDateString('sv-SE'); const pendingOut = record?.checkIn && !counted; const mark = counted ? 'X' : pendingOut ? (isToday ? '…' : '!') : date > new Date() ? '' : date.getDay() === 0 || date.getDay() === 6 ? 'CN' : 'K'; const type = counted ? 'present' : pendingOut ? (isToday ? 'working' : 'no-checkout') : mark === 'CN' ? 'weekend' : mark ? 'absent' : 'future'; return `<td class="attendance-day attendance-day-${type}">${mark}</td>`; }).join(''); const total = Object.values(user.records || {}).filter((record) => record.checkIn && (record.checkOut || record.halfDayApproved) && record.date?.startsWith(monthSelect.value)).length; return `<tr><td class="attendance-index">${i + 1}</td><td class="attendance-person"><strong>${user.name}</strong></td>${cells}<td class="attendance-total">${total}</td></tr>`; }).join(''); list.innerHTML = `<thead><tr><th class="attendance-index">STT</th><th class="attendance-person">Nhân viên</th>${headers}<th class="attendance-total">Tổng ngày</th></tr></thead><tbody>${rows || '<tr><td colspan="100">Không tìm thấy nhân viên phù hợp.</td></tr>'}</tbody>`; }
 async function load() {
 	const requestedMonth = reportMode === 'late' ? monthSelect.value.slice(0, 7) : monthSelect.value;
-	const response = await fetch(`/api/attendance-overview?month=${requestedMonth}&report=${reportMode || 'overview'}`, { cache: 'no-store' });
+	const period = reportMode === 'online' ? `from=${onlineFilter.from}&to=${onlineFilter.to}` : `month=${requestedMonth}`;
+	const response = await fetch(`/api/attendance-overview?${period}&report=${reportMode || 'overview'}`, { cache: 'no-store' });
 	if (!response.ok) throw new Error('Bạn không có quyền xem tổng quan nhân sự.');
 	const overviewData = await response.json();
 	users = overviewData.users || [];

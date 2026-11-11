@@ -2031,13 +2031,17 @@ function serveAttendanceOverview(req, res) {
   if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   const month = /^\d{4}-\d{2}$/.test(requestUrl.searchParams.get("month") || "") ? requestUrl.searchParams.get("month") : getLocalDateKey().slice(0, 7);
+  // The online report can ask for any day range (up to a year) instead of a whole month.
+  const from = requestUrl.searchParams.get("from") || "";
+  const to = requestUrl.searchParams.get("to") || "";
+  const range = /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) && from <= to && Date.parse(to) - Date.parse(from) <= 366 * 86400000 ? { from, to } : null;
   const attendance = getAttendance();
   const overview = [...users.values()].filter((user) => user.status === "active").map((user) => ({
     id: user.id,
     name: user.name || user.email,
     email: user.email,
     picture: user.picture || "",
-    records: Object.fromEntries(Object.entries(attendance[user.id] || {}).filter(([date]) => date.startsWith(month))),
+    records: Object.fromEntries(Object.entries(attendance[user.id] || {}).filter(([date]) => (range ? date >= range.from && date <= range.to : date.startsWith(month)))),
   }));
   const proposals = getProposals();
   const lateProposalReviews = proposals
