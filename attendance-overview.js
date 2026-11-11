@@ -230,7 +230,7 @@ function renderOnlineReport() {
 		const longitude = Number(proof?.longitude);
 		const mapLink = Number.isFinite(latitude) && Number.isFinite(longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : '';
 		const photo = proof?.photoData
-			? `<img class="online-report-photo" src="${escapeReportText(proof.photoData)}" alt="Ảnh nơi làm việc của ${name}" loading="lazy">`
+			? `<button type="button" class="online-report-photo-button" data-photo-caption="${name} · ${formatDay(record.date)}" aria-label="Xem ảnh lớn của ${name}"><img class="online-report-photo" src="${escapeReportText(proof.photoData)}" alt="Ảnh nơi làm việc của ${name}" loading="lazy"><span class="online-report-zoom" aria-hidden="true">⤢</span></button>`
 			: '<div class="online-report-photo is-empty"><span aria-hidden="true">▢</span>Chưa có ảnh nơi làm việc</div>';
 		const location = mapLink
 			? `<a class="online-report-location" href="${mapLink}" target="_blank" rel="noopener"><span aria-hidden="true">⌖</span>Xem vị trí</a>`
@@ -243,6 +243,38 @@ function renderOnlineReport() {
 	}).join('');
 	lateReport.innerHTML = `<div class="online-report-head"><strong>Tháng ${Number(month)}/${year}</strong><span class="online-report-stats"><span><b>${onlineEntries.length}</b> lượt online</span><span><b>${people}</b> nhân sự</span><span><b>${withPhoto}</b> có ảnh</span></span></div><div class="online-report-grid">${cards}</div>`;
 }
+
+const photoViewer = document.createElement('div');
+photoViewer.className = 'online-photo-viewer';
+photoViewer.hidden = true;
+photoViewer.setAttribute('role', 'dialog');
+photoViewer.setAttribute('aria-modal', 'true');
+photoViewer.setAttribute('aria-label', 'Ảnh nơi làm việc');
+photoViewer.innerHTML = '<button type="button" class="online-photo-viewer-close" aria-label="Đóng">×</button><figure><img alt=""><figcaption></figcaption></figure>';
+document.body.append(photoViewer);
+let photoViewerOpener = null;
+function closePhotoViewer() {
+	if (photoViewer.hidden) return;
+	photoViewer.hidden = true;
+	photoViewer.querySelector('img').removeAttribute('src');
+	document.body.classList.remove('has-photo-viewer');
+	photoViewerOpener?.focus();
+}
+lateReport.addEventListener('click', (event) => {
+	const button = event.target.closest('.online-report-photo-button');
+	if (!button) return;
+	const image = button.querySelector('img');
+	photoViewer.querySelector('img').src = image.src;
+	photoViewer.querySelector('img').alt = image.alt;
+	photoViewer.querySelector('figcaption').textContent = button.dataset.photoCaption || '';
+	photoViewerOpener = button;
+	photoViewer.hidden = false;
+	document.body.classList.add('has-photo-viewer');
+	photoViewer.querySelector('.online-photo-viewer-close').focus();
+});
+// Clicking anywhere except the photo itself closes the viewer.
+photoViewer.addEventListener('click', (event) => { if (event.target.tagName !== 'IMG') closePhotoViewer(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePhotoViewer(); });
 
 const reportMode = new URLSearchParams(window.location.search).get('report');
 if (!reportMode) {

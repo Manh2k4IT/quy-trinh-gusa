@@ -817,3 +817,18 @@ body[data-theme="dark"] .online-report-stats span { color: #8fdbe2; background: 
 	.online-report-card header { padding: .55rem .6rem; }
 	.online-report-card footer { flex-wrap: wrap; padding: .5rem .6rem; }
 }
+
+/* Online report photo viewer. */
+.online-report-photo-button { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.online-report-photo-button:focus-visible { outline: 3px solid var(--navy); outline-offset: -3px; }
+.online-report-zoom { position: absolute; right: .5rem; bottom: .5rem; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .55); font-size: .85rem; opacity: 0; transition: opacity 160ms ease; }
+.online-report-photo-button:hover .online-report-zoom, .online-report-photo-button:focus-visible .online-report-zoom { opacity: 1; }
+@media (hover: none) { .online-report-zoom { opacity: 1; } }
+.online-photo-viewer { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 3.5rem 1rem 1.5rem; background: rgba(10, 15, 25, .88); cursor: zoom-out; }
+.online-photo-viewer[hidden] { display: none; }
+.online-photo-viewer figure { display: grid; justify-items: center; gap: .6rem; max-width: 100%; max-height: 100%; margin: 0; }
+.online-photo-viewer img { display: block; max-width: min(1100px, 100%); max-height: calc(100vh - 7rem); object-fit: contain; border-radius: 10px; box-shadow: 0 20px 50px rgba(0, 0, 0, .45); cursor: default; }
+.online-photo-viewer figcaption { color: #e5e9f0; font-size: .8rem; text-align: center; }
+.online-photo-viewer-close { position: fixed; top: .9rem; right: 1rem; display: grid; width: 40px; height: 40px; place-items: center; border: 0; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .14); font-size: 1.6rem; line-height: 1; cursor: pointer; }
+.online-photo-viewer-close:hover { background: rgba(255, 255, 255, .26); }
+body.has-photo-viewer { overflow: hidden; }
