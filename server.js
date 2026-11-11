@@ -801,7 +801,7 @@ function applyApprovedLeaveToAttendance(proposal) {
     fs.writeFileSync(attendancePath, JSON.stringify(attendance, null, 2));
     return;
   }
-  if (!["leave", "unauthorized-leave"].includes(proposal.type)) return;
+  if (!["leave", "unauthorized-leave", "other"].includes(proposal.type)) return;
   const startDate = proposal.dateFrom || proposal.date;
   const endDate = proposal.dateTo || proposal.date || startDate;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate || "") || !/^\d{4}-\d{2}-\d{2}$/.test(endDate || "") || endDate < startDate) return;
@@ -814,6 +814,8 @@ function applyApprovedLeaveToAttendance(proposal) {
     const record = records[date] || { date };
     record.date = date;
     record.status = proposal.type;
+    if (proposal.type === "other" && proposal.subject) record.otherSubject = proposal.subject;
+    else delete record.otherSubject;
     delete record.checkIn;
     delete record.checkOut;
     delete record.workMode;
@@ -958,7 +960,7 @@ async function serveProposalDocument(req, res) {
   const proposal = getProposals().find((item) => item.id === id);
   if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
   if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && (canViewPaymentProposal(currentUser, proposal) || isAccountingTeamProposal(proposal)))) return send(res, 403, "Forbidden");
-  if (!["late", "early-leave", "half-day", "leave", "unauthorized-leave", "payment"].includes(proposal.type)) return send(res, 400, "Loại đề xuất này chưa hỗ trợ tải đơn.");
+  if (!["late", "early-leave", "half-day", "leave", "unauthorized-leave", "other", "payment"].includes(proposal.type)) return send(res, 400, "Loại đề xuất này chưa hỗ trợ tải đơn.");
   const saved = { ...proposal, userName: proposal.userName || users.get(proposal.userId)?.name || "Nhân viên" };
   const format = url.searchParams.get("format");
   if (format === "html") {
@@ -1234,7 +1236,11 @@ async function sendProposalCreatedPush(proposal) {
   console.log(`Proposal-created push processed for ${devices.length} reviewer devices.`);
 }
 
-const proposalTypeLabels = { late: "đi trễ", "early-leave": "về sớm", "half-day": "nghỉ nửa ngày", leave: "nghỉ phép", "unauthorized-leave": "nghỉ không phép", payment: "thanh toán" };
+const proposalTypeLabels = { late: "đi trễ", "early-leave": "về sớm", "half-day": "nghỉ nửa ngày", leave: "nghỉ phép", "unauthorized-leave": "nghỉ không phép", other: "khác", payment: "thanh toán" };
+// "Other" proposals carry their own name (e.g. "Đi công tác"), which reads better than the generic label.
+function proposalTypeName(proposal, labels) {
+  return proposal.type === "other" && proposal.subject ? proposal.subject : labels[proposal.type] || proposal.type || "";
+}
 
 // Thông báo trên chuông: việc đang chờ chính người dùng và kết quả đề xuất của họ.
 // Company-wide announcements: every active user reads them, Admin/CEO post and delete them.
@@ -1582,7 +1588,7 @@ function serveNotifications(req, res) {
     time: proposal.updatedAt || proposal.createdAt || null,
     kind: "action",
     title: proposal.type === "payment" ? "Đề xuất thanh toán chờ duyệt" : "Đề xuất chờ duyệt",
-    text: `${proposal.userName || "Nhân viên"} gửi đề xuất ${proposalTypeLabels[proposal.type] || ""}.`,
+    text: `${proposal.userName || "Nhân viên"} gửi đề xuất ${proposalTypeName(proposal, proposalTypeLabels)}.`,
     url: `/proposal-report.html?proposalId=${encodeURIComponent(proposal.id)}${proposal.type === "payment" ? "&type=payment" : ""}`,
   }));
   const newApplications = recruitment.newApplicationsFor(currentUser);
@@ -1605,7 +1611,7 @@ function serveNotifications(req, res) {
       time: proposal.reviewedAt || proposal.accountingConfirmedAt || null,
       kind: "update",
       title: proposal.status === "approved" ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối",
-      text: `Đề xuất ${proposalTypeLabels[proposal.type] || ""}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
+      text: `Đề xuất ${proposalTypeName(proposal, proposalTypeLabels)}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
       url: proposal.type === "payment" ? "/payment-proposal.html" : "/proposals.html",
     }));
   items.push(...workReports.notificationsFor(currentUser));
@@ -1646,10 +1652,10 @@ function getProposalZaloMessage(proposal, { outcome = false, managementApproval 
     return `Đề xuất ${subject} của bạn ${decision}.${reason} Xem trên Gusa: ${url}`;
   }
   const date = proposal.dateFrom && proposal.dateTo ? `${proposal.dateFrom} đến ${proposal.dateTo}` : proposal.date || "";
-  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", other: "Khác", payment: "Thanh toán" };
   const periodLabels = { "half-day-morning": "buổi sáng", "half-day-afternoon": "buổi chiều" };
   const details = [
-    `Loại: ${typeLabels[proposal.type] || proposal.type}`,
+    `Loại: ${proposalTypeName(proposal, typeLabels)}`,
     date && `Ngày: ${date}`,
     proposal.time && `Giờ: ${proposal.time}`,
     periodLabels[proposal.attendanceType] && `Buổi: ${periodLabels[proposal.attendanceType]}`,
@@ -1793,8 +1799,8 @@ setInterval(() => { workReports.sendReminders().catch((error) => console.error("
 const productionOrders = createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey: getAttendanceUserKey, sendJson, send, notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
 
 async function sendZaloApprovedToGroup(proposal) {
-  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
-  const text = `Đề xuất ${typeLabels[proposal.type] || proposal.type} của ${proposal.userName || "nhân viên"} đã được duyệt.\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", other: "Khác", payment: "Thanh toán" };
+  const text = `Đề xuất ${proposalTypeName(proposal, typeLabels)} của ${proposal.userName || "nhân viên"} đã được duyệt.\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
   try {
     console.log(`Zalo approved group: sending proposal ${proposal.id} (rss ${Math.round(process.memoryUsage().rss / 1048576)}MB).`);
     if (await zaloClient.sendGroupMessage(text, { kind: "approved" })) {
@@ -1834,9 +1840,9 @@ async function resendProposalZalo(req, res, proposalId) {
 
 // Tells the group where the proposal was posted that it was rejected, with the reason.
 async function sendZaloRejectedToGroup(proposal) {
-  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", other: "Khác", payment: "Thanh toán" };
   const reason = String(proposal.rejectionReason || "").trim().slice(0, 500);
-  const text = `Đề xuất ${typeLabels[proposal.type] || proposal.type} của ${proposal.userName || "nhân viên"} đã bị từ chối.${reason ? `\nLý do: ${reason}` : ""}\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
+  const text = `Đề xuất ${proposalTypeName(proposal, typeLabels)} của ${proposal.userName || "nhân viên"} đã bị từ chối.${reason ? `\nLý do: ${reason}` : ""}\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
   try {
     await zaloClient.sendGroupMessage(text, { kind: proposal.type === "payment" ? "payment" : "general" });
   } catch (error) {
@@ -1955,7 +1961,7 @@ async function createProposal(req, res) {
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
-  const allowedTypes = ["late", "early-leave", "half-day", "leave", "unauthorized-leave", "payment"];
+  const allowedTypes = ["late", "early-leave", "half-day", "leave", "unauthorized-leave", "other", "payment"];
   const type = String(payload.type || "");
   const signatureData = typeof payload.signatureData === "string" ? payload.signatureData : "";
   const signatureName = typeof payload.signatureName === "string" ? payload.signatureName.trim() : "";
@@ -1972,6 +1978,7 @@ async function createProposal(req, res) {
   const dateTo = String(payload.dateTo || "");
   const time = String(payload.time || "");
   const halfDayPeriod = String(payload.halfDayPeriod || "");
+  const subject = type === "other" ? String(payload.subject || "").trim().slice(0, 150) : "";
   let paymentTemplateFields = {};
   if (type === "payment" && (Object.hasOwn(payload, "paymentItems") || Object.hasOwn(payload, "paymentTemplateVersion"))) {
     try {
@@ -1986,20 +1993,21 @@ async function createProposal(req, res) {
   const paymentFileName = String(payload.paymentFileName || "").trim().slice(0, 180);
   const paymentFileType = String(payload.paymentFileType || "").trim().slice(0, 120);
   const paymentFileData = typeof payload.paymentFileData === "string" ? payload.paymentFileData : "";
-  const multipleLeave = ["leave", "unauthorized-leave"].includes(type) && dateFrom && dateTo;
+  const multipleLeave = ["leave", "unauthorized-leave", "other"].includes(type) && dateFrom && dateTo;
   const hasLateProof = type === "late" && typeof payload.latePhotoData === "string" && payload.latePhotoData.startsWith("data:image/") && payload.latePhotoData.length <= 7 * 1024 * 1024 && Number.isFinite(Number(payload.latitude)) && Number.isFinite(Number(payload.longitude));
   const validPayment = type === "payment" && category && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0;
   const validPaymentFile = type === "payment" && ((!paymentFileName && !paymentFileData) || (paymentFileName && paymentFileData.startsWith("data:") && paymentFileData.length <= 9.5 * 1024 * 1024));
+  if (type === "other" && !subject) return send(res, 400, "Vui lòng nhập tên đề xuất (ví dụ: Đi công tác).");
   if (type === "half-day" && !["half-day-morning", "half-day-afternoon"].includes(halfDayPeriod)) return send(res, 400, "Vui lòng chọn buổi sáng hoặc buổi chiều.");
   if (type === "late" && !/^\d{2}:\d{2}$/.test(time)) return send(res, 400, "Vui lòng nhập giờ dự kiến đến công ty.");
   if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || !reason || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Đề xuất đi trễ cần có ảnh và vị trí xác nhận." : "Vui lòng nhập đầy đủ thông tin đề xuất.");
   const paymentFlow = payload.paymentFlow === "accountant" ? "accountant" : "ceo";
-  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData, ...paymentTemplateFields } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
+  const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod } : {}), ...(type === "other" ? { subject } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData, ...paymentTemplateFields } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
   const proposals = getProposals();
   // A double tap or a network retry must not create a second proposal (and a second Zalo message).
   const duplicate = proposals.find((item) => item.userId === proposal.userId && item.status === "pending" && item.type === proposal.type
     && item.date === proposal.date && (item.dateTo || "") === (proposal.dateTo || "") && (item.time || "") === (proposal.time || "")
-    && item.reason === proposal.reason && String(item.amount ?? "") === String(proposal.amount ?? "")
+    && item.reason === proposal.reason && (item.subject || "") === (proposal.subject || "") && String(item.amount ?? "") === String(proposal.amount ?? "")
     && Date.now() - Date.parse(item.createdAt) < 2 * 60 * 1000);
   if (duplicate) {
     console.warn(`Duplicate proposal submission ignored for proposal ${duplicate.id}.`);
@@ -2144,10 +2152,12 @@ async function updateAttendanceOverviewStatus(req, res) {
   const userId = String(payload.userId || "");
   const date = String(payload.date || "");
   const status = String(payload.status || "");
-  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !["absent", "present", "half-day", "working", "leave", "unauthorized-leave", "online"].includes(status)) return send(res, 400, "Dữ liệu trạng thái không hợp lệ");
+  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !["absent", "present", "half-day", "working", "leave", "unauthorized-leave", "other", "online"].includes(status)) return send(res, 400, "Dữ liệu trạng thái không hợp lệ");
   const attendance = getAttendance();
   const records = attendance[userId] || {};
   const record = records[date] || { date };
+  // The proposal name only belongs to a day an approved "other" proposal marked.
+  if (status !== "other" || record.status !== "other") delete record.otherSubject;
   // A day marked as worked counts only once it has both times; missing ones take the shift's start and end (Vietnam time).
   const completeByAdmin = () => {
     const shift = getAttendanceShift(record.site, record.attendanceType);

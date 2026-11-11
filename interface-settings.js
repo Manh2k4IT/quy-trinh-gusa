@@ -239,7 +239,7 @@ if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voices
   const resendSelect = section.querySelector("[data-zalo-resend-select]");
   const resendButton = section.querySelector("[data-zalo-resend-submit]");
   const resendFeedback = section.querySelector("[data-zalo-resend-feedback]");
-  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", payment: "Thanh toán" };
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", other: "Khác", payment: "Thanh toán" };
   const statusLabel = (item) => item.status === "approved" ? "Đã duyệt" : item.paymentStage === "accounting" ? "Chờ kế toán" : "Chờ duyệt";
   const loadResendCandidates = async () => {
     const response = await fetch("/api/zalo/resend-candidates", { cache: "no-store" });

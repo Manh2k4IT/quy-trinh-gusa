@@ -13,6 +13,10 @@ const dateFromInput = form.querySelector('[name="dateFrom"]');
 const dateToInput = form.querySelector('[name="dateTo"]');
 const timeField = form.querySelector('[data-proposal-time]');
 const timeInput = form.querySelector('[name="time"]');
+const subjectField = form.querySelector('[data-proposal-subject]');
+const subjectInput = form.querySelector('[name="subject"]');
+// Types that can span one day or several consecutive days.
+const multiDayTypes = ['leave', 'unauthorized-leave', 'other'];
 const halfDayPeriodField = document.createElement('fieldset');
 halfDayPeriodField.className = 'proposal-half-day-period';
 halfDayPeriodField.dataset.halfDayPeriod = '';
@@ -64,12 +68,19 @@ function isProposalExpired(proposal) {
 }
 
 function updateDurationFields() {
-  const isLeave = ['leave', 'unauthorized-leave'].includes(typeInput.value);
+  const isLeave = multiDayTypes.includes(typeInput.value);
+  const isOther = typeInput.value === 'other';
   const isHalfDay = typeInput.value === 'half-day';
   const isMultiple = form.querySelector('input[name="duration"]:checked')?.value === 'multiple';
-  const dateLabels = { late: 'Ngày áp dụng đi trễ', 'early-leave': 'Ngày áp dụng về sớm', 'half-day': 'Ngày làm 1/2 ngày', leave: 'Ngày nghỉ', 'unauthorized-leave': 'Ngày nghỉ' };
+  const dateLabels = { late: 'Ngày áp dụng đi trễ', 'early-leave': 'Ngày áp dụng về sớm', 'half-day': 'Ngày làm 1/2 ngày', leave: 'Ngày nghỉ', 'unauthorized-leave': 'Ngày nghỉ', other: 'Ngày áp dụng' };
   singleDateField.firstChild.textContent = dateLabels[typeInput.value] || 'Ngày áp dụng';
   durationChoice.hidden = !isLeave;
+  durationChoice.querySelector('legend').textContent = isOther ? 'Thời gian áp dụng' : 'Thời gian nghỉ';
+  const [singleChoice, multipleChoice] = durationChoice.querySelectorAll('label');
+  singleChoice.lastChild.textContent = isOther ? ' 1 ngày' : ' Nghỉ 1 ngày';
+  multipleChoice.lastChild.textContent = isOther ? ' Nhiều ngày' : ' Nghỉ nhiều ngày';
+  subjectField.hidden = !isOther;
+  subjectInput.required = isOther;
   dateRange.hidden = !isLeave || !isMultiple;
   singleDateField.hidden = isLeave && isMultiple;
   dateInput.required = !isLeave || !isMultiple;
@@ -97,6 +108,7 @@ const typeLabels = {
   'half-day': 'Đề xuất làm 1/2 ngày',
   leave: 'Đề xuất nghỉ phép',
   'unauthorized-leave': 'Đề xuất nghỉ không phép',
+  other: 'Đề xuất khác',
 };
 const proposalStatusLabels = { pending: 'Đang chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', canceled: 'Đã hủy' };
 const attendancePeriodLabels = { 'half-day-morning': 'Nửa buổi sáng', 'half-day-afternoon': 'Nửa buổi chiều' };
@@ -148,7 +160,8 @@ form.addEventListener('submit', async (event) => {
     payload.latitude = lateLocation.latitude;
     payload.longitude = lateLocation.longitude;
   }
-  if (['leave', 'unauthorized-leave'].includes(payload.type) && payload.duration === 'multiple') {
+  if (payload.type !== 'other') delete payload.subject;
+  if (multiDayTypes.includes(payload.type) && payload.duration === 'multiple') {
     payload.date = payload.dateFrom;
   } else {
     delete payload.dateFrom;
@@ -184,7 +197,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       form.hidden = true;
       detail.hidden = false;
       detail.innerHTML = typedProposals.length
-        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong><span>Ngày áp dụng: ${formatProposalDate(proposal.date)}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}${proposal.signatureData ? `<img class="proposal-saved-signature" src="${escapeHtml(proposal.signatureData)}" alt="Chữ ký người đề xuất" />` : ''}</article>`).join('')
+        ? typedProposals.map((proposal) => `<article class="proposal-detail-item"><strong class="proposal-detail-status is-${proposal.status}">${proposalStatusLabels[proposal.status] || proposal.status}</strong>${proposal.subject ? `<span>Nội dung: ${escapeHtml(proposal.subject)}</span>` : ''}<span>Ngày áp dụng: ${proposal.dateFrom && proposal.dateTo ? `${formatProposalDate(proposal.dateFrom)} đến ${formatProposalDate(proposal.dateTo)}` : formatProposalDate(proposal.date)}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason || 'Không có lý do'}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}${proposal.signatureData ? `<img class="proposal-saved-signature" src="${escapeHtml(proposal.signatureData)}" alt="Chữ ký người đề xuất" />` : ''}</article>`).join('')
         : '<p>Chưa có đề xuất nào.</p>';
       modal.hidden = false;
       detail.querySelectorAll('.proposal-detail-item').forEach((item, index) => {
@@ -212,7 +225,7 @@ document.querySelectorAll('[data-open-proposal]').forEach((button) => {
       const dateText = proposal.dateFrom && proposal.dateTo ? `${formatProposalDate(proposal.dateFrom)} đến ${formatProposalDate(proposal.dateTo)}` : formatProposalDate(proposal.date);
       const statusText = proposal.status === 'approved' ? 'Đề xuất của bạn đã được duyệt' : proposal.status === 'rejected' ? 'Đề xuất của bạn đã bị từ chối' : 'Đề xuất đã được gửi đi';
       const statusClass = proposal.status === 'approved' ? 'is-approved' : proposal.status === 'rejected' ? 'is-rejected' : '';
-      detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong><span>Ngày áp dụng: ${dateText}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}`;
+      detail.innerHTML = `<strong class="proposal-detail-status ${statusClass}">${statusText}</strong>${proposal.subject ? `<span>Nội dung: ${escapeHtml(proposal.subject)}</span>` : ''}<span>Ngày áp dụng: ${dateText}</span>${attendancePeriodLabels[proposal.attendanceType] ? `<span>Buổi làm việc: ${attendancePeriodLabels[proposal.attendanceType]}</span>` : ''}${proposal.time ? `<span>Thời gian: ${proposal.time}</span>` : ''}<span>Lý do: ${proposal.reason}</span>${proposal.rejectionReason ? `<span class="proposal-rejection-reason"><b>Lý do từ chối:</b> ${escapeHtml(proposal.rejectionReason)}</span>` : ''}`;
       if (proposal.signatureData) {
         const signature = document.createElement('img');
         signature.className = 'proposal-saved-signature';

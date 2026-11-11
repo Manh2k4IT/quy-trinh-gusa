@@ -10,6 +10,7 @@ const categories = {
   'early-leave': { title: 'Về sớm', description: 'Xin kết thúc ca làm sớm và ghi rõ thời gian dự kiến.', icon: '<path d="M14 5h5v14h-5M4 12h11m-4-4 4 4-4 4"/>' },
   'half-day': { title: 'Làm nửa ngày', description: 'Chọn làm buổi sáng hoặc buổi chiều trong ngày.', icon: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M12 8h5M12 12h7M12 16h5"/>' },
   leave: { title: 'Nghỉ phép', description: 'Đăng ký nghỉ một ngày hoặc nhiều ngày liên tiếp.', icon: '<rect x="4" y="6" width="16" height="14" rx="2"/><path d="M8 3v6m8-6v6M4 11h16m-12 4 2 2 4-4"/>' },
+  other: { title: 'Đề xuất khác', description: 'Đi công tác, làm việc ngoài văn phòng hoặc các đề xuất khác.', icon: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>' },
   'unauthorized-leave': { title: 'Nghỉ không phép', description: 'Giải trình lý do khi không thể đăng ký nghỉ phép.', icon: '<path d="m12 3 10 17H2L12 3Zm0 6v4m0 3v1"/>' },
 };
 document.querySelectorAll('.proposal-hero').forEach((card) => {
@@ -89,7 +90,7 @@ window.syncProposalDocument = function () {
   modal.querySelector('.proposal-modal-card').classList.toggle('is-composing', !form.hidden);
   if (form.hidden || modal.hidden) return;
   const fields = Object.fromEntries(new FormData(form));
-  dateToInput.setCustomValidity(['leave', 'unauthorized-leave'].includes(fields.type) && fields.duration === 'multiple' && fields.dateFrom && fields.dateTo && fields.dateTo < fields.dateFrom
+  dateToInput.setCustomValidity(['leave', 'unauthorized-leave', 'other'].includes(fields.type) && fields.duration === 'multiple' && fields.dateFrom && fields.dateTo && fields.dateTo < fields.dateFrom
     ? 'Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.' : '');
   const nextDocument = window.GusaProposalDocument.render(fields, documentEmployee);
   if (nextDocument === renderedDocument) return;

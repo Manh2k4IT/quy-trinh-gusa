@@ -70,7 +70,7 @@ const accountantRejectModal = document.querySelector('[data-accountant-reject-mo
 const accountantRejectForm = document.querySelector('[data-accountant-reject-form]');
 const accountantRejectReason = document.querySelector('[data-accountant-reject-reason]');
 const accountantRejectError = document.querySelector('[data-accountant-reject-error]');
-const labels = { late: 'Đề xuất đi trễ', 'early-leave': 'Đề xuất về sớm', 'half-day': 'Đề xuất làm 1/2 ngày', leave: 'Đề xuất nghỉ phép', 'unauthorized-leave': 'Đề xuất nghỉ không phép', payment: 'Đề xuất thanh toán' };
+const labels = { late: 'Đề xuất đi trễ', 'early-leave': 'Đề xuất về sớm', 'half-day': 'Đề xuất làm 1/2 ngày', leave: 'Đề xuất nghỉ phép', 'unauthorized-leave': 'Đề xuất nghỉ không phép', other: 'Đề xuất khác', payment: 'Đề xuất thanh toán' };
 const statusLabels = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', canceled: 'Đã hủy bởi nhân viên' };
 const detailModal = document.querySelector('[data-report-detail-modal]');
 const detailAvatar = document.querySelector('[data-detail-avatar]');
@@ -215,7 +215,7 @@ function openProposalDetail(proposalId) {
   if (!proposal) return;
   window.markNotificationSeen?.(`review-${proposalId}`);
 
-  detailType.textContent = labels[proposal.type] || 'Đề xuất khác';
+  detailType.textContent = proposal.type === 'other' && proposal.subject ? `Đề xuất: ${proposal.subject}` : labels[proposal.type] || 'Đề xuất khác';
   detailName.textContent = proposal.userName || 'Nhân viên';
   detailEmail.textContent = proposal.userEmail || '';
   detailAvatar.replaceChildren();
@@ -239,6 +239,7 @@ function openProposalDetail(proposalId) {
   detailFields.after(savedDocumentActions);
   window.GusaSavedProposalDocument?.addActions(savedDocumentActions, proposal);
   appendDetailField('Trạng thái', statusLabels[proposal.status] || proposal.status);
+  if (proposal.subject) appendDetailField('Nội dung đề xuất', proposal.subject);
   appendDetailField(proposal.type === 'payment' ? 'Ngày đề xuất' : 'Ngày áp dụng', dateText(proposal));
   appendDetailField('Giờ đề xuất', proposal.time);
   appendDetailField('Thời điểm gửi', proposal.createdAt ? new Date(proposal.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '');
@@ -295,12 +296,14 @@ function render() {
     const matchesProposal = !requestedProposalId || proposal.id === requestedProposalId;
     const matchesPaymentFlow = !isPaymentReport || (proposal.paymentFlow || 'ceo') === selectedPaymentFlow;
     const matchesStatus = filter.value === 'all' || proposal.status === filter.value;
-    const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''}`.toLowerCase().includes(query);
+    const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''} ${proposal.subject || ''}`.toLowerCase().includes(query);
     return matchesDay && matchesType && matchesProposal && matchesPaymentFlow && matchesStatus && matchesSearch;
   }).sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date));
   list.innerHTML = visible.length ? visible.map((proposal) => {
     const isPayment = proposal.type === 'payment';
-    const typeLabel = labels[proposal.type] || 'Đề xuất khác';
+    const typeLabel = proposal.type === 'other' && proposal.subject
+      ? `Đề xuất: ${String(proposal.subject).replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`)}`
+      : labels[proposal.type] || 'Đề xuất khác';
     const paymentFlow = proposal.paymentFlow || 'ceo';
     const paymentStage = proposal.paymentStage || (paymentFlow === 'accountant' ? 'accounting' : 'management');
     const statusLabel = isPayment && proposal.status === 'approved'

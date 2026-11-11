@@ -10,6 +10,9 @@ const adminMenuLabel = document.querySelector('[data-admin-menu-label]');
 const list = document.querySelector('[data-attendance-overview]');
 const legend = document.querySelector('.attendance-legend');
 if (legend && !legend.querySelector('.is-unauthorized-leave')) legend.insertAdjacentHTML('beforeend', '<span><i class="legend-dot is-unauthorized-leave"></i>Nghỉ không phép</span>');
+if (legend && !legend.querySelector('.is-other')) legend.insertAdjacentHTML('beforeend', '<span><i class="legend-dot is-other"></i>Đề xuất khác (công tác…)</span>');
+// Statuses an approved proposal (or an admin) sets for the whole day.
+const dayStatuses = ['leave', 'online', 'unauthorized-leave', 'other'];
 const monthSelect = document.querySelector('[data-attendance-month]');
 const search = document.querySelector('[data-admin-search]');
 const statusFilter = document.querySelector('[data-admin-status]');
@@ -64,10 +67,10 @@ const lateReport = document.createElement('div');
 lateReport.className = 'attendance-late-report';
 lateReport.hidden = true;
 document.querySelector('.attendance-overview-table')?.before(lateReport);
-statusFilter.innerHTML = '<option value="all">Tất cả trạng thái</option><option value="absent">Không chấm công</option><option value="present">Đã chấm công</option><option value="half-day">Làm 1/2 ngày</option><option value="leave">Xin nghỉ phép</option><option value="unauthorized-leave">Nghỉ không phép</option><option value="online">Xin làm online</option>';
+statusFilter.innerHTML = '<option value="all">Tất cả trạng thái</option><option value="absent">Không chấm công</option><option value="present">Đã chấm công</option><option value="half-day">Làm 1/2 ngày</option><option value="leave">Xin nghỉ phép</option><option value="unauthorized-leave">Nghỉ không phép</option><option value="other">Đề xuất khác</option><option value="online">Xin làm online</option>';
 
 const adminKpis = document.querySelector('.attendance-admin-kpis');
-if (adminKpis) adminKpis.innerHTML = '<article class="is-warning overview-kpi-absent"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17M9 13l6 6m0-6-6 6"/></svg></span><span>Không chấm công</span><strong data-status-count="absent">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-success overview-kpi-present"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17m1 6.5 2 2 4-4"/></svg></span><span>Đã chấm công</span><strong data-status-count="present">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-half-day overview-kpi-half"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M8 2h8"/></svg></span><span>Làm 1/2 ngày</span><strong data-status-count="half-day">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-leave overview-kpi-leave"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 12 18-8-8 18-2-8-8-2zM11 14l4-4"/></svg></span><span>Xin nghỉ phép</span><strong data-status-count="leave">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-unauthorized overview-kpi-unauthorized"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg></span><span>Nghỉ không phép</span><strong data-status-count="unauthorized-leave">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-online overview-kpi-online"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M2 21h20m-8-4 1 4m-6-4-1 4"/></svg></span><span>Xin làm online</span><strong data-status-count="online">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article>';
+if (adminKpis) adminKpis.innerHTML = '<article class="is-warning overview-kpi-absent"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17M9 13l6 6m0-6-6 6"/></svg></span><span>Không chấm công</span><strong data-status-count="absent">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-success overview-kpi-present"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17m1 6.5 2 2 4-4"/></svg></span><span>Đã chấm công</span><strong data-status-count="present">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-half-day overview-kpi-half"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M8 2h8"/></svg></span><span>Làm 1/2 ngày</span><strong data-status-count="half-day">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-leave overview-kpi-leave"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 12 18-8-8 18-2-8-8-2zM11 14l4-4"/></svg></span><span>Xin nghỉ phép</span><strong data-status-count="leave">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-unauthorized overview-kpi-unauthorized"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg></span><span>Nghỉ không phép</span><strong data-status-count="unauthorized-leave">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-other overview-kpi-other"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg></span><span>Đề xuất khác</span><strong data-status-count="other">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article><article class="is-online overview-kpi-online"><span class="overview-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M2 21h20m-8-4 1 4m-6-4-1 4"/></svg></span><span>Xin làm online</span><strong data-status-count="online">0</strong><span class="overview-kpi-arrow" aria-hidden="true">›</span></article>';
 ['total', 'checked-in', 'completed', 'not-checked'].forEach((name) => { const legacy = document.createElement('span'); legacy.hidden = true; legacy.dataset.admin = name; document.body.append(legacy); });
 document.querySelector('[data-admin="total"]').setAttribute('data-admin-total', '');
 document.querySelector('[data-admin="checked-in"]').setAttribute('data-admin-checked-in', '');
@@ -75,7 +78,7 @@ document.querySelector('[data-admin="completed"]').setAttribute('data-admin-comp
 document.querySelector('[data-admin="not-checked"]').setAttribute('data-admin-not-checked', '');
 
 function updateStatusKpis() {
-	const counts = { absent: 0, present: 0, 'half-day': 0, leave: 0, 'unauthorized-leave': 0, online: 0 };
+	const counts = { absent: 0, present: 0, 'half-day': 0, leave: 0, 'unauthorized-leave': 0, other: 0, online: 0 };
 	const selectedDate = new Date(`${monthSelect.value}-01T00:00:00`);
 	const year = selectedDate.getFullYear();
 	const month = selectedDate.getMonth();
@@ -86,7 +89,7 @@ function updateStatusKpis() {
 		const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`;
 		const record = user.records?.[key];
 		if (record?.workMode === 'online') counts.online += 1;
-		else if (record?.status === 'leave' || record?.status === 'online' || record?.status === 'unauthorized-leave') counts[record.status] += 1;
+		else if (dayStatuses.includes(record?.status)) counts[record.status] += 1;
 		else if (record?.attendanceType === 'half-day-morning' || record?.attendanceType === 'half-day-afternoon') counts['half-day'] += 1;
 		else if (record?.checkIn) counts.present += 1;
 		else counts.absent += 1;
@@ -287,14 +290,14 @@ function applySpecialAttendanceStatuses() {
 		if (!user) return;
 		for (const [date, record] of Object.entries(user.records || {})) {
 			const dateObject = new Date(`${date}T00:00:00`);
-			if (!date.startsWith(monthSelect.value) || (!['leave', 'online', 'unauthorized-leave'].includes(record.status) && record.workMode !== 'online' && !['half-day-morning', 'half-day-afternoon'].includes(record.attendanceType))) continue;
-			if (record.checkIn && !record.checkOut && !record.halfDayApproved && !['leave', 'online', 'unauthorized-leave'].includes(record.status)) continue;
-			if (record.checkIn && record.checkOut && record.workMode === 'online' && !['leave', 'unauthorized-leave'].includes(record.status) && !['half-day-morning', 'half-day-afternoon'].includes(record.attendanceType)) continue;
+			if (!date.startsWith(monthSelect.value) || (!dayStatuses.includes(record.status) && record.workMode !== 'online' && !['half-day-morning', 'half-day-afternoon'].includes(record.attendanceType))) continue;
+			if (record.checkIn && !record.checkOut && !record.halfDayApproved && !dayStatuses.includes(record.status)) continue;
+			if (record.checkIn && record.checkOut && record.workMode === 'online' && !['leave', 'unauthorized-leave', 'other'].includes(record.status) && !['half-day-morning', 'half-day-afternoon'].includes(record.attendanceType)) continue;
 			const cell = row.children[2 + dateObject.getDate() - 1];
 			if (!cell) continue;
 			cell.className = `attendance-day attendance-day-${record.status}`;
 			const statusClass = record.workMode === 'online' ? 'online' : (['half-day-morning', 'half-day-afternoon'].includes(record.attendanceType) ? 'half-day' : record.status);
-			const label = { leave: 'Xin nghỉ phép', online: 'Xin làm online', 'unauthorized-leave': 'Nghỉ không phép', 'half-day': 'Làm 1/2 ngày' }[statusClass];
+			const label = escapeReportText(statusClass === 'other' && record.otherSubject ? `Đề xuất khác: ${record.otherSubject}` : { leave: 'Xin nghỉ phép', online: 'Xin làm online', 'unauthorized-leave': 'Nghỉ không phép', other: 'Đề xuất khác', 'half-day': 'Làm 1/2 ngày' }[statusClass]);
 			cell.className = `attendance-day attendance-day-${statusClass}`;
 			cell.innerHTML = `<span class="attendance-status-dot" title="${label}" aria-label="${label}"></span>`;
 		}
@@ -311,6 +314,7 @@ function addStatusCountColumns() {
 		['attendance-count-half-day', '1/2 ngày', 'half-day'],
 		['attendance-count-leave', 'Nghỉ phép', 'leave'],
 		['attendance-count-unauthorized', 'Nghỉ KP', 'unauthorized'],
+		['attendance-count-other', 'Đề xuất khác', 'other'],
 		['attendance-count-online', 'Online', 'online'],
 	];
 	const totalHeader = header.querySelector('.attendance-total');
@@ -329,10 +333,11 @@ function addStatusCountColumns() {
 			'half-day': dayCells.filter((cell) => cell.classList.contains('attendance-day-half-day')).length,
 			leave: dayCells.filter((cell) => cell.classList.contains('attendance-day-leave')).length,
 			unauthorized: dayCells.filter((cell) => cell.classList.contains('attendance-day-unauthorized-leave')).length,
+			other: dayCells.filter((cell) => cell.classList.contains('attendance-day-other')).length,
 			online: dayCells.filter((cell) => cell.classList.contains('attendance-day-online')).length,
 		};
 		const totalCell = row.querySelector('.attendance-total');
-		const totalWorkdays = counts.present + counts['half-day'] * 0.5 + counts.leave + counts.unauthorized + counts.online;
+		const totalWorkdays = counts.present + counts['half-day'] * 0.5 + counts.leave + counts.unauthorized + counts.other + counts.online;
 		if (totalCell) totalCell.textContent = totalWorkdays.toLocaleString('vi-VN', { maximumFractionDigits: 1 });
 		labels.forEach(([className, key, countKey]) => {
 			const cell = document.createElement('td');
@@ -361,7 +366,7 @@ function openStatusPicker(cell, user, date, current) {
 	activeStatusPicker?.remove();
 	const picker = document.createElement('div');
 	picker.className = 'attendance-status-picker';
-	const options = [['absent', 'Không công'], ['present', 'Đã công'], ['working', 'Đang làm việc (chưa check-out)'], ['half-day', 'Làm 1/2 ngày'], ['leave', 'Nghỉ phép'], ['unauthorized-leave', 'Nghỉ KP'], ['online', 'Online']];
+	const options = [['absent', 'Không công'], ['present', 'Đã công'], ['working', 'Đang làm việc (chưa check-out)'], ['half-day', 'Làm 1/2 ngày'], ['leave', 'Nghỉ phép'], ['unauthorized-leave', 'Nghỉ KP'], ['other', 'Đề xuất khác'], ['online', 'Online']];
 	picker.innerHTML = options.map(([value, label]) => `<button type="button" data-status-value="${value}"><i class="legend-dot is-pick-${value}" aria-hidden="true"></i>${label}</button>`).join('');
 	document.body.append(picker);
 	const box = cell.getBoundingClientRect();
@@ -389,7 +394,7 @@ function bindStatusEditing() {
 		row.querySelectorAll('.attendance-day').forEach((cell, dayIndex) => {
 			const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayIndex + 1).padStart(2, '0')}`;
 			const record = user.records?.[date];
-			const current = record?.workMode === 'online' ? 'online' : ['half-day-morning', 'half-day-afternoon'].includes(record?.attendanceType) ? 'half-day' : record?.status === 'leave' || record?.status === 'online' || record?.status === 'unauthorized-leave' ? record.status : record?.checkIn ? 'present' : 'absent';
+			const current = record?.workMode === 'online' ? 'online' : ['half-day-morning', 'half-day-afternoon'].includes(record?.attendanceType) ? 'half-day' : dayStatuses.includes(record?.status) ? record.status : record?.checkIn ? 'present' : 'absent';
 			cell.classList.add('attendance-status-editable');
 			cell.setAttribute('title', 'Bấm để đổi trạng thái');
 			cell.addEventListener('click', () => openStatusPicker(cell, user, date, current), { once: true });
@@ -443,7 +448,7 @@ if (reportMode === 'late') {
 	}
 	monthSelect.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
-function rerenderOverview() { const selected = statusFilter.value; const selectedDate = new Date(`${monthSelect.value}-01T00:00:00`); const year = selectedDate.getFullYear(); const month = selectedDate.getMonth(); const days = new Date(year, month + 1, 0).getDate(); const filteredUsers = selected === 'all' ? users : users.filter((user) => Array.from({ length: days }, (_, index) => { const date = new Date(year, month, index + 1); if (date > new Date() || date.getDay() === 0 || date.getDay() === 6) return false; const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`; const record = user.records?.[key]; const state = record?.status === 'leave' || record?.status === 'online' || record?.status === 'unauthorized-leave' ? record.status : ['half-day-morning', 'half-day-afternoon'].includes(record?.attendanceType) ? 'half-day' : record?.checkIn ? 'present' : 'absent'; return state === selected; }).some(Boolean)); statusFilter.value = 'all'; updateStatusKpis(); render(filteredUsers); statusFilter.value = selected; decorateAttendanceDots(); applySpecialAttendanceStatuses(); addStatusCountColumns(); bindStatusEditing(); }
+function rerenderOverview() { const selected = statusFilter.value; const selectedDate = new Date(`${monthSelect.value}-01T00:00:00`); const year = selectedDate.getFullYear(); const month = selectedDate.getMonth(); const days = new Date(year, month + 1, 0).getDate(); const filteredUsers = selected === 'all' ? users : users.filter((user) => Array.from({ length: days }, (_, index) => { const date = new Date(year, month, index + 1); if (date > new Date() || date.getDay() === 0 || date.getDay() === 6) return false; const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`; const record = user.records?.[key]; const state = dayStatuses.includes(record?.status) ? record.status : ['half-day-morning', 'half-day-afternoon'].includes(record?.attendanceType) ? 'half-day' : record?.checkIn ? 'present' : 'absent'; return state === selected; }).some(Boolean)); statusFilter.value = 'all'; updateStatusKpis(); render(filteredUsers); statusFilter.value = selected; decorateAttendanceDots(); applySpecialAttendanceStatuses(); addStatusCountColumns(); bindStatusEditing(); }
 monthSelect.addEventListener('change', async () => { await load(); if (!lateReport.hidden) { if (reportMode === 'online') renderOnlineReport(); else renderLateReport(); } }); search.addEventListener('input', rerenderOverview); statusFilter.addEventListener('change', rerenderOverview);
 if (reportMode === 'online') setInterval(load, 5000);
 fetch('/api/me', { cache: 'no-store' }).then((r) => r.json()).then(({ user }) => { const isAdmin = user?.role === 'admin' || user?.role === 'ceo'; document.querySelectorAll('a[href="attendance-overview.html?report=online"], a[href="attendance-overview.html?report=late"], a[href="attendance-overview.html"]').forEach((link) => { link.hidden = !isAdmin; }); if (!user || !isAdmin) throw new Error('Bạn không có quyền xem tổng quan nhân sự.'); document.querySelectorAll('[data-user-name]').forEach((e) => { e.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((e) => { e.textContent = user.role === 'ceo' ? 'CEO' : 'Quản trị viên'; }); return load(); }).catch((error) => { list.innerHTML = `<tbody><tr><td>${error.message}</td></tr></tbody>`; });

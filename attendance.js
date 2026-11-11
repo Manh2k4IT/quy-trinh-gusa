@@ -266,6 +266,7 @@ function getStatusMeta(record, date) {
 
   if (record?.status === 'leave') return { className: 'leave', short: 'N', label: 'Xin nghỉ phép' };
   if (record?.status === 'unauthorized-leave') return { className: 'unauthorized-leave', short: 'KP', label: 'Nghỉ không phép' };
+  if (record?.status === 'other') return { className: 'other', short: 'ĐX', label: record.otherSubject ? `Đề xuất khác: ${record.otherSubject}` : 'Đề xuất khác' };
   // A day counts once it is checked out (or a half day was approved), like the "Ngày công" card.
   if (record?.checkIn && !record.checkOut && !record.halfDayApproved) {
     return date.getTime() === today.getTime()
@@ -390,7 +391,7 @@ function renderRecords() {
   }
 
   const name = document.querySelectorAll('[data-user-name]')[0]?.textContent || 'Nhân viên';
-  const statusCounter = { present: 0, absent: 0, leave: 0, online: 0, 'unauthorized-leave': 0, 'half-day': 0, 'no-checkout': 0 };
+  const statusCounter = { present: 0, absent: 0, leave: 0, online: 0, 'unauthorized-leave': 0, other: 0, 'half-day': 0, 'no-checkout': 0 };
 
   const rows = monthWeeks.map((weekDates, weekIndex) => {
     const headerCells = weekDates.map((date) => {
@@ -407,9 +408,10 @@ function renderRecords() {
       else if (meta.className === 'leave') statusCounter.leave += 1;
       else if (meta.className === 'online') statusCounter.online += 1;
       else if (meta.className === 'unauthorized-leave') statusCounter['unauthorized-leave'] += 1;
+      else if (meta.className === 'other') statusCounter.other += 1;
       else if (meta.className === 'half-day') statusCounter['half-day'] += 1;
       else if (meta.className === 'no-checkout') statusCounter['no-checkout'] += 1;
-      return `<div class="attendance-day-value attendance-${meta.className}" title="${meta.label}">${meta.className === 'future' ? '' : '<span class="attendance-dot"></span>'}</div>`;
+      return `<div class="attendance-day-value attendance-${meta.className}" title="${meta.label.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`)}">${meta.className === 'future' ? '' : '<span class="attendance-dot"></span>'}</div>`;
     }).join('');
 
     return `
@@ -421,7 +423,7 @@ function renderRecords() {
     `;
   }).join('');
 
-  const totalCount = statusCounter.present + statusCounter.leave + statusCounter.online + statusCounter['unauthorized-leave'] + statusCounter['half-day'] * 0.5;
+  const totalCount = statusCounter.present + statusCounter.leave + statusCounter.online + statusCounter['unauthorized-leave'] + statusCounter.other + statusCounter['half-day'] * 0.5;
   list.innerHTML = `
     <div class="attendance-weekly-shell">
       <div class="attendance-weekly-header">
@@ -432,6 +434,7 @@ function renderRecords() {
           <span class="legend-pill online"><span class="legend-dot"></span> ${statusCounter.online}</span>
           <span class="legend-pill unauthorized"><span class="legend-dot"></span> ${statusCounter['unauthorized-leave']}</span>
           <span class="legend-pill half-day"><span class="legend-dot"></span> ${statusCounter['half-day']}</span>
+          <span class="legend-pill other" title="Đề xuất khác (đi công tác…)"><span class="legend-dot"></span> ${statusCounter.other}</span>
           <span class="legend-pill absent"><span class="legend-dot"></span> ${statusCounter.absent}</span>
           ${statusCounter['no-checkout'] ? `<span class="legend-pill no-checkout" title="Ngày chưa check-out, không tính công"><span class="legend-dot"></span> ${statusCounter['no-checkout']}</span>` : ''}
         </div>
@@ -443,6 +446,7 @@ function renderRecords() {
         <span><i class="attendance-legend-dot is-online"></i> Xin làm online</span>
         <span><i class="attendance-legend-dot is-half-day"></i> Làm 1/2 ngày</span>
         <span><i class="attendance-legend-dot is-unauthorized"></i> Nghỉ không phép</span>
+        <span><i class="attendance-legend-dot is-other"></i> Đề xuất khác (công tác…)</span>
         <span><i class="attendance-legend-dot is-no-checkout"></i> Chưa check-out (không tính công)</span>
         <span><i class="attendance-legend-dot is-working"></i> Đang làm việc</span>
       </div>

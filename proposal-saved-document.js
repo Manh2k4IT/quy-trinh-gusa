@@ -73,7 +73,7 @@
   });
   window.GusaSavedProposalDocument = {
     addActions(container, proposal) {
-      if (!['late', 'early-leave', 'half-day', 'leave', 'unauthorized-leave', 'payment'].includes(proposal.type)) return;
+      if (!['late', 'early-leave', 'half-day', 'leave', 'unauthorized-leave', 'other', 'payment'].includes(proposal.type)) return;
       const actions = document.createElement('div');
       actions.className = 'saved-document-actions';
       const viewButton = document.createElement('button');
