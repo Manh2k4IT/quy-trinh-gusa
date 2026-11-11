@@ -18,6 +18,7 @@ const { createAttachmentStore } = require("./proposal-attachments");
 const { createProductionOrders } = require("./production-orders");
 const { createRecruitment } = require("./recruitment");
 const { createWorkReports } = require("./work-reports");
+const { createDocuments } = require("./documents");
 const { createSalaries } = require("./salaries");
 
 loadEnvFile();
@@ -218,6 +219,8 @@ const serverOnlyScripts = new Set([
   "recruitment.js",
   "report-notification-data.js",
   "work-reports.js",
+  "documents.js",
+  "document-thumbnail-worker.js",
   "salaries.js",
 ]);
 
@@ -606,7 +609,7 @@ function serveStatic(req, res) {
   const relativePath = requestPath === "/" ? "index.html" : requestPath.slice(1);
   const filePath = path.resolve(process.cwd(), relativePath);
   if (!filePath.startsWith(path.resolve(process.cwd()))) return send(res, 403, "Forbidden");
-  if (["attendance-network.json", "attendance-network.json.tmp", ...productionOrders.dataFiles, ...recruitment.dataFiles].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
+  if (["attendance-network.json", "attendance-network.json.tmp", ...productionOrders.dataFiles, ...recruitment.dataFiles, ...documents.dataFiles].includes(path.basename(filePath).split(":")[0].toLowerCase())) return send(res, 403, "Forbidden");
 
   if (["production-files", "recruitment-files"].includes(path.relative(process.cwd(), filePath).split(path.sep)[0])) return send(res, 403, "Forbidden");
   if (!isPublicStaticPath(path.relative(process.cwd(), filePath))) return send(res, 404, "Not found");
@@ -1463,6 +1466,7 @@ const menuFeatures = {
   process: ["/process-choice.html", "/production.html"],
   kpi: ["/kpi.html"],
   recruitment: ["/recruitment.html"],
+  documents: ["/documents.html"],
   attendance: ["/attendance-choice.html", "/attendance.html"],
   "attendance-days": [],
   announcements: ["/announcements.html"],
@@ -1794,6 +1798,7 @@ const kpiPercentFor = (userId, month) => {
 };
 const salaries = createSalaries({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, currentMonth: () => getLocalDateKey().slice(0, 7), kpiPercentFor });
 const workReports = createWorkReports({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getUserKey: getAttendanceUserKey, getLocalDateKey, getLocalMinutes, notify: sendUserNotification });
+const documents = createDocuments({ dataPath, getCurrentUser, isManagementUser, sendJson, send, getUserKey: getAttendanceUserKey });
 // Reminds people who have not submitted a work report due today, an hour before its deadline.
 setInterval(() => { workReports.sendReminders().catch((error) => console.error("Work report reminders failed:", error.message)); }, 5 * 60 * 1000).unref();
 const productionOrders = createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey: getAttendanceUserKey, sendJson, send, notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
@@ -2509,6 +2514,7 @@ const server = http.createServer(async (req, res) => {
     if (await productionOrders.handle(req, res)) return;
     if (await recruitment.handle(req, res)) return;
     if (await workReports.handle(req, res)) return;
+    if (await documents.handle(req, res)) return;
     if (await salaries.handle(req, res)) return;
     if (await recruitment.handlePublic(req, res)) return;
     if (req.method === "GET" && req.url === "/api/push/web-config") return serveFirebaseWebConfig(req, res);
@@ -2613,7 +2619,7 @@ const server = http.createServer(async (req, res) => {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }
-    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html", "/recruitment.html", "/announcements.html", "/work-report.html", "/kpi.html"].includes(req.url.split("?")[0])) {
+    if (req.url === "/attendance-choice.html" || ["/report-choice.html", "/proposal-choice.html", "/process-choice.html", "/production.html", "/recruitment.html", "/documents.html", "/announcements.html", "/work-report.html", "/kpi.html"].includes(req.url.split("?")[0])) {
       const currentUser = getCurrentUser(req);
       if (!allowLocalDevAccess && (!currentUser || currentUser.status !== "active")) return redirect(res, "/");
     }

@@ -788,6 +788,7 @@ if (sidebarScroll) {
       <a class="menu-item" href="process-choice.html" data-feature="process"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M6.5 10v3.5a2 2 0 0 0 2 2H14"/><path d="m11.5 13 2.5 2.5-2.5 2.5"/></svg></span><span>Quy Trình</span></a>
       <a class="menu-item" href="kpi.html" data-feature="kpi"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/><path d="M15 7h5v5"/></svg></span><span>Lương &amp; KPI</span></a>
       <a class="menu-item" href="recruitment.html" data-feature="recruitment"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 20a7 7 0 0 1 10.5-6"/><circle cx="17.5" cy="17" r="3"/><path d="m21.5 21-1.8-1.8"/></svg></span><span>Tuyển dụng</span></a>
+      <a class="menu-item" href="documents.html" data-feature="documents"><span class="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M8 13h8"/></svg></span><span>Kho tài liệu</span></a>
     </nav>
     <p class="menu-label">CHẤM CÔNG</p>
     <nav class="menu" aria-label="Menu chấm công">

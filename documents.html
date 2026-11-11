@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Kho tài liệu - Quy Trình</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="management.css?v=20261105-5" />
+    <link rel="stylesheet" href="document-library.css?v=20261111-18" />
+  </head>
+  <body>
+    <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand"><div class="mini-logo"><img src="logo1.jpg" alt="" /></div><span>Gusa - Quy Trình</span><button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Thu gọn menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4.5" width="16" height="15" rx="3" /><path d="M9.5 4.5v15" /><path class="sidebar-toggle-arrow" d="m15.5 10-2 2 2 2" /></svg></button></div>
+        <div class="sidebar-scroll"></div>
+        <div class="sidebar-account"><div class="avatar" data-user-avatar>B</div><div><strong data-user-name></strong><small data-user-role></small></div><a class="sidebar-logout" href="/auth/logout">Đăng xuất</a></div>
+      </aside>
+      <main class="workspace">
+        <header class="topbar">
+          <button class="mobile-menu-toggle" type="button" data-mobile-menu-toggle aria-label="Mở menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>
+          <div class="breadcrumbs"><span>Gusa - Quy Trình</span><span class="crumb-separator">/</span><strong>Kho tài liệu</strong></div>
+          <div class="top-actions"><div class="role-switch" aria-label="Vai trò"><button class="role-chip is-selected" type="button">Quản trị</button><button class="role-chip" type="button">Nhân viên</button></div><button class="top-avatar" type="button" data-top-avatar aria-label="Tài khoản">B</button></div>
+        </header>
+        <section class="library-content" aria-labelledby="library-title">
+          <div class="library-hero">
+            <div class="library-hero-copy">
+              <span class="library-eyebrow"><i aria-hidden="true"></i>NỘI BỘ</span>
+              <h1 id="library-title">Kho tài liệu</h1>
+              <p>Quy định, biểu mẫu, hướng dẫn và tài liệu chung của công ty — xem và tải về khi cần.</p>
+              <div class="library-hero-stats" aria-live="polite">
+                <span><b data-stat-documents>0</b> tài liệu</span>
+                <span><b data-stat-categories>0</b> danh mục</span>
+                <span>Cập nhật <b data-stat-updated>—</b></span>
+              </div>
+              <button class="library-add-button" type="button" data-library-add aria-expanded="false" hidden><span aria-hidden="true">+</span> Thêm tài liệu</button>
+            </div>
+            <div class="library-hero-art" aria-hidden="true">
+              <span class="library-hero-ring"></span>
+              <span class="library-hero-sheet is-back"><i></i><i></i><i></i></span>
+              <span class="library-hero-sheet is-front"><i></i><i></i><i></i><i></i></span>
+              <span class="library-hero-logo" data-library-logo><img src="logo-xanh.png" alt="PDCA" /><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M8 13h8"/></svg></span>
+              <span class="library-hero-dot"></span>
+            </div>
+          </div>
+
+          <div class="library-manage" data-library-manage hidden>
+            <form class="library-form" data-library-form hidden>
+              <h2>Thêm tài liệu mới</h2>
+              <label class="library-drop" data-library-drop>
+                <input type="file" name="file" required data-library-file accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp,.gif,.zip,.rar,.7z,.mp4,.mp3" />
+                <span class="library-drop-icon" aria-hidden="true">⇪</span>
+                <span data-library-file-label><b>Chọn file</b> hoặc kéo thả vào đây</span>
+                <small>PDF, Word, Excel, PowerPoint, ảnh, ZIP, MP4… tối đa 50MB</small>
+              </label>
+              <div class="library-form-grid">
+                <label>Tên tài liệu<input name="title" maxlength="150" required placeholder="Ví dụ: Nội quy công ty 2026" /></label>
+                <label>Danh mục<input name="category" maxlength="60" list="library-categories" required placeholder="Chọn hoặc nhập danh mục" /></label>
+              </div>
+              <datalist id="library-categories"></datalist>
+              <label>Mô tả (không bắt buộc)<textarea name="description" maxlength="500" rows="2" placeholder="Ghi chú ngắn về tài liệu"></textarea></label>
+              <div class="library-form-footer">
+                <div class="library-progress" data-library-progress hidden><span></span></div>
+                <p class="library-status" data-library-status role="status"></p>
+                <button type="button" class="library-cancel" data-library-cancel>Hủy</button>
+                <button type="submit" data-library-submit>Tải lên</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="library-browser">
+            <div class="library-main">
+              <div class="library-toolbar">
+                <div class="library-toolbar-row">
+                  <div class="library-category-menu" data-category-menu>
+                    <button type="button" class="library-category-trigger" data-category-trigger aria-haspopup="true" aria-expanded="false"><span class="library-folder-icon" data-category-current-icon aria-hidden="true"></span><span class="library-category-label"><small>Danh mục</small><b data-category-current>Tất cả</b></span><span class="library-folder-count" data-category-current-count>0</span><svg class="library-category-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
+                    <div class="library-category-panel" data-category-panel hidden>
+                      <label class="library-category-filter" data-category-filter-wrap hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 5 5" /></svg><input type="search" data-category-filter placeholder="Tìm danh mục..." aria-label="Tìm danh mục" /></label>
+                      <div class="library-categories" data-library-categories role="group" aria-label="Chọn danh mục"></div>
+                      <p class="library-category-none" data-category-none hidden>Không có danh mục phù hợp</p>
+                    </div>
+                  </div>
+                  <label class="library-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 5 5" /></svg><input type="search" data-library-search placeholder="Tìm theo tên, danh mục, mô tả..." aria-label="Tìm tài liệu" /></label>
+                  <div class="library-view-toggle" data-library-view role="group" aria-label="Kiểu hiển thị">
+                <button type="button" data-view="grid" aria-label="Dạng lưới" title="Dạng lưới"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></svg></button>
+                <button type="button" data-view="list" aria-label="Dạng danh sách" title="Dạng danh sách"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="5" cy="6" r="1" /><circle cx="5" cy="12" r="1" /><circle cx="5" cy="18" r="1" /></svg></button>
+              </div>
+                </div>
+              </div>
+              <div class="library-list" data-library-list aria-live="polite"><p class="library-empty">Đang tải tài liệu...</p></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="document-library.js?v=20261111-17"></script>
+    <script src="admin-menu.js?v=20261111-docs"></script>
+  </body>
+</html>

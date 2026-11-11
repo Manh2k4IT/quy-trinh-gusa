@@ -37,3 +37,6 @@ salaries.json
 salaries.json.tmp
 work-report-kpi-approvals.json
 announcement-files/
+documents.json
+documents.json.tmp
+document-files/
