@@ -322,7 +322,7 @@ function renderOnlineReport() {
 		const name = escapeReportText(user.name);
 		const latitude = Number(proof?.latitude);
 		const longitude = Number(proof?.longitude);
-		const mapLink = Number.isFinite(latitude) && Number.isFinite(longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : '';
+		const mapLink = proof?.latitude != null && proof?.longitude != null && Number.isFinite(latitude) && Number.isFinite(longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : '';
 		const photo = proof?.photoData
 			? `<button type="button" class="online-report-photo-button" data-photo-caption="${name} · ${formatDay(record.date)}" aria-label="Xem ảnh lớn của ${name}"><img class="online-report-photo" src="${escapeReportText(proof.photoData)}" alt="Ảnh nơi làm việc của ${name}" loading="lazy"><span class="online-report-zoom" aria-hidden="true">⤢</span></button>`
 			: '<div class="online-report-photo is-empty"><span aria-hidden="true">▢</span>Chưa có ảnh nơi làm việc</div>';

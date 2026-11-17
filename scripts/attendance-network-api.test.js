@@ -117,6 +117,26 @@ test('empty list preserves unrestricted office attendance, including half-day sh
   assert.equal((await request('/api/attendance', 'employee', { method: 'POST', ip: '1.1.1.1', payload: { action: 'check-in', mode: 'office', attendanceType: 'half-day-afternoon' } })).status, 200);
 });
 
+test('online check-in requires a photo but location is optional', async () => {
+  const photo = { photoCapturedAt: '2026-10-15T01:00:00Z', photoData: 'data:image/png;base64,dGVzdA==' };
+  const checkIn = (onlineProof) => request('/api/attendance', 'employee', {
+    method: 'POST', payload: { action: 'check-in', mode: 'online', onlineProof },
+  });
+  resetRecords();
+  assert.equal((await checkIn({ latitude: 10, longitude: 106 })).status, 400);
+  assert.equal((await checkIn({ ...photo, photoData: 'not-an-image' })).status, 400);
+  assert.equal((await checkIn({ ...photo, latitude: 10 })).status, 400);
+
+  let response = await checkIn(photo);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).record.onlineProof, photo);
+
+  resetRecords();
+  response = await checkIn({ ...photo, latitude: 10, longitude: 106, accuracy: 20 });
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).record.onlineProof, { ...photo, latitude: 10, longitude: 106, accuracy: 20 });
+});
+
 function setClock(localTime) {
   // localTime is Asia/Ho_Chi_Minh (UTC+7) on the test day.
   const [hours, minutes] = localTime.split(':').map(Number);

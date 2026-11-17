@@ -2159,7 +2159,12 @@ async function updateAttendance(req, res) {
   const now = new Date().toISOString();
   if (action === "check-in") {
     if (record.checkIn) return sendJson(res, 409, { message: "Bạn đã check-in hôm nay.", record });
-    if (mode === "online" && (!payload.onlineProof?.photoCapturedAt || !payload.onlineProof.photoData?.startsWith("data:image/") || !Number.isFinite(Number(payload.onlineProof.latitude)) || !Number.isFinite(Number(payload.onlineProof.longitude)))) return send(res, 400, "Vui lòng chụp ảnh và chia sẻ vị trí trước khi check-in online.");
+    if (mode === "online" && (!payload.onlineProof?.photoCapturedAt || typeof payload.onlineProof.photoData !== "string" || !payload.onlineProof.photoData.startsWith("data:image/"))) return send(res, 400, "Vui lòng chụp ảnh trước khi check-in online.");
+    if (mode === "online") {
+      const { latitude, longitude } = payload.onlineProof;
+      const hasLocation = latitude != null || longitude != null;
+      if (hasLocation && (latitude == null || longitude == null || latitude === "" || longitude === "" || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude)))) return send(res, 400, "Vị trí chia sẻ không hợp lệ.");
+    }
     if (mode === "office") {
       const currentMinutes = getLocalMinutes();
       const shift = getAttendanceShift(site, attendanceType);
@@ -2179,7 +2184,11 @@ async function updateAttendance(req, res) {
     record.lateMinutes = Math.max(0, getLocalMinutes() - lateThreshold);
     record.late = record.lateMinutes > 0;
     if (!record.late) delete record.lateMinutes;
-    if (mode === "online") record.onlineProof = { photoCapturedAt: payload.onlineProof.photoCapturedAt, photoData: payload.onlineProof.photoData, latitude: Number(payload.onlineProof.latitude), longitude: Number(payload.onlineProof.longitude), accuracy: Number(payload.onlineProof.accuracy) || null };
+    if (mode === "online") {
+      const { photoCapturedAt, photoData, latitude, longitude, accuracy } = payload.onlineProof;
+      record.onlineProof = { photoCapturedAt, photoData };
+      if (latitude != null && longitude != null) Object.assign(record.onlineProof, { latitude: Number(latitude), longitude: Number(longitude), accuracy: Number(accuracy) || null });
+    }
     else delete record.onlineProof;
   } else {
     if (!record.checkIn) return send(res, 400, "Bạn chưa check-in hôm nay");

@@ -78,32 +78,50 @@ if (isWorkdayOverview) {
 
 if (isOnlineAttendance) {
   document.querySelector('.attendance-heading h1')?.replaceChildren(document.createTextNode('Chấm công làm online'));
-  document.querySelector('.attendance-heading p')?.replaceChildren(document.createTextNode('Chụp ảnh và chia sẻ vị trí nơi bạn đang làm việc trước khi check-in.'));
+  document.querySelector('.attendance-heading p')?.replaceChildren(document.createTextNode('Chụp ảnh nơi bạn đang làm việc trước khi check-in. Chia sẻ vị trí là không bắt buộc.'));
   document.querySelector('.breadcrumbs strong')?.replaceChildren(document.createTextNode('Chấm công làm online'));
   const clockCard = document.querySelector('.attendance-clock-card');
   const proofPanel = document.createElement('div');
   proofPanel.className = 'attendance-online-proof';
-  proofPanel.innerHTML = '<strong>Xác minh nơi làm việc</strong><label class="attendance-proof-control"><span>Ảnh nơi làm việc</span><input type="file" accept="image/*" capture="user" data-online-photo /><small data-online-photo-status>Chưa chụp ảnh</small></label><button class="attendance-secondary" type="button" data-online-location>Chia sẻ vị trí</button><small data-online-location-status>Chưa chia sẻ vị trí</small>';
+  proofPanel.innerHTML = '<strong>Xác minh nơi làm việc</strong><label class="attendance-proof-control"><span>Ảnh nơi làm việc</span><input type="file" accept="image/*" capture="user" data-online-photo /><small data-online-photo-status>Chưa chụp ảnh</small></label><button class="attendance-secondary" type="button" data-online-location>Chia sẻ vị trí (không bắt buộc)</button><small data-online-location-status>Chưa chia sẻ vị trí</small>';
   clockCard?.insertBefore(proofPanel, document.querySelector('[data-attendance-status]'));
   const photoInput = proofPanel.querySelector('[data-online-photo]');
   const photoStatus = proofPanel.querySelector('[data-online-photo-status]');
   const locationButton = proofPanel.querySelector('[data-online-location]');
   const locationStatus = proofPanel.querySelector('[data-online-location-status]');
+  let photoReadSequence = 0;
   const refreshOnlineCheckIn = () => {
-    const ready = Boolean(onlineProof?.photoCapturedAt && onlineProof.photoData && onlineProof.latitude !== undefined);
-    checkIn.hidden = !ready;
-    checkIn.disabled = !ready;
+    const ready = Boolean(onlineProof?.photoCapturedAt && onlineProof.photoData);
+    const checkedIn = Boolean(records?.[todayKey()]?.checkIn);
+    checkIn.hidden = checkedIn || !ready;
+    checkIn.disabled = checkedIn || !ready || attendanceBusy;
   };
   updateOnlineCheckIn = refreshOnlineCheckIn;
   photoInput.addEventListener('change', () => {
     if (!photoInput.files?.length) return;
     const file = photoInput.files[0];
+    const sequence = ++photoReadSequence;
+    if (onlineProof) {
+      delete onlineProof.photoCapturedAt;
+      delete onlineProof.photoData;
+    }
+    refreshOnlineCheckIn();
+    if (!file.type.startsWith('image/')) {
+      photoStatus.textContent = 'Vui lòng chọn tệp ảnh.';
+      return;
+    }
     photoStatus.textContent = 'Đang đọc ảnh...';
     const reader = new FileReader();
     reader.addEventListener('load', () => {
+      if (sequence !== photoReadSequence) return;
       onlineProof = { ...(onlineProof || {}), photoCapturedAt: new Date().toISOString(), photoData: String(reader.result) };
       photoStatus.textContent = `Đã chụp: ${file.name}`;
       refreshOnlineCheckIn();
+    });
+    reader.addEventListener('error', () => {
+      if (sequence !== photoReadSequence) return;
+      console.error('Không đọc được ảnh chấm công:', reader.error);
+      photoStatus.textContent = 'Không đọc được ảnh. Vui lòng thử lại.';
     });
     reader.readAsDataURL(file);
   });
@@ -212,7 +230,7 @@ function setStatus(record) {
   if (!today?.checkIn) {
     status.textContent = 'Chưa vào ca';
     if (isOnlineAttendance) {
-      checkIn.disabled = !onlineProof?.photoCapturedAt || onlineProof.latitude === undefined;
+      checkIn.disabled = !onlineProof?.photoCapturedAt || !onlineProof.photoData;
     } else {
       checkIn.disabled = currentMinutes < checkInStartsAt || currentMinutes > checkInEndsAt;
       if (currentMinutes < checkInStartsAt) status.textContent += ` · Mở check-in lúc ${formatShiftTime(checkInStartsAt)}`;
