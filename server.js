@@ -35,14 +35,28 @@ loadEnvFile();
 
 process.on("uncaughtException", (error) => {
   console.error("UNCAUGHT EXCEPTION:", error);
-  process.exit(1);
+  // Don't exit - log and continue
+  if (process.env.NODE_ENV === "production" && (error.message?.includes("heap") || error.message?.includes("memory"))) {
+    console.error("FATAL: Memory error, graceful shutdown...");
+    setTimeout(() => process.exit(1), 5000);
+  }
 });
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("UNHANDLED REJECTION at", promise, "reason:", reason);
-  process.exit(1);
+  // Don't exit - log and continue
 });
 
+// Memory monitoring to detect memory leaks
+if (process.env.NODE_ENV === "production") {
+  setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
+    if (heapPercent > 90) {
+      console.warn(`WARNING: Heap usage at ${heapPercent}% (${Math.round(memUsage.heapUsed / 1024 / 1024)}MB/${Math.round(memUsage.heapTotal / 1024 / 1024)}MB)`);
+    }
+  }, 60000); // Check every minute
+}
 const port = Number(process.env.PORT || 5500);
 const applicationTimeZone = "Asia/Ho_Chi_Minh";
 const publicUrl = process.env.RENDER_EXTERNAL_URL;
@@ -2545,6 +2559,18 @@ setInterval(() => {
 }, 15 * 60 * 1000).unref();
 
 const server = http.createServer(async (req, res) => {
+  // Set a timeout for all requests (30 seconds)
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      console.warn(`Request timeout: ${req.method} ${req.url}`);
+      res.statusCode = 504;
+      res.end("Gateway Timeout");
+    }
+  }, 30000);
+  
+  res.on("finish", () => clearTimeout(timeout));
+  res.on("close", () => clearTimeout(timeout));
+
   try {
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
