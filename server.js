@@ -1748,15 +1748,15 @@ async function sendZaloProposalImages(proposal, { approved = false } = {}) {
     if (!pages.length) console.warn(`Zalo document image skipped for proposal ${proposal.id}: no page rendered within 1MB.`);
     for (const [index, page] of pages.entries()) {
       const suffix = pages.length > 1 ? ` (trang ${index + 1}/${pages.length})` : "";
-      const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `ÄÆ¡n Ä‘á» xuáº¥t cá»§a ${name}${suffix}`, groupOptions);
+      const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Đề xuất của ${name}${suffix}`, groupOptions);
       console.log(`Zalo document image ${index + 1}/${pages.length} (${groupOptions.kind}, ${page.length} bytes): ${sent ? "sent" : "not sent"}.`);
     }
   } catch (error) {
     console.error("Zalo proposal document image failed:", error.stack || error.message);
   }
   const candidates = [
-    { data: attachments.read(proposal.id, "late") || proposal.latePhotoData, caption: `áº¢nh Ä‘i trá»… cá»§a ${name}` },
-    { data: attachments.read(proposal.id, "payment") || proposal.paymentFileData, caption: `Chá»©ng tá»« thanh toÃ¡n cá»§a ${name}` },
+    { data: attachments.read(proposal.id, "late") || proposal.latePhotoData, caption: `Ảnh đi trễ của ${name}` },
+    { data: attachments.read(proposal.id, "payment") || proposal.paymentFileData, caption: `Chứng tư thanh toán của ${name}` },
   ];
   for (const { data, caption } of candidates) {
     if (typeof data === "string" && data.length > 1.5 * 1024 * 1024) {
@@ -1785,7 +1785,7 @@ async function sendZaloProposalImages(proposal, { approved = false } = {}) {
       const pages = await renderEvidenceImages(evidenceMatch[2], evidenceMatch[1]);
       for (const [index, page] of pages.entries()) {
         const suffix = pages.length > 1 ? ` (trang ${index + 1}/${pages.length})` : "";
-        const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Chá»©ng tá»« cá»§a ${name}${suffix}`, groupOptions);
+        const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Chứng tư của ${name}${suffix}`, groupOptions);
         console.log(`Zalo evidence image ${index + 1}/${pages.length} (${groupOptions.kind}, ${page.length} bytes): ${sent ? "sent" : "not sent"}.`);
       }
     } catch (error) {
