@@ -240,6 +240,19 @@ function loadSessions() {
   }
 }
 
+// Safe file write with error handling and atomic operations
+function safeWriteFile(filePath, data, label = "") {
+  try {
+    const tmpPath = `${filePath}.tmp`;
+    fs.writeFileSync(tmpPath, data);
+    fs.renameSync(tmpPath, filePath);
+    return true;
+  } catch (error) {
+    console.error(`Failed to write ${label || filePath}:`, error.message);
+    return false;
+  }
+}
+
 loadUsers();
 loadSessions();
 
