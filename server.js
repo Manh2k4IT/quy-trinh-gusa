@@ -1082,23 +1082,31 @@ function serveProposalEvents(req, res) {
 }
 
 function publishProposalEvent(proposal) {
-  const payload = `event: proposal\ndata: ${JSON.stringify(proposal)}\n\n`;
-  proposalEventClients.forEach((client) => {
-    const shouldNotifyAccountant = needsAccountingReview(proposal) && client.role === "accountant";
-    const shouldNotifyManagement = needsManagementReview(proposal) && isManagementUser({ role: client.role });
-    if (shouldNotifyAccountant || shouldNotifyManagement) client.response.write(payload);
-  });
+  try {
+    const payload = `event: proposal\ndata: ${JSON.stringify(proposal)}\n\n`;
+    proposalEventClients.forEach((client) => {
+      const shouldNotifyAccountant = needsAccountingReview(proposal) && client.role === "accountant";
+      const shouldNotifyManagement = needsManagementReview(proposal) && isManagementUser({ role: client.role });
+      if (shouldNotifyAccountant || shouldNotifyManagement) client.response.write(payload);
+    });
+  } catch (error) {
+    console.error("publishProposalEvent error:", error.message);
+  }
 }
 
 function publishProposalStatusEvent(proposal, notificationKind = "proposal-status") {
-  const isAccountingConfirmation = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "completed";
-  proposalEventClients.forEach((client) => {
-    if (isAccountingConfirmation && isManagementUser({ role: client.role })) {
-      client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind: "payment-accounting-confirmed" })}\n\n`);
-    } else if (client.userId === proposal.userId) {
-      client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind, rejectionReason: proposal.rejectionReason || "" })}\n\n`);
-    }
-  });
+  try {
+    const isAccountingConfirmation = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "completed";
+    proposalEventClients.forEach((client) => {
+      if (isAccountingConfirmation && isManagementUser({ role: client.role })) {
+        client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind: "payment-accounting-confirmed" })}\n\n`);
+      } else if (client.userId === proposal.userId) {
+        client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind, rejectionReason: proposal.rejectionReason || "" })}\n\n`);
+      }
+    });
+  } catch (error) {
+    console.error("publishProposalStatusEvent error:", error.message);
+  }
 }
 
 function getPushDevices() {
