@@ -1620,18 +1620,26 @@ function serveNotifications(req, res) {
     url: `/production.html?id=${order.id}`,
   }));
   const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  const currentUserId = getAttendanceUserKey(currentUser);
+  const canSeeAllDecisions = isManagementUser(currentUser);
   proposals
-    .filter((proposal) => proposal.userId === getAttendanceUserKey(currentUser) && ["approved", "rejected"].includes(proposal.status) && Date.parse(proposal.reviewedAt || proposal.accountingConfirmedAt || 0) > since)
-    .sort((a, b) => Date.parse(b.reviewedAt || 0) - Date.parse(a.reviewedAt || 0))
+    .filter((proposal) => (proposal.userId === currentUserId || canSeeAllDecisions) && ["approved", "rejected"].includes(proposal.status) && Date.parse(proposal.reviewedAt || proposal.accountingConfirmedAt || 0) > since)
+    .sort((a, b) => Date.parse(b.reviewedAt || b.accountingConfirmedAt || 0) - Date.parse(a.reviewedAt || a.accountingConfirmedAt || 0))
     .slice(0, 10)
-    .forEach((proposal) => items.push({
-      id: `decision-${proposal.id}-${proposal.status}`,
-      time: proposal.reviewedAt || proposal.accountingConfirmedAt || null,
-      kind: "update",
-      title: proposal.status === "approved" ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối",
-      text: `Đề xuất ${proposalTypeName(proposal, proposalTypeLabels)}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
-      url: proposal.type === "payment" ? "/payment-proposal.html" : "/proposals.html",
-    }));
+    .forEach((proposal) => {
+      const isOtherUserDecision = canSeeAllDecisions && proposal.userId !== currentUserId;
+      const proposerName = proposal.userName || users.get(proposal.userId)?.name || "Nh\u00e2n vi\u00ean";
+      const query = new URLSearchParams({ proposalId: proposal.id });
+      if (proposal.type === "payment") query.set("type", "payment");
+      items.push({
+        id: `decision-${proposal.id}-${proposal.status}`,
+        time: proposal.reviewedAt || proposal.accountingConfirmedAt || null,
+        kind: "update",
+        title: proposal.status === "approved" ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối",
+        text: `${isOtherUserDecision ? `${proposerName} · ` : ""}Đề xuất ${proposalTypeName(proposal, proposalTypeLabels)}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
+        url: isOtherUserDecision ? `/proposal-report.html?${query}` : proposal.type === "payment" ? "/payment-proposal.html" : "/proposals.html",
+      });
+    });
   items.push(...workReports.notificationsFor(currentUser));
   getAnnouncements()
     .filter((announcement) => Date.parse(announcement.createdAt) > since && announcement.authorId !== getAttendanceUserKey(currentUser))

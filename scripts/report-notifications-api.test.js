@@ -10,6 +10,9 @@ let server;
 let directory;
 let baseUrl;
 const proposal = { id: "personnel-1", userId: "employee", type: "leave", status: "pending", date: "2026-10-07" };
+const reviewedAt = new Date().toISOString();
+const approvedHalfDay = { id: "approved-half-day", userId: "employee", userName: "employee", type: "half-day", status: "approved", reviewedAt, date: "2026-11-18" };
+const rejectedLeave = { id: "rejected-leave", userId: "employee-two", userName: "employee two", type: "leave", status: "rejected", reviewedAt, date: "2026-11-18", rejectionReason: "Test reason" };
 const payments = [
   { id: "management-payment", userId: "employee", type: "payment", status: "pending", paymentFlow: "ceo", paymentStage: "management" },
   { id: "accounting-payment", userId: "employee", type: "payment", status: "pending", paymentFlow: "ceo", paymentStage: "accounting" },
@@ -20,7 +23,7 @@ test.before(async () => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), "gusa-report-notifications-test-"));
   const users = {};
   const sessions = {};
-  for (const role of ["admin", "ceo", "accountant", "employee"]) {
+  for (const role of ["admin", "ceo", "accountant", "employee", "employee-two"]) {
     users[role] = { id: role, name: role, email: `${role}@example.test`, role, status: "active" };
     sessions[`${role}-session`] = { userId: role, createdAt: Date.now() };
   }
@@ -28,7 +31,7 @@ test.before(async () => {
   sessions["inactive-session"] = { userId: "inactive", createdAt: Date.now() };
   fs.writeFileSync(path.join(directory, "users.json"), JSON.stringify(users));
   fs.writeFileSync(path.join(directory, "sessions.json"), JSON.stringify(sessions));
-  fs.writeFileSync(path.join(directory, "proposals.json"), JSON.stringify([proposal, ...payments]));
+  fs.writeFileSync(path.join(directory, "proposals.json"), JSON.stringify([proposal, ...payments, approvedHalfDay, rejectedLeave]));
   fs.writeFileSync(path.join(directory, "attendance.json"), JSON.stringify({
     employee: { "2026-10-07": { date: "2026-10-07", workMode: "online", late: true, checkIn: "2026-10-07T03:00:00Z" } },
   }));
@@ -92,6 +95,24 @@ test("proposal notification links preserve their destination through sign-in", a
   assert.equal(location.searchParams.get("returnTo"), "/proposal-report.html?type=payment&proposalId=accounting-payment");
   const authenticated = await request("/proposal-report.html?type=payment&proposalId=accounting-payment", "accountant");
   assert.equal(authenticated.status, 200);
+});
+
+test("Admin and CEO bells include recent decisions for all employees", async () => {
+  const decisions = async (role) => (await (await request("/api/notifications", role)).json()).items.filter((item) => item.id.startsWith("decision-"));
+  for (const role of ["admin", "ceo"]) {
+    const items = await decisions(role);
+    const approved = items.find((item) => item.id === "decision-approved-half-day-approved");
+    const rejected = items.find((item) => item.id === "decision-rejected-leave-rejected");
+    assert.ok(approved);
+    assert.ok(rejected);
+    assert.match(approved.text, /^employee · /);
+    assert.match(rejected.text, /^employee two · /);
+    assert.equal(approved.url, "/proposal-report.html?proposalId=approved-half-day");
+  }
+  assert.equal((await decisions("accountant")).some((item) => item.id === "decision-approved-half-day-approved"), false);
+  assert.equal((await decisions("employee")).some((item) => item.id === "decision-approved-half-day-approved"), true);
+  assert.equal((await decisions("employee")).some((item) => item.id === "decision-rejected-leave-rejected"), false);
+  assert.equal((await decisions("employee-two")).some((item) => item.id === "decision-rejected-leave-rejected"), true);
 });
 
 test("management approval adds confirmation to saved HTML/PDF, never to pending or direct-accounting documents", async () => {
