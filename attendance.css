@@ -216,6 +216,8 @@ body[data-theme="dark"] .attendance-admin-kpis strong { color: #edf0f4; }
 body[data-theme="dark"] .attendance-admin-toolbar input, body[data-theme="dark"] .attendance-admin-toolbar select { border-color: #4b535f; color: #edf0f4; background: #252a31; }
 .attendance-section-heading h2 { margin: .2rem 0 0; color: var(--ink); font-size: 1rem; }
 .attendance-section-actions { display: flex; align-items: center; gap: .7rem; }
+.attendance-export-button { grid-column: 1 / -1; justify-self: end; min-height: 42px; color: #27856c; border-color: #9dc8b8; }
+.attendance-export-button:disabled { cursor: not-allowed; opacity: .5; }
 body.is-attendance-overview .attendance-content { padding: .8rem clamp(.8rem, 3vw, 2.2rem) 2rem; background: linear-gradient(150deg, #fcfbf7 0%, #f8f9fb 62%, #f3f7f3 100%); }
 body.is-attendance-overview .attendance-heading { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(280px, 1.1fr); align-items: start; min-height: 278px; padding: 1.25rem 1.5rem 7rem; border-radius: 18px 18px 0 0; background: linear-gradient(155deg, #fcfbf7, #f7f8f8 62%, #f2f6f1); }
 body.is-attendance-overview .attendance-heading-copy { position: relative; z-index: 2; }
