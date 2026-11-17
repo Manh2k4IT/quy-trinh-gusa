@@ -92,6 +92,7 @@ function updateDurationFields() {
   dateFromInput.required = isLeave && isMultiple;
   dateToInput.required = isLeave && isMultiple;
   timeField.hidden = isLeave || isHalfDay;
+  timeField.firstChild.textContent = typeInput.value === 'early-leave' ? 'Giờ dự kiến về sớm' : 'Giờ dự kiến đến công ty';
   timeInput.required = typeInput.value === 'late';
   halfDayPeriodField.hidden = !isHalfDay;
   halfDayPeriodField.querySelectorAll('input').forEach((input) => {
