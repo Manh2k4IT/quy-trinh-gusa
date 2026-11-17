@@ -4283,7 +4283,7 @@ body[data-theme="dark"] .chart-children > .chart-branch::before {
   .app-shell.is-collapsed .menu-item > span:last-child,
   .app-shell.is-collapsed .sidebar-account > div:not(.avatar),
   .app-shell.is-collapsed .sidebar-logout {
-    display: block;
+    display: none;
   }
 
   .app-shell.is-collapsed .sidebar-toggle {
