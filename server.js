@@ -21,6 +21,16 @@ const { createWorkReports } = require("./work-reports");
 const { createDocuments } = require("./documents");
 const { createSalaries } = require("./salaries");
 
+function loadEnvFile() {
+  const envPath = path.join(process.cwd(), ".env");
+  if (!fs.existsSync(envPath)) return;
+
+  for (const line of fs.readFileSync(envPath, "utf8").split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, "");
+  }
+}
+
 loadEnvFile();
 
 const port = Number(process.env.PORT || 5500);
@@ -233,16 +243,6 @@ function isPublicStaticPath(relativePath) {
   if (extension === ".json") return publicStaticJsonFiles.has(fileName);
   if (extension === ".js") return segments.length > 0 || !serverOnlyScripts.has(fileName);
   return Object.hasOwn(mimeTypes, extension);
-}
-
-function loadEnvFile() {
-  const envPath = path.join(process.cwd(), ".env");
-  if (!fs.existsSync(envPath)) return;
-
-  for (const line of fs.readFileSync(envPath, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, "");
-  }
 }
 
 function loadUsers() {
