@@ -248,7 +248,9 @@ function safeWriteFile(filePath, data, label = "") {
     fs.renameSync(tmpPath, filePath);
     return true;
   } catch (error) {
-    console.error(`Failed to write ${label || filePath}:`, error.message);
+    console.error(`[FILE_WRITE_ERROR] Failed to write ${label || filePath}: ${error.code} - ${error.message}`);
+    // Log to stderr as well for visibility
+    console.error(`[FILE_WRITE_ERROR] Path: ${filePath}, Size: ${(data.length / 1024).toFixed(2)}KB, Code: ${error.code}`);
     return false;
   }
 }
@@ -2572,16 +2574,25 @@ setInterval(() => {
 }, 15 * 60 * 1000).unref();
 
 const server = http.createServer(async (req, res) => {
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID().slice(0, 8);
+  
   // Set a timeout for all requests (30 seconds)
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
-      console.warn(`Request timeout: ${req.method} ${req.url}`);
+      console.warn(`[${requestId}] Request timeout: ${req.method} ${req.url}`);
       res.statusCode = 504;
       res.end("Gateway Timeout");
     }
   }, 30000);
   
-  res.on("finish", () => clearTimeout(timeout));
+  res.on("finish", () => {
+    clearTimeout(timeout);
+    const duration = Date.now() - startTime;
+    if (duration > 5000 || res.statusCode >= 500) {
+      console.warn(`[${requestId}] ${req.method} ${req.url} -> ${res.statusCode} (${duration}ms)`);
+    }
+  });
   res.on("close", () => clearTimeout(timeout));
 
   try {
