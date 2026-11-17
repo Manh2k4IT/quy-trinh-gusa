@@ -33,6 +33,16 @@ function loadEnvFile() {
 
 loadEnvFile();
 
+process.on("uncaughtException", (error) => {
+  console.error("UNCAUGHT EXCEPTION:", error);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("UNHANDLED REJECTION at", promise, "reason:", reason);
+  process.exit(1);
+});
+
 const port = Number(process.env.PORT || 5500);
 const applicationTimeZone = "Asia/Ho_Chi_Minh";
 const publicUrl = process.env.RENDER_EXTERNAL_URL;
@@ -194,6 +204,28 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
+function loadUsers() {
+  try {
+    const savedUsers = JSON.parse(fs.readFileSync(usersPath, "utf8"));
+    Object.values(savedUsers).forEach((user) => users.set(user.id, user));
+  } catch (error) {
+    if (error.code !== "ENOENT") console.error(error);
+  }
+}
+
+function loadSessions() {
+  try {
+    const savedSessions = JSON.parse(fs.readFileSync(sessionsPath, "utf8"));
+    const now = Date.now();
+    for (const [sessionId, session] of Object.entries(savedSessions)) {
+      if (session?.userId && now - session.createdAt < sessionMaxAgeMilliseconds) sessions.set(sessionId, session);
+    }
+    if (sessions.size !== Object.keys(savedSessions).length) saveSessions();
+  } catch (error) {
+    if (error.code !== "ENOENT") console.error(error);
+  }
+}
+
 loadUsers();
 loadSessions();
 
@@ -243,28 +275,6 @@ function isPublicStaticPath(relativePath) {
   if (extension === ".json") return publicStaticJsonFiles.has(fileName);
   if (extension === ".js") return segments.length > 0 || !serverOnlyScripts.has(fileName);
   return Object.hasOwn(mimeTypes, extension);
-}
-
-function loadUsers() {
-  try {
-    const savedUsers = JSON.parse(fs.readFileSync(usersPath, "utf8"));
-    Object.values(savedUsers).forEach((user) => users.set(user.id, user));
-  } catch (error) {
-    if (error.code !== "ENOENT") console.error(error);
-  }
-}
-
-function loadSessions() {
-  try {
-    const savedSessions = JSON.parse(fs.readFileSync(sessionsPath, "utf8"));
-    const now = Date.now();
-    for (const [sessionId, session] of Object.entries(savedSessions)) {
-      if (session?.userId && now - session.createdAt < sessionMaxAgeMilliseconds) sessions.set(sessionId, session);
-    }
-    if (sessions.size !== Object.keys(savedSessions).length) saveSessions();
-  } catch (error) {
-    if (error.code !== "ENOENT") console.error(error);
-  }
 }
 
 function saveSessions() {
@@ -2693,7 +2703,15 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
   });
 }
 
-server.listen(port, () => {
+server.on("error", (error) => {
+  console.error(`Server error on port ${port}:`, error.message);
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${port} is already in use. Please use a different PORT.`);
+  }
+  process.exit(1);
+});
+
+server.listen(port, "0.0.0.0", () => {
   console.log(`Gusa Quy Trinh: http://localhost:${port}`);
   if (process.env.ZALO_LIST_GROUPS === "1") {
     zaloClient.listGroups()
@@ -2701,3 +2719,4 @@ server.listen(port, () => {
       .catch((error) => console.warn(error.message));
   }
 });
+
