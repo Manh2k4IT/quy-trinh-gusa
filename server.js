@@ -307,11 +307,19 @@ function isPublicStaticPath(relativePath) {
 }
 
 function saveSessions() {
-  fs.writeFileSync(sessionsPath, JSON.stringify(Object.fromEntries(sessions), null, 2));
+  try {
+    fs.writeFileSync(sessionsPath, JSON.stringify(Object.fromEntries(sessions), null, 2));
+  } catch (error) {
+    console.error("[FILE_WRITE_ERROR] saveSessions:", error.message);
+  }
 }
 
 function saveUsers() {
-  fs.writeFileSync(usersPath, JSON.stringify(Object.fromEntries(users), null, 2));
+  try {
+    fs.writeFileSync(usersPath, JSON.stringify(Object.fromEntries(users), null, 2));
+  } catch (error) {
+    console.error("[FILE_WRITE_ERROR] saveUsers:", error.message);
+  }
 }
 
 function isManagementUser(user) {
@@ -1314,8 +1322,12 @@ function getAnnouncements() {
 }
 
 function saveAnnouncements(announcements) {
-  fs.writeFileSync(`${announcementsPath}.tmp`, JSON.stringify(announcements, null, 2));
-  fs.renameSync(`${announcementsPath}.tmp`, announcementsPath);
+  try {
+    fs.writeFileSync(`${announcementsPath}.tmp`, JSON.stringify(announcements, null, 2));
+    fs.renameSync(`${announcementsPath}.tmp`, announcementsPath);
+  } catch (error) {
+    console.error("[FILE_WRITE_ERROR] saveAnnouncements:", error.message);
+  }
 }
 
 // Rich announcement bodies arrive as HTML from the editor; keep only a small, harmless set of tags and styles.
