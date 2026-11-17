@@ -1,4 +1,4 @@
-﻿const http = require("node:http");
+const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -35,28 +35,14 @@ loadEnvFile();
 
 process.on("uncaughtException", (error) => {
   console.error("UNCAUGHT EXCEPTION:", error);
-  // Don't exit - log and continue
-  if (process.env.NODE_ENV === "production" && (error.message?.includes("heap") || error.message?.includes("memory"))) {
-    console.error("FATAL: Memory error, graceful shutdown...");
-    setTimeout(() => process.exit(1), 5000);
-  }
+  process.exit(1);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("UNHANDLED REJECTION at", promise, "reason:", reason);
-  // Don't exit - log and continue
+  process.exit(1);
 });
 
-// Memory monitoring to detect memory leaks
-if (process.env.NODE_ENV === "production") {
-  setInterval(() => {
-    const memUsage = process.memoryUsage();
-    const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
-    if (heapPercent > 90) {
-      console.warn(`WARNING: Heap usage at ${heapPercent}% (${Math.round(memUsage.heapUsed / 1024 / 1024)}MB/${Math.round(memUsage.heapTotal / 1024 / 1024)}MB)`);
-    }
-  }, 60000); // Check every minute
-}
 const port = Number(process.env.PORT || 5500);
 const applicationTimeZone = "Asia/Ho_Chi_Minh";
 const publicUrl = process.env.RENDER_EXTERNAL_URL;
@@ -98,7 +84,7 @@ const attendanceSitesPath = path.join(dataDirectory, "attendance-sites.json");
 const defaultSiteRadiusMeters = 150;
 const attendanceTrustedProxyHops = Number(process.env.ATTENDANCE_TRUST_PROXY_HOPS?.trim() || (process.env.RENDER === "true" ? 2 : 0));
 if (!Number.isInteger(attendanceTrustedProxyHops) || attendanceTrustedProxyHops < 0 || attendanceTrustedProxyHops > 10) {
-  throw new Error("ATTENDANCE_TRUST_PROXY_HOPS pháº£i lÃ  sá»‘ nguyÃªn tá»« 0 Ä‘áº¿n 10.");
+  throw new Error("ATTENDANCE_TRUST_PROXY_HOPS phải là số nguyên từ 0 đến 10.");
 }
 
 function getAttendanceNetwork() {
@@ -113,7 +99,7 @@ function getAttendanceNetwork() {
 
 function serveAttendanceNetwork(req, res) {
   const user = getCurrentUser(req);
-  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chá»‰ Admin/CEO Ä‘ang hoáº¡t Ä‘á»™ng Ä‘Æ°á»£c xem cáº¥u hÃ¬nh máº¡ng cháº¥m cÃ´ng." });
+  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được xem cấu hình mạng chấm công." });
   const currentIp = getRequestIp(req, attendanceTrustedProxyHops);
   sendJson(res, 200, { ...getAttendanceNetwork(), currentIp, currentNetwork: getOfficeNetwork(currentIp) });
 }
@@ -137,8 +123,8 @@ function validateSitePoint(point) {
   const latitude = Number(point.latitude);
   const longitude = Number(point.longitude);
   const radiusMeters = Math.round(Number(point.radiusMeters ?? defaultSiteRadiusMeters));
-  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) throw new Error("Tá»a Ä‘á»™ Ä‘iá»ƒm cháº¥m cÃ´ng khÃ´ng há»£p lá»‡.");
-  if (!Number.isFinite(radiusMeters) || radiusMeters < 30 || radiusMeters > 1000) throw new Error("BÃ¡n kÃ­nh cháº¥m cÃ´ng pháº£i tá»« 30 Ä‘áº¿n 1000 mÃ©t.");
+  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) throw new Error("Tọa độ điểm chấm công không hợp lệ.");
+  if (!Number.isFinite(radiusMeters) || radiusMeters < 30 || radiusMeters > 1000) throw new Error("Bán kính chấm công phải từ 30 đến 1000 mét.");
   return { latitude, longitude, radiusMeters };
 }
 
@@ -154,34 +140,34 @@ function distanceInMeters(from, to) {
 function checkSiteLocation(point, label, location) {
   const latitude = Number(location?.latitude);
   const longitude = Number(location?.longitude);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return { message: `Vui lÃ²ng báº­t vÃ  cho phÃ©p truy cáº­p vá»‹ trÃ­ Ä‘á»ƒ cháº¥m cÃ´ng táº¡i ${label}.` };
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return { message: `Vui lòng bật và cho phép truy cập vị trí để chấm công tại ${label}.` };
   const accuracy = Math.max(0, Number(location.accuracy) || 0);
   const distance = distanceInMeters(point, { latitude, longitude });
   // Indoor GPS drifts, so allow up to 100 m of the device's reported accuracy on top of the radius.
   if (distance > point.radiusMeters + Math.min(accuracy, 100)) {
-    return { message: `Báº¡n Ä‘ang cÃ¡ch Ä‘iá»ƒm cháº¥m cÃ´ng ${label} khoáº£ng ${Math.round(distance)} m (cho phÃ©p ${point.radiusMeters} m). HÃ£y Ä‘áº¿n cÃ´ng ty rá»“i thá»­ láº¡i.` };
+    return { message: `Bạn đang cách điểm chấm công ${label} khoảng ${Math.round(distance)} m (cho phép ${point.radiusMeters} m). Hãy đến công ty rồi thử lại.` };
   }
   return { proof: { latitude, longitude, accuracy: Math.round(accuracy), distanceMeters: Math.round(distance) } };
 }
 
 function serveAttendanceSites(req, res) {
   const user = getCurrentUser(req);
-  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chá»‰ Admin/CEO Ä‘ang hoáº¡t Ä‘á»™ng Ä‘Æ°á»£c xem Ä‘iá»ƒm cháº¥m cÃ´ng." });
+  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được xem điểm chấm công." });
   sendJson(res, 200, getAttendanceSites());
 }
 
 async function updateAttendanceSites(req, res) {
   const user = getCurrentUser(req);
-  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chá»‰ Admin/CEO Ä‘ang hoáº¡t Ä‘á»™ng Ä‘Æ°á»£c sá»­a Ä‘iá»ƒm cháº¥m cÃ´ng." });
+  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được sửa điểm chấm công." });
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (Buffer.byteLength(body, "utf8") > 4096) return sendJson(res, 413, { message: "Dá»¯ liá»‡u quÃ¡ lá»›n." });
+    if (Buffer.byteLength(body, "utf8") > 4096) return sendJson(res, 413, { message: "Dữ liệu quá lớn." });
   }
   const { sites } = getAttendanceSites();
   try {
     const payload = JSON.parse(body);
-    if (!attendanceSiteIds.includes(payload.site)) throw new Error("Khu vá»±c cháº¥m cÃ´ng khÃ´ng há»£p lá»‡.");
+    if (!attendanceSiteIds.includes(payload.site)) throw new Error("Khu vực chấm công không hợp lệ.");
     sites[payload.site] = validateSitePoint(payload.point);
   } catch (error) {
     return sendJson(res, 400, { message: error.message });
@@ -194,11 +180,11 @@ async function updateAttendanceSites(req, res) {
 
 async function updateAttendanceNetwork(req, res) {
   const user = getCurrentUser(req);
-  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chá»‰ Admin/CEO Ä‘ang hoáº¡t Ä‘á»™ng Ä‘Æ°á»£c sá»­a cáº¥u hÃ¬nh máº¡ng cháº¥m cÃ´ng." });
+  if (!isManagementUser(user) || user.status !== "active") return sendJson(res, 403, { message: "Chỉ Admin/CEO đang hoạt động được sửa cấu hình mạng chấm công." });
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (Buffer.byteLength(body, "utf8") > 16384) return sendJson(res, 413, { message: "Danh sÃ¡ch IP quÃ¡ lá»›n." });
+    if (Buffer.byteLength(body, "utf8") > 16384) return sendJson(res, 413, { message: "Danh sách IP quá lớn." });
   }
   let allowedIps;
   try {
@@ -237,21 +223,6 @@ function loadSessions() {
     if (sessions.size !== Object.keys(savedSessions).length) saveSessions();
   } catch (error) {
     if (error.code !== "ENOENT") console.error(error);
-  }
-}
-
-// Safe file write with error handling and atomic operations
-function safeWriteFile(filePath, data, label = "") {
-  try {
-    const tmpPath = `${filePath}.tmp`;
-    fs.writeFileSync(tmpPath, data);
-    fs.renameSync(tmpPath, filePath);
-    return true;
-  } catch (error) {
-    console.error(`[FILE_WRITE_ERROR] Failed to write ${label || filePath}: ${error.code} - ${error.message}`);
-    // Log to stderr as well for visibility
-    console.error(`[FILE_WRITE_ERROR] Path: ${filePath}, Size: ${(data.length / 1024).toFixed(2)}KB, Code: ${error.code}`);
-    return false;
   }
 }
 
@@ -307,19 +278,11 @@ function isPublicStaticPath(relativePath) {
 }
 
 function saveSessions() {
-  try {
-    fs.writeFileSync(sessionsPath, JSON.stringify(Object.fromEntries(sessions), null, 2));
-  } catch (error) {
-    console.error("[FILE_WRITE_ERROR] saveSessions:", error.message);
-  }
+  fs.writeFileSync(sessionsPath, JSON.stringify(Object.fromEntries(sessions), null, 2));
 }
 
 function saveUsers() {
-  try {
-    fs.writeFileSync(usersPath, JSON.stringify(Object.fromEntries(users), null, 2));
-  } catch (error) {
-    console.error("[FILE_WRITE_ERROR] saveUsers:", error.message);
-  }
+  fs.writeFileSync(usersPath, JSON.stringify(Object.fromEntries(users), null, 2));
 }
 
 function isManagementUser(user) {
@@ -348,7 +311,7 @@ function downloadPaymentTemplate(req, res) {
   const template = getPaymentTemplate();
   const dataUrl = String(template.fileData || "");
   const match = /^data:([^,]*),(.*)$/s.exec(dataUrl);
-  if (!match) return send(res, 404, "ChÆ°a cÃ³ file máº«u thanh toÃ¡n.");
+  if (!match) return send(res, 404, "Chưa có file mẫu thanh toán.");
   const metadata = match[1];
   const mimeType = metadata.split(";")[0] || template.fileType || "application/octet-stream";
   let fileData;
@@ -357,9 +320,9 @@ function downloadPaymentTemplate(req, res) {
       ? Buffer.from(match[2], "base64")
       : Buffer.from(decodeURIComponent(match[2]));
   } catch {
-    return send(res, 400, "File máº«u thanh toÃ¡n khÃ´ng há»£p lá»‡.");
+    return send(res, 400, "File mẫu thanh toán không hợp lệ.");
   }
-  if (!fileData.length || fileData.length > 8 * 1024 * 1024) return send(res, 400, "File máº«u vÆ°á»£t quÃ¡ giá»›i háº¡n táº£i xuá»‘ng.");
+  if (!fileData.length || fileData.length > 8 * 1024 * 1024) return send(res, 400, "File mẫu vượt quá giới hạn tải xuống.");
   const fileName = String(template.fileName || "mau-de-xuat-thanh-toan").replace(/[\\/\r\n\0]/g, "_").slice(0, 180);
   const fallbackName = fileName.replace(/[^\x20-\x7e]|["\\;]/g, "_");
   res.writeHead(200, {
@@ -380,7 +343,7 @@ async function updatePaymentTemplate(req, res) {
   const fileName = String(payload.fileName || "").trim().slice(0, 180);
   const fileType = String(payload.fileType || "").trim().slice(0, 120);
   const fileData = typeof payload.fileData === "string" ? payload.fileData : "";
-  if (!fileName || !fileData.startsWith("data:") || fileData.length > 9.5 * 1024 * 1024) return send(res, 400, "File máº«u khÃ´ng há»£p lá»‡ hoáº·c vÆ°á»£t quÃ¡ 7 MB.");
+  if (!fileName || !fileData.startsWith("data:") || fileData.length > 9.5 * 1024 * 1024) return send(res, 400, "File mẫu không hợp lệ hoặc vượt quá 7 MB.");
   const template = { fileName, fileType, fileData, updatedAt: new Date().toISOString() };
   fs.writeFileSync(paymentTemplatePath, JSON.stringify(template, null, 2));
   sendJson(res, 200, { template });
@@ -534,7 +497,7 @@ async function completeGoogleAuth(req, res) {
   if (!invitedUser && !isFixedAdmin && stateData.mode === "login") {
     const params = new URLSearchParams({
       email: profile.email,
-      name: profile.name || "TÃ i khoáº£n Google",
+      name: profile.name || "Tài khoản Google",
       picture: profile.picture || "",
     });
     return redirect(res, `/not-registered.html?${params}`);
@@ -556,32 +519,32 @@ async function completeMobileAuth(req, res) {
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 16 * 1024) return send(res, 413, "YÃªu cáº§u Ä‘Äƒng nháº­p quÃ¡ lá»›n.");
+    if (body.length > 16 * 1024) return send(res, 413, "Yêu cầu đăng nhập quá lớn.");
   }
 
   let payload;
   try {
     payload = JSON.parse(body || "{}");
   } catch {
-    return sendJson(res, 400, { message: "YÃªu cáº§u Ä‘Äƒng nháº­p khÃ´ng há»£p lá»‡." });
+    return sendJson(res, 400, { message: "Yêu cầu đăng nhập không hợp lệ." });
   }
 
   const idToken = String(payload.idToken || "").trim();
   const mode = payload.mode === "register" ? "register" : "login";
-  if (!idToken || idToken.length > 12 * 1024) return sendJson(res, 400, { message: "Thiáº¿u thÃ´ng tin Ä‘Äƒng nháº­p Google." });
+  if (!idToken || idToken.length > 12 * 1024) return sendJson(res, 400, { message: "Thiếu thông tin đăng nhập Google." });
 
   let profile;
   let verificationStage = "initialize Firebase Admin";
   try {
     const firebaseAuth = getFirebaseAuth();
-    if (!firebaseAuth) return sendJson(res, 503, { message: "ÄÄƒng nháº­p mobile chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh trÃªn mÃ¡y chá»§." });
+    if (!firebaseAuth) return sendJson(res, 503, { message: "Đăng nhập mobile chưa được cấu hình trên máy chủ." });
     verificationStage = "verify Firebase ID token";
     const verifyStartedAt = Date.now();
     const decodedToken = await firebaseAuth.verifyIdToken(idToken);
     console.log(`Mobile auth: verifyIdToken took ${Date.now() - verifyStartedAt}ms.`);
     const tokenGoogleUid = decodedToken.firebase?.sign_in_provider === "google.com" ? decodedToken.firebase?.identities?.["google.com"]?.[0] : "";
     if (tokenGoogleUid && decodedToken.email && decodedToken.email_verified) {
-      // ID token Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c minh chá»©a Ä‘á»§ thÃ´ng tin, khÃ´ng cáº§n gá»i thÃªm Firebase.
+      // ID token đã được xác minh chứa đủ thông tin, không cần gọi thêm Firebase.
       profile = {
         sub: tokenGoogleUid,
         email: decodedToken.email,
@@ -594,7 +557,7 @@ async function completeMobileAuth(req, res) {
       const firebaseUser = await firebaseAuth.getUser(decodedToken.uid);
       verificationStage = "check Google provider";
       const googleProvider = firebaseUser.providerData.find((provider) => provider.providerId === "google.com");
-      if (!googleProvider || !firebaseUser.email || !firebaseUser.emailVerified) return sendJson(res, 401, { message: "TÃ i khoáº£n Google chÆ°a Ä‘Æ°á»£c xÃ¡c minh." });
+      if (!googleProvider || !firebaseUser.email || !firebaseUser.emailVerified) return sendJson(res, 401, { message: "Tài khoản Google chưa được xác minh." });
       profile = {
         sub: googleProvider.uid,
         email: firebaseUser.email,
@@ -605,7 +568,7 @@ async function completeMobileAuth(req, res) {
     }
   } catch (error) {
     console.error("Mobile Firebase auth verification failed at", verificationStage + ":", error.code || error.name || "unknown");
-    return sendJson(res, 401, { message: "KhÃ´ng xÃ¡c minh Ä‘Æ°á»£c tÃ i khoáº£n Google trÃªn thiáº¿t bá»‹." });
+    return sendJson(res, 401, { message: "Không xác minh được tài khoản Google trên thiết bị." });
   }
 
   const normalizedProfileEmail = normalizeEmail(profile.email);
@@ -613,7 +576,7 @@ async function completeMobileAuth(req, res) {
   const isFixedAdmin = normalizedProfileEmail === fixedAdminEmail;
   const invitedUser = existingUser || [...users.values()].find((user) => normalizeEmail(user.email) === normalizedProfileEmail);
   if (!existingUser && invitedUser) users.delete(invitedUser.id);
-  if (!invitedUser && !isFixedAdmin && mode === "login") return sendJson(res, 403, { message: "TÃ i khoáº£n chÆ°a Ä‘Æ°á»£c má»i vÃ o há»‡ thá»‘ng." });
+  if (!invitedUser && !isFixedAdmin && mode === "login") return sendJson(res, 403, { message: "Tài khoản chưa được mời vào hệ thống." });
 
   const nextUser = {
     id: profile.sub,
@@ -744,13 +707,13 @@ async function updateUserRole(req, res, userId) {
     return send(res, 400, "Invalid JSON");
   }
   const user = users.get(userId);
-  if (!user) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n");
-  if (!["employee", "accountant", "bookkeeper", "warehouse", "manager", "production", "hr", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trÃ² khÃ´ng há»£p lá»‡");
+  if (!user) return send(res, 404, "Không tìm thấy tài khoản");
+  if (!["employee", "accountant", "bookkeeper", "warehouse", "manager", "production", "hr", "ceo", "admin"].includes(payload.role)) return send(res, 400, "Vai trò không hợp lệ");
   if (user.id === currentUser.id || normalizeEmail(user.email) === fixedAdminEmail) {
-    return send(res, 400, "KhÃ´ng thá»ƒ Ä‘á»•i vai trÃ² cá»§a tÃ i khoáº£n nÃ y.");
+    return send(res, 400, "Không thể đổi vai trò của tài khoản này.");
   }
   const touchesManagement = ["admin", "ceo"].includes(payload.role) || ["admin", "ceo"].includes(user.role);
-  if (touchesManagement && currentUser.role !== "admin") return send(res, 403, "Chá»‰ Quáº£n trá»‹ viÃªn má»›i Ä‘á»•i Ä‘Æ°á»£c vai trÃ² CEO/Quáº£n trá»‹.");
+  if (touchesManagement && currentUser.role !== "admin") return send(res, 403, "Chỉ Quản trị viên mới đổi được vai trò CEO/Quản trị.");
   user.role = payload.role;
   user.updatedAt = new Date().toISOString();
   saveUsers();
@@ -775,9 +738,9 @@ async function deleteUser(req, res, userId) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser)) return send(res, 403, "Forbidden");
   const user = users.get(userId);
-  if (!user) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n");
+  if (!user) return send(res, 404, "Không tìm thấy tài khoản");
   if (user.id === currentUser.id || normalizeEmail(user.email) === fixedAdminEmail || ["admin", "ceo"].includes(user.role)) {
-    return send(res, 400, "KhÃ´ng thá»ƒ xÃ³a tÃ i khoáº£n quáº£n trá»‹ hoáº·c tÃ i khoáº£n Ä‘ang Ä‘Äƒng nháº­p.");
+    return send(res, 400, "Không thể xóa tài khoản quản trị hoặc tài khoản đang đăng nhập.");
   }
   users.delete(userId);
   saveUsers();
@@ -791,7 +754,7 @@ async function inviteUser(req, res) {
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
   const email = String(payload.email || "").trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return send(res, 400, "Email khÃ´ng há»£p lá»‡");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return send(res, 400, "Email không hợp lệ");
   const existing = [...users.values()].find((user) => user.email.toLowerCase() === email);
   if (existing) {
     existing.status = "active";
@@ -929,11 +892,11 @@ async function serveProposalAttachment(req, res) {
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
   const match = /^\/api\/proposals\/([^/]+)\/attachment\/(payment|late|evidence)/.exec(new URL(req.url, "http://localhost").pathname);
   const proposal = match && getProposals().find((item) => item.id === decodeURIComponent(match[1]));
-  if (!proposal) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y Ä‘á» xuáº¥t.");
+  if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
   if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && (canViewPaymentProposal(currentUser, proposal) || isAccountingTeamProposal(proposal)))) return send(res, 403, "Forbidden");
   const dataUrl = attachments.read(proposal.id, match[2]);
   const parsed = /^data:([^;,]*)(?:;[^,]*)?;base64,(.*)$/s.exec(dataUrl);
-  if (!parsed) return send(res, 404, "KhÃ´ng cÃ³ tá»‡p Ä‘Ã­nh kÃ¨m.");
+  if (!parsed) return send(res, 404, "Không có tệp đính kèm.");
   const body = Buffer.from(parsed[2], "base64");
   const isImage = /^image\/(jpeg|png|gif|webp)$/.test(parsed[1]);
   const inline = isImage || parsed[1] === "application/pdf";
@@ -959,7 +922,7 @@ function getPaymentStage(proposal) {
   return proposal.paymentStage || (getPaymentFlow(proposal) === "accountant" ? "accounting" : "management");
 }
 
-// Personnel proposals (leave, late, early leaveâ€¦) sent by the accounting staff ("Káº¿ toÃ¡n", role bookkeeper).
+// Personnel proposals (leave, late, early leave…) sent by the accounting staff ("Kế toán", role bookkeeper).
 function isAccountingTeamProposal(proposal) {
   return proposal.type !== "payment" && users.get(String(proposal.userId || ""))?.role === "bookkeeper";
 }
@@ -1012,16 +975,16 @@ async function serveProposalDocument(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const id = decodeURIComponent(url.pathname.slice("/api/proposals/".length, -"/document".length));
   const proposal = getProposals().find((item) => item.id === id);
-  if (!proposal) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y Ä‘á» xuáº¥t.");
+  if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
   if (proposal.userId !== getAttendanceUserKey(currentUser) && !isManagementUser(currentUser) && !(currentUser.role === "accountant" && (canViewPaymentProposal(currentUser, proposal) || isAccountingTeamProposal(proposal)))) return send(res, 403, "Forbidden");
-  if (!["late", "early-leave", "half-day", "leave", "unauthorized-leave", "other", "payment"].includes(proposal.type)) return send(res, 400, "Loáº¡i Ä‘á» xuáº¥t nÃ y chÆ°a há»— trá»£ táº£i Ä‘Æ¡n.");
-  const saved = { ...proposal, userName: proposal.userName || users.get(proposal.userId)?.name || "NhÃ¢n viÃªn" };
+  if (!["late", "early-leave", "half-day", "leave", "unauthorized-leave", "other", "payment"].includes(proposal.type)) return send(res, 400, "Loại đề xuất này chưa hỗ trợ tải đơn.");
+  const saved = { ...proposal, userName: proposal.userName || users.get(proposal.userId)?.name || "Nhân viên" };
   const format = url.searchParams.get("format");
   if (format === "html") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
     return res.end(proposalDocument.render(proposalDocument.fromProposal({ ...saved, approvalConfirmationData: getApprovalConfirmation(saved) }), { name: saved.userName }));
   }
-  if (format !== "pdf") return send(res, 400, "Äá»‹nh dáº¡ng Ä‘Æ¡n khÃ´ng há»£p lá»‡.");
+  if (format !== "pdf") return send(res, 400, "Định dạng đơn không hợp lệ.");
   const pdf = await createProposalPdf(saved);
   const filename = `don-${proposal.type}-${proposal.date || "de-xuat"}-${String(proposal.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 40)}.pdf`;
   res.writeHead(200, { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "no-store", "Content-Length": pdf.length });
@@ -1055,7 +1018,7 @@ function serveProposals(req, res) {
     return {
       ...attachments.withUrls(proposal),
       ...(proposal.type === "payment" ? { paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal) } : {}),
-      userName: proposal.userName || proposer?.name || proposer?.email || "NhÃ¢n viÃªn",
+      userName: proposal.userName || proposer?.name || proposer?.email || "Nhân viên",
       userEmail: proposal.userEmail || proposer?.email || "",
       userPicture: proposal.userPicture || proposer?.picture || "",
     };
@@ -1075,46 +1038,33 @@ function serveProposals(req, res) {
 }
 
 function serveProposalEvents(req, res) {
-  try {
-      const currentUser = getCurrentUser(req);
-      if (!currentUser || currentUser.status !== "active") return send(res, 401, "Unauthorized");
-      res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-      res.write("event: connected\ndata: {}\n\n");
-      const client = { response: res, userId: getAttendanceUserKey(currentUser), role: currentUser.role };
-      proposalEventClients.add(client);
-      req.on("close", () => proposalEventClients.delete(client));
-  } catch (error) {
-    logError("serveProposalEvents", error);
-    if (!res.headersSent) return send(res, 500, "SSE connection failed");
-  }
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active") return send(res, 401, "Unauthorized");
+  res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+  res.write("event: connected\ndata: {}\n\n");
+  const client = { response: res, userId: getAttendanceUserKey(currentUser), role: currentUser.role };
+  proposalEventClients.add(client);
+  req.on("close", () => proposalEventClients.delete(client));
 }
 
 function publishProposalEvent(proposal) {
-  try {
-    const payload = `event: proposal\ndata: ${JSON.stringify(proposal)}\n\n`;
-    proposalEventClients.forEach((client) => {
-      const shouldNotifyAccountant = needsAccountingReview(proposal) && client.role === "accountant";
-      const shouldNotifyManagement = needsManagementReview(proposal) && isManagementUser({ role: client.role });
-      if (shouldNotifyAccountant || shouldNotifyManagement) client.response.write(payload);
-    });
-  } catch (error) {
-    console.error("publishProposalEvent error:", error.message);
-  }
+  const payload = `event: proposal\ndata: ${JSON.stringify(proposal)}\n\n`;
+  proposalEventClients.forEach((client) => {
+    const shouldNotifyAccountant = needsAccountingReview(proposal) && client.role === "accountant";
+    const shouldNotifyManagement = needsManagementReview(proposal) && isManagementUser({ role: client.role });
+    if (shouldNotifyAccountant || shouldNotifyManagement) client.response.write(payload);
+  });
 }
 
 function publishProposalStatusEvent(proposal, notificationKind = "proposal-status") {
-  try {
-    const isAccountingConfirmation = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "completed";
-    proposalEventClients.forEach((client) => {
-      if (isAccountingConfirmation && isManagementUser({ role: client.role })) {
-        client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind: "payment-accounting-confirmed" })}\n\n`);
-      } else if (client.userId === proposal.userId) {
-        client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind, rejectionReason: proposal.rejectionReason || "" })}\n\n`);
-      }
-    });
-  } catch (error) {
-    console.error("publishProposalStatusEvent error:", error.message);
-  }
+  const isAccountingConfirmation = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "completed";
+  proposalEventClients.forEach((client) => {
+    if (isAccountingConfirmation && isManagementUser({ role: client.role })) {
+      client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind: "payment-accounting-confirmed" })}\n\n`);
+    } else if (client.userId === proposal.userId) {
+      client.response.write(`event: proposal-status\ndata: ${JSON.stringify({ id: proposal.id, status: proposal.status, type: proposal.type, paymentFlow: getPaymentFlow(proposal), paymentStage: getPaymentStage(proposal), notificationKind, rejectionReason: proposal.rejectionReason || "" })}\n\n`);
+    }
+  });
 }
 
 function getPushDevices() {
@@ -1161,8 +1111,8 @@ async function registerPushDevice(req, res) {
   const payload = JSON.parse(body || "{}");
   const token = String(payload.token || "").trim();
   const platform = String(payload.platform || "");
-  if (!token || token.length > 4096 || !["android", "ios", "web"].includes(platform)) return send(res, 400, "ThÃ´ng tin thiáº¿t bá»‹ khÃ´ng há»£p lá»‡.");
-  if (platform === "web" && !getFirebaseWebConfig().enabled) return send(res, 503, "ThÃ´ng bÃ¡o web chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh trÃªn mÃ¡y chá»§.");
+  if (!token || token.length > 4096 || !["android", "ios", "web"].includes(platform)) return send(res, 400, "Thông tin thiết bị không hợp lệ.");
+  if (platform === "web" && !getFirebaseWebConfig().enabled) return send(res, 503, "Thông báo web chưa được cấu hình trên máy chủ.");
   const devices = getPushDevices().filter((device) => device.token !== token);
   devices.push({ token, platform, userId: getAttendanceUserKey(currentUser), updatedAt: new Date().toISOString() });
   savePushDevices(devices);
@@ -1176,7 +1126,7 @@ async function unregisterPushDevice(req, res) {
   let body = "";
   for await (const chunk of req) body += chunk;
   const token = String(JSON.parse(body || "{}").token || "").trim();
-  if (!token) return send(res, 400, "Thiáº¿u token thiáº¿t bá»‹.");
+  if (!token) return send(res, 400, "Thiếu token thiết bị.");
   const userId = getAttendanceUserKey(currentUser);
   savePushDevices(getPushDevices().filter((device) => device.token !== token || device.userId !== userId));
   sendJson(res, 200, { removed: true });
@@ -1225,9 +1175,9 @@ async function sendProposalStatusPush(proposal, { managementApproval = false } =
   const approved = isManagementApproval || proposal.status === "approved";
   const soundName = isAccountingConfirmation ? "proposal_payment_accounting_confirmed" : approved ? "proposal_approved" : "proposal_rejected";
   const channelId = isAccountingConfirmation ? "proposal-payment-accounting-confirmed-v1" : `proposal-${approved ? "approved" : "rejected"}`;
-  const title = isAccountingConfirmation ? "Káº¿ toÃ¡n Ä‘Ã£ xÃ¡c nháº­n Ä‘á» xuáº¥t" : isManagementApproval ? "Äá» xuáº¥t thanh toÃ¡n Ä‘Ã£ Ä‘Æ°á»£c CEO/Admin duyá»‡t" : approved ? "Äá» xuáº¥t Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t" : "Äá» xuáº¥t bá»‹ tá»« chá»‘i";
+  const title = isAccountingConfirmation ? "Kế toán đã xác nhận đề xuất" : isManagementApproval ? "Đề xuất thanh toán đã được CEO/Admin duyệt" : approved ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối";
   const rejectionReason = proposal.status === "rejected" ? String(proposal.rejectionReason || "").trim() : "";
-  const body = isAccountingConfirmation ? "Äá» xuáº¥t thanh toÃ¡n Ä‘Ã£ Ä‘Æ°á»£c káº¿ toÃ¡n xÃ¡c nháº­n." : isManagementApproval ? "Äá» xuáº¥t cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c CEO/Admin duyá»‡t vÃ  chuyá»ƒn Ä‘áº¿n káº¿ toÃ¡n xÃ¡c nháº­n." : approved ? "Äá» xuáº¥t cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t." : `Äá» xuáº¥t cá»§a báº¡n Ä‘Ã£ bá»‹ tá»« chá»‘i.${rejectionReason ? ` LÃ½ do: ${rejectionReason}` : ""}`;
+  const body = isAccountingConfirmation ? "Đề xuất thanh toán đã được kế toán xác nhận." : isManagementApproval ? "Đề xuất của bạn đã được CEO/Admin duyệt và chuyển đến kế toán xác nhận." : approved ? "Đề xuất của bạn đã được duyệt." : `Đề xuất của bạn đã bị từ chối.${rejectionReason ? ` Lý do: ${rejectionReason}` : ""}`;
   const url = isAccountingConfirmation || isManagementApproval ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposals.html";
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
@@ -1270,16 +1220,16 @@ async function sendProposalCreatedPush(proposal) {
   const isHalfDayProposal = proposal.type === "half-day";
   const isLeaveProposal = proposal.type === "leave";
   const isUnauthorizedLeaveProposal = proposal.type === "unauthorized-leave";
-  const flowLabel = proposal.type === "payment" ? getPaymentFlow(proposal) === "accountant" ? "thanh toÃ¡n (Káº¿ toÃ¡n)" : "thanh toÃ¡n (CEO)" : "nhÃ¢n sá»±";
+  const flowLabel = proposal.type === "payment" ? getPaymentFlow(proposal) === "accountant" ? "thanh toán (Kế toán)" : "thanh toán (CEO)" : "nhân sự";
   const body = isAccountingHandoff
-    ? "Äá» xuáº¥t thanh toÃ¡n Ä‘Ã£ Ä‘Æ°á»£c CEO/Admin duyá»‡t. Vui lÃ²ng xÃ¡c nháº­n."
+    ? "Đề xuất thanh toán đã được CEO/Admin duyệt. Vui lòng xác nhận."
     : isDirectAccountantProposal
-      ? `${proposal.userName || "NhÃ¢n viÃªn"} vá»«a gá»­i Ä‘á» xuáº¥t thanh toÃ¡n trá»±c tiáº¿p Ä‘áº¿n Káº¿ toÃ¡n.`
+      ? `${proposal.userName || "Nhân viên"} vừa gửi đề xuất thanh toán trực tiếp đến Kế toán.`
     : isLeaveProposal
-      ? `${proposal.userName || "NhÃ¢n viÃªn"} vá»«a gá»­i Ä‘á» xuáº¥t nghá»‰ phÃ©p.`
+      ? `${proposal.userName || "Nhân viên"} vừa gửi đề xuất nghỉ phép.`
     : isUnauthorizedLeaveProposal
-      ? `${proposal.userName || "NhÃ¢n viÃªn"} vá»«a gá»­i Ä‘á» xuáº¥t nghá»‰ khÃ´ng phÃ©p.`
-    : `${proposal.userName || "NhÃ¢n viÃªn"} vá»«a gá»­i Ä‘á» xuáº¥t ${flowLabel}.`;
+      ? `${proposal.userName || "Nhân viên"} vừa gửi đề xuất nghỉ không phép.`
+    : `${proposal.userName || "Nhân viên"} vừa gửi đề xuất ${flowLabel}.`;
   const soundName = isAccountingHandoff ? "proposal_payment_ceo_approved" : isDirectAccountantProposal ? "proposal_payment_direct_accountant" : isLateProposal ? "proposal_late_submitted" : isEarlyLeaveProposal ? "proposal_early_leave_submitted" : isHalfDayProposal ? "proposal_half_day_submitted" : isLeaveProposal ? "proposal_leave_submitted" : isUnauthorizedLeaveProposal ? "proposal_unauthorized_leave_submitted" : proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
   const channelId = isAccountingHandoff ? "proposal-created-payment-accounting-v1" : isDirectAccountantProposal ? "proposal-created-payment-accountant-direct-v1" : isLateProposal ? "proposal-created-late-v1" : isEarlyLeaveProposal ? "proposal-created-early-leave-v1" : isHalfDayProposal ? "proposal-created-half-day-v1" : isLeaveProposal ? "proposal-created-leave-v1" : isUnauthorizedLeaveProposal ? "proposal-created-unauthorized-leave-v1" : proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
   const url = proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposal-report.html";
@@ -1288,7 +1238,7 @@ async function sendProposalCreatedPush(proposal) {
     try {
       await messaging.send({
         token: device.token,
-        notification: { title: "CÃ³ Ä‘á» xuáº¥t má»›i", body },
+        notification: { title: "Có đề xuất mới", body },
         data: { type: "proposal-created", proposalId: proposal.id, url },
         android: { priority: "high", notification: { channelId, sound: soundName } },
         apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: isAccountingHandoff || isLateProposal || isEarlyLeaveProposal || isHalfDayProposal || isLeaveProposal || isUnauthorizedLeaveProposal ? `${soundName}.wav` : "default" } } },
@@ -1303,13 +1253,13 @@ async function sendProposalCreatedPush(proposal) {
   console.log(`Proposal-created push processed for ${devices.length} reviewer devices.`);
 }
 
-const proposalTypeLabels = { late: "Ä‘i trá»…", "early-leave": "vá» sá»›m", "half-day": "nghá»‰ ná»­a ngÃ y", leave: "nghá»‰ phÃ©p", "unauthorized-leave": "nghá»‰ khÃ´ng phÃ©p", other: "khÃ¡c", payment: "thanh toÃ¡n" };
-// "Other" proposals carry their own name (e.g. "Äi cÃ´ng tÃ¡c"), which reads better than the generic label.
+const proposalTypeLabels = { late: "đi trễ", "early-leave": "về sớm", "half-day": "nghỉ nửa ngày", leave: "nghỉ phép", "unauthorized-leave": "nghỉ không phép", other: "khác", payment: "thanh toán" };
+// "Other" proposals carry their own name (e.g. "Đi công tác"), which reads better than the generic label.
 function proposalTypeName(proposal, labels) {
   return proposal.type === "other" && proposal.subject ? proposal.subject : labels[proposal.type] || proposal.type || "";
 }
 
-// ThÃ´ng bÃ¡o trÃªn chuÃ´ng: viá»‡c Ä‘ang chá» chÃ­nh ngÆ°á»i dÃ¹ng vÃ  káº¿t quáº£ Ä‘á» xuáº¥t cá»§a há».
+// Thông báo trên chuông: việc đang chờ chính người dùng và kết quả đề xuất của họ.
 // Company-wide announcements: every active user reads them, Admin/CEO post and delete them.
 function getAnnouncements() {
   try {
@@ -1322,12 +1272,8 @@ function getAnnouncements() {
 }
 
 function saveAnnouncements(announcements) {
-  try {
-    fs.writeFileSync(`${announcementsPath}.tmp`, JSON.stringify(announcements, null, 2));
-    fs.renameSync(`${announcementsPath}.tmp`, announcementsPath);
-  } catch (error) {
-    console.error("[FILE_WRITE_ERROR] saveAnnouncements:", error.message);
-  }
+  fs.writeFileSync(`${announcementsPath}.tmp`, JSON.stringify(announcements, null, 2));
+  fs.renameSync(`${announcementsPath}.tmp`, announcementsPath);
 }
 
 // Rich announcement bodies arrive as HTML from the editor; keep only a small, harmless set of tags and styles.
@@ -1420,7 +1366,7 @@ function sanitizeAnnouncementHtml(html) {
 
 function announcementHtmlToText(html) {
   return decodeHtmlEntities(String(html)
-    .replace(/<img\b[^>]*>/gi, " [HÃ¬nh áº£nh] ")
+    .replace(/<img\b[^>]*>/gi, " [Hình ảnh] ")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|h[2-4]|li|blockquote|tr)>/gi, "\n")
     .replace(/<[^>]*>/g, ""))
@@ -1429,20 +1375,20 @@ function announcementHtmlToText(html) {
 
 async function uploadAnnouncementImage(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chá»‰ Admin/CEO Ä‘Æ°á»£c chÃ¨n áº£nh vÃ o thÃ´ng bÃ¡o.");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được chèn ảnh vào thông báo.");
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 12 * 1024 * 1024) return send(res, 413, "áº¢nh quÃ¡ lá»›n (tá»‘i Ä‘a 8MB).");
+    if (size > 12 * 1024 * 1024) return send(res, 413, "Ảnh quá lớn (tối đa 8MB).");
     chunks.push(chunk);
   }
   let payload;
-  try { payload = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); } catch { return send(res, 400, "Dá»¯ liá»‡u áº£nh khÃ´ng há»£p lá»‡."); }
+  try { payload = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); } catch { return send(res, 400, "Dữ liệu ảnh không hợp lệ."); }
   const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(String(payload.data || ""));
-  if (!match) return send(res, 400, "Chá»‰ há»— trá»£ áº£nh JPG, PNG, WEBP hoáº·c GIF.");
+  if (!match) return send(res, 400, "Chỉ hỗ trợ ảnh JPG, PNG, WEBP hoặc GIF.");
   const bytes = Buffer.from(match[2], "base64");
-  if (!bytes.length || bytes.length > 8 * 1024 * 1024) return send(res, 413, "áº¢nh quÃ¡ lá»›n (tá»‘i Ä‘a 8MB).");
+  if (!bytes.length || bytes.length > 8 * 1024 * 1024) return send(res, 413, "Ảnh quá lớn (tối đa 8MB).");
   const fileName = `${crypto.randomUUID()}.${announcementImageTypes[match[1].toLowerCase()]}`;
   fs.mkdirSync(announcementImageDirectory(), { recursive: true });
   fs.writeFileSync(path.join(announcementImageDirectory(), fileName), bytes);
@@ -1467,13 +1413,13 @@ const announcementFilePattern = /^[\w-]+\.(pdf|docx?|xlsx?|pptx?|txt|csv|jpe?g|p
 
 async function uploadAnnouncementFile(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chá»‰ Admin/CEO Ä‘Æ°á»£c Ä‘Ã­nh kÃ¨m file vÃ o thÃ´ng bÃ¡o.");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được đính kèm file vào thông báo.");
   let name = "";
   try { name = decodeURIComponent(String(req.headers["x-file-name"] || "")); } catch {}
   name = path.basename(name.replace(/\\/g, "/")).replace(/[\u0000-\u001f"<>|*?:]/g, "").trim().slice(0, 180);
   const extension = path.extname(name).slice(1).toLowerCase();
-  if (!name || !Object.hasOwn(announcementFileTypes, extension)) return send(res, 400, "Äá»‹nh dáº¡ng file chÆ°a Ä‘Æ°á»£c há»— trá»£ (PDF, Word, Excel, PowerPoint, TXT, CSV, áº£nh, ZIP, RAR, 7Z, MP4, MP3).");
-  if (Number(req.headers["content-length"] || 0) > announcementFileLimit) return send(res, 413, "File quÃ¡ lá»›n (tá»‘i Ä‘a 25MB).");
+  if (!name || !Object.hasOwn(announcementFileTypes, extension)) return send(res, 400, "Định dạng file chưa được hỗ trợ (PDF, Word, Excel, PowerPoint, TXT, CSV, ảnh, ZIP, RAR, 7Z, MP4, MP3).");
+  if (Number(req.headers["content-length"] || 0) > announcementFileLimit) return send(res, 413, "File quá lớn (tối đa 25MB).");
   const fileName = `${crypto.randomUUID()}.${extension}`;
   const target = path.join(announcementImageDirectory(), fileName);
   fs.mkdirSync(announcementImageDirectory(), { recursive: true });
@@ -1484,7 +1430,7 @@ async function uploadAnnouncementFile(req, res) {
   try {
     for await (const chunk of req) {
       size += chunk.length;
-      if (size > announcementFileLimit) throw Object.assign(new Error("File quÃ¡ lá»›n (tá»‘i Ä‘a 25MB)."), { status: 413 });
+      if (size > announcementFileLimit) throw Object.assign(new Error("File quá lớn (tối đa 25MB)."), { status: 413 });
       if (writeError) throw writeError;
       if (!output.write(chunk)) await new Promise((resolve) => { output.once("drain", resolve); output.once("error", resolve); });
     }
@@ -1492,11 +1438,11 @@ async function uploadAnnouncementFile(req, res) {
   } catch (error) {
     output.destroy();
     fs.rm(target, { force: true }, () => {});
-    return send(res, error.status || 500, error.status ? error.message : "KhÃ´ng lÆ°u Ä‘Æ°á»£c file.");
+    return send(res, error.status || 500, error.status ? error.message : "Không lưu được file.");
   }
   if (!size) {
     fs.rm(target, { force: true }, () => {});
-    return send(res, 400, "File rá»—ng.");
+    return send(res, 400, "File rỗng.");
   }
   sendJson(res, 201, { file: fileName, name, size });
 }
@@ -1567,14 +1513,14 @@ function serveMenuVisibility(req, res) {
 
 async function saveMenuVisibility(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chá»‰ Admin/CEO Ä‘Æ°á»£c áº©n/hiá»‡n chá»©c nÄƒng.");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được ẩn/hiện chức năng.");
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (Buffer.byteLength(body, "utf8") > 4096) return send(res, 413, "Dá»¯ liá»‡u quÃ¡ lá»›n.");
+    if (Buffer.byteLength(body, "utf8") > 4096) return send(res, 413, "Dữ liệu quá lớn.");
   }
   let payload;
-  try { payload = JSON.parse(body || "{}"); } catch { return send(res, 400, "Dá»¯ liá»‡u khÃ´ng há»£p lá»‡."); }
+  try { payload = JSON.parse(body || "{}"); } catch { return send(res, 400, "Dữ liệu không hợp lệ."); }
   const hidden = [...new Set((Array.isArray(payload.hidden) ? payload.hidden : []).filter((key) => Object.hasOwn(menuFeatures, key)))];
   fs.writeFileSync(dataPath("menu-visibility.json"), JSON.stringify({ hidden, updatedAt: new Date().toISOString(), updatedBy: currentUser.email || currentUser.name || "" }, null, 2));
   sendJson(res, 200, { hidden, canManage: true });
@@ -1582,17 +1528,17 @@ async function saveMenuVisibility(req, res) {
 
 async function createAnnouncement(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chá»‰ Admin/CEO Ä‘Æ°á»£c Ä‘Äƒng thÃ´ng bÃ¡o chung.");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được đăng thông báo chung.");
   let body = "";
   for await (const chunk of req) {
     body += chunk;
-    if (Buffer.byteLength(body, "utf8") > 400 * 1024) return send(res, 413, "Ná»™i dung thÃ´ng bÃ¡o quÃ¡ dÃ i.");
+    if (Buffer.byteLength(body, "utf8") > 400 * 1024) return send(res, 413, "Nội dung thông báo quá dài.");
   }
   let payload;
-  try { payload = JSON.parse(body || "{}"); } catch { return send(res, 400, "Dá»¯ liá»‡u khÃ´ng há»£p lá»‡."); }
+  try { payload = JSON.parse(body || "{}"); } catch { return send(res, 400, "Dữ liệu không hợp lệ."); }
   const title = String(payload.title || "").trim().slice(0, 150);
   const contentHtml = payload.contentHtml ? sanitizeAnnouncementHtml(payload.contentHtml) : "";
-  if (contentHtml.length > 200000) return send(res, 413, "Ná»™i dung thÃ´ng bÃ¡o quÃ¡ dÃ i.");
+  if (contentHtml.length > 200000) return send(res, 413, "Nội dung thông báo quá dài.");
   const content = (contentHtml ? announcementHtmlToText(contentHtml) : String(payload.content || "").trim()).slice(0, 20000);
   // Only files that were really uploaded here may be attached.
   const attachments = (Array.isArray(payload.attachments) ? payload.attachments : []).slice(0, 20).flatMap((item) => {
@@ -1603,7 +1549,7 @@ async function createAnnouncement(req, res) {
     const name = String(item.name || stored).replace(/[\u0000-\u001f"<>|*?:\\/]/g, "").trim().slice(0, 180) || stored;
     return [{ file: stored, name, size: fs.statSync(location).size }];
   });
-  if (!title || (!content.trim() && !attachments.length)) return send(res, 400, "Vui lÃ²ng nháº­p tiÃªu Ä‘á» vÃ  ná»™i dung thÃ´ng bÃ¡o.");
+  if (!title || (!content.trim() && !attachments.length)) return send(res, 400, "Vui lòng nhập tiêu đề và nội dung thông báo.");
   const announcement = {
     id: crypto.randomUUID(),
     title,
@@ -1618,17 +1564,17 @@ async function createAnnouncement(req, res) {
   };
   saveAnnouncements([announcement, ...getAnnouncements()]);
   const recipients = [...users.values()].filter((user) => user.status === "active" && getAttendanceUserKey(user) !== announcement.authorId);
-  sendUserNotification(recipients, { title: `ThÃ´ng bÃ¡o chung: ${title}`, body: content.slice(0, 160), path: `/announcements.html#${announcement.id}` })
+  sendUserNotification(recipients, { title: `Thông báo chung: ${title}`, body: content.slice(0, 160), path: `/announcements.html#${announcement.id}` })
     .catch((error) => console.error("Announcement notification failed:", error.message));
   sendJson(res, 201, { announcement });
 }
 
 function deleteAnnouncement(req, res, id) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chá»‰ Admin/CEO Ä‘Æ°á»£c xÃ³a thÃ´ng bÃ¡o chung.");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được xóa thông báo chung.");
   const announcements = getAnnouncements();
   const remaining = announcements.filter((item) => item.id !== id);
-  if (remaining.length === announcements.length) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y thÃ´ng bÃ¡o.");
+  if (remaining.length === announcements.length) return send(res, 404, "Không tìm thấy thông báo.");
   saveAnnouncements(remaining);
   // Remove the photos and attachments that only the deleted announcement used.
   const imageFiles = (item) => [...String(item.contentHtml || "").matchAll(/\/api\/announcements\/images\/([\w-]+\.(?:jpg|png|webp|gif))/g)].map((match) => match[1])
@@ -1646,31 +1592,31 @@ function serveNotifications(req, res) {
   const items = [];
   const proposals = getProposals();
   if (isManagementUser(currentUser) && zaloClient.getStatus().needsReauth) {
-    items.push({ id: "zalo-reauth", kind: "action", title: "Zalo OA máº¥t káº¿t ná»‘i", text: "ThÃ´ng bÃ¡o Zalo Ä‘ang táº¡m dá»«ng. Báº¥m Ä‘á»ƒ cáº¥p quyá»n láº¡i Zalo OA.", url: "/zalo/connect", time: new Date().toISOString() });
+    items.push({ id: "zalo-reauth", kind: "action", title: "Zalo OA mất kết nối", text: "Thông báo Zalo đang tạm dừng. Bấm để cấp quyền lại Zalo OA.", url: "/zalo/connect", time: new Date().toISOString() });
   }
   if (isManagementUser(currentUser)) {
     const pendingList = [...users.values()].filter((user) => user.status === "pending");
     const pendingUsers = pendingList.length;
     const latestPending = pendingList.map((user) => user.createdAt || user.updatedAt || "").sort().pop();
-    if (pendingUsers) items.push({ id: "pending-users", kind: "action", count: pendingUsers, time: latestPending || null, title: "TÃ i khoáº£n má»›i chá» duyá»‡t", text: `${pendingUsers} tÃ i khoáº£n Ä‘ang chá» phÃª duyá»‡t.`, url: "/user-management.html" });
+    if (pendingUsers) items.push({ id: "pending-users", kind: "action", count: pendingUsers, time: latestPending || null, title: "Tài khoản mới chờ duyệt", text: `${pendingUsers} tài khoản đang chờ phê duyệt.`, url: "/user-management.html" });
   }
   const reviewQueue = isManagementUser(currentUser) ? proposals.filter(needsManagementReview) : currentUser.role === "accountant" ? proposals.filter((proposal) => needsAccountingReview(proposal) || needsChiefAccountantReview(proposal)) : [];
   reviewQueue.slice(0, 10).forEach((proposal) => items.push({
     id: `review-${proposal.id}`,
     time: proposal.updatedAt || proposal.createdAt || null,
     kind: "action",
-    title: proposal.type === "payment" ? "Äá» xuáº¥t thanh toÃ¡n chá» duyá»‡t" : "Äá» xuáº¥t chá» duyá»‡t",
-    text: `${proposal.userName || "NhÃ¢n viÃªn"} gá»­i Ä‘á» xuáº¥t ${proposalTypeName(proposal, proposalTypeLabels)}.`,
+    title: proposal.type === "payment" ? "Đề xuất thanh toán chờ duyệt" : "Đề xuất chờ duyệt",
+    text: `${proposal.userName || "Nhân viên"} gửi đề xuất ${proposalTypeName(proposal, proposalTypeLabels)}.`,
     url: `/proposal-report.html?proposalId=${encodeURIComponent(proposal.id)}${proposal.type === "payment" ? "&type=payment" : ""}`,
   }));
   const newApplications = recruitment.newApplicationsFor(currentUser);
-  if (newApplications) items.push({ id: "new-applications", kind: "action", count: newApplications, time: recruitment.latestNewApplicationAt(currentUser), title: "á»¨ng viÃªn má»›i", text: `${newApplications} há»“ sÆ¡ á»©ng tuyá»ƒn chÆ°a xá»­ lÃ½.`, url: "/recruitment.html?view=applications" });
+  if (newApplications) items.push({ id: "new-applications", kind: "action", count: newApplications, time: recruitment.latestNewApplicationAt(currentUser), title: "Ứng viên mới", text: `${newApplications} hồ sơ ứng tuyển chưa xử lý.`, url: "/recruitment.html?view=applications" });
   productionOrders.pendingFor(currentUser).forEach((order) => items.push({
     id: `production-${order.id}-${order.step}`,
     time: order.updatedAt || null,
     kind: "action",
-    title: "Viá»‡c sáº£n xuáº¥t chá» báº¡n",
-    text: `${order.code} Â· ${order.productCode}: ${order.step}`,
+    title: "Việc sản xuất chờ bạn",
+    text: `${order.code} · ${order.productCode}: ${order.step}`,
     url: `/production.html?id=${order.id}`,
   }));
   const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
@@ -1682,8 +1628,8 @@ function serveNotifications(req, res) {
       id: `decision-${proposal.id}-${proposal.status}`,
       time: proposal.reviewedAt || proposal.accountingConfirmedAt || null,
       kind: "update",
-      title: proposal.status === "approved" ? "Äá» xuáº¥t Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t" : "Äá» xuáº¥t bá»‹ tá»« chá»‘i",
-      text: `Äá» xuáº¥t ${proposalTypeName(proposal, proposalTypeLabels)}${proposal.status === "rejected" && proposal.rejectionReason ? ` Â· LÃ½ do: ${proposal.rejectionReason}` : "."}`,
+      title: proposal.status === "approved" ? "Đề xuất đã được duyệt" : "Đề xuất bị từ chối",
+      text: `Đề xuất ${proposalTypeName(proposal, proposalTypeLabels)}${proposal.status === "rejected" && proposal.rejectionReason ? ` · Lý do: ${proposal.rejectionReason}` : "."}`,
       url: proposal.type === "payment" ? "/payment-proposal.html" : "/proposals.html",
     }));
   items.push(...workReports.notificationsFor(currentUser));
@@ -1694,7 +1640,7 @@ function serveNotifications(req, res) {
       id: `announcement-${announcement.id}`,
       time: announcement.createdAt,
       kind: "update",
-      title: announcement.important ? "ThÃ´ng bÃ¡o chung Â· Quan trá»ng" : "ThÃ´ng bÃ¡o chung",
+      title: announcement.important ? "Thông báo chung · Quan trọng" : "Thông báo chung",
       text: announcement.title,
       url: `/announcements.html#${announcement.id}`,
     }));
@@ -1710,45 +1656,45 @@ function getProposalReviewUrl(proposal) {
 
 function getProposalZaloMessage(proposal, { outcome = false, managementApproval = false } = {}) {
   const url = getProposalReviewUrl(proposal);
-  const subject = proposal.type === "payment" ? "Ä‘á» xuáº¥t thanh toÃ¡n" : "Ä‘á» xuáº¥t nhÃ¢n sá»±";
+  const subject = proposal.type === "payment" ? "đề xuất thanh toán" : "đề xuất nhân sự";
   if (outcome && managementApproval) {
-    return `Äá» xuáº¥t thanh toÃ¡n cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c CEO/Admin duyá»‡t vÃ  chuyá»ƒn Ä‘áº¿n káº¿ toÃ¡n xÃ¡c nháº­n. Xem trÃªn Gusa: ${url}`;
+    return `Đề xuất thanh toán của bạn đã được CEO/Admin duyệt và chuyển đến kế toán xác nhận. Xem trên Gusa: ${url}`;
   }
   if (managementApproval) {
-    return `Äá» xuáº¥t thanh toÃ¡n cá»§a ${proposal.userName || "nhÃ¢n viÃªn"} Ä‘Ã£ Ä‘Æ°á»£c CEO/Admin duyá»‡t vÃ  chuyá»ƒn sang bÆ°á»›c káº¿ toÃ¡n. Má»Ÿ Gusa Ä‘á»ƒ xá»­ lÃ½: ${url}`;
+    return `Đề xuất thanh toán của ${proposal.userName || "nhân viên"} đã được CEO/Admin duyệt và chuyển sang bước kế toán. Mở Gusa để xử lý: ${url}`;
   }
   if (outcome) {
     const approved = proposal.status === "approved";
-    const decision = approved ? "Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t" : "bá»‹ tá»« chá»‘i";
-    const reason = !approved && proposal.rejectionReason ? ` LÃ½ do: ${String(proposal.rejectionReason).slice(0, 500)}` : "";
-    return `Äá» xuáº¥t ${subject} cá»§a báº¡n ${decision}.${reason} Xem trÃªn Gusa: ${url}`;
+    const decision = approved ? "đã được duyệt" : "bị từ chối";
+    const reason = !approved && proposal.rejectionReason ? ` Lý do: ${String(proposal.rejectionReason).slice(0, 500)}` : "";
+    return `Đề xuất ${subject} của bạn ${decision}.${reason} Xem trên Gusa: ${url}`;
   }
-  const date = proposal.dateFrom && proposal.dateTo ? `${proposal.dateFrom} Ä‘áº¿n ${proposal.dateTo}` : proposal.date || "";
-  const typeLabels = { late: "Äi trá»…", "early-leave": "Vá» sá»›m", "half-day": "Nghá»‰ ná»­a ngÃ y", leave: "Nghá»‰ phÃ©p", "unauthorized-leave": "Nghá»‰ khÃ´ng phÃ©p", other: "KhÃ¡c", payment: "Thanh toÃ¡n" };
-  const periodLabels = { "half-day-morning": "buá»•i sÃ¡ng", "half-day-afternoon": "buá»•i chiá»u" };
+  const date = proposal.dateFrom && proposal.dateTo ? `${proposal.dateFrom} đến ${proposal.dateTo}` : proposal.date || "";
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", other: "Khác", payment: "Thanh toán" };
+  const periodLabels = { "half-day-morning": "buổi sáng", "half-day-afternoon": "buổi chiều" };
   const details = [
-    `Loáº¡i: ${proposalTypeName(proposal, typeLabels)}`,
-    date && `NgÃ y: ${date}`,
-    proposal.time && `Giá»: ${proposal.time}`,
-    periodLabels[proposal.attendanceType] && `Buá»•i: ${periodLabels[proposal.attendanceType]}`,
-    proposal.type === "payment" && proposal.category && `Ná»™i dung thanh toÃ¡n: ${proposal.category}`,
-    proposal.type === "payment" && `Sá»‘ tiá»n: ${Number(proposal.amount).toLocaleString("vi-VN")} VNÄ`,
-    proposal.reason && `LÃ½ do: ${String(proposal.reason).slice(0, 500)}`,
+    `Loại: ${proposalTypeName(proposal, typeLabels)}`,
+    date && `Ngày: ${date}`,
+    proposal.time && `Giờ: ${proposal.time}`,
+    periodLabels[proposal.attendanceType] && `Buổi: ${periodLabels[proposal.attendanceType]}`,
+    proposal.type === "payment" && proposal.category && `Nội dung thanh toán: ${proposal.category}`,
+    proposal.type === "payment" && `Số tiền: ${Number(proposal.amount).toLocaleString("vi-VN")} VNĐ`,
+    proposal.reason && `Lý do: ${String(proposal.reason).slice(0, 500)}`,
   ].filter(Boolean).join("\n");
   const accountingStage = needsAccountingReview(proposal);
-  const reviewer = accountingStage ? "Káº¿ toÃ¡n" : "Admin/CEO";
-  return `CÃ³ ${subject} má»›i tá»« ${proposal.userName || "nhÃ¢n viÃªn"}.\n${details}\nNgÆ°á»i duyá»‡t: ${reviewer}.\nMá»Ÿ Gusa Ä‘á»ƒ xem vÃ  xá»­ lÃ½: ${url}`;
+  const reviewer = accountingStage ? "Kế toán" : "Admin/CEO";
+  return `Có ${subject} mới từ ${proposal.userName || "nhân viên"}.\n${details}\nNgười duyệt: ${reviewer}.\nMở Gusa để xem và xử lý: ${url}`;
 }
 
 async function sendZaloProposalImages(proposal, { approved = false } = {}) {
-  const name = proposal.userName || "nhÃ¢n viÃªn";
+  const name = proposal.userName || "nhân viên";
   const groupOptions = { kind: approved ? "approved" : proposal.type === "payment" ? "payment" : "general" };
   try {
     const pages = await renderProposalPages(proposal);
     if (!pages.length) console.warn(`Zalo document image skipped for proposal ${proposal.id}: no page rendered within 1MB.`);
     for (const [index, page] of pages.entries()) {
       const suffix = pages.length > 1 ? ` (trang ${index + 1}/${pages.length})` : "";
-      const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Đề xuất của ${name}${suffix}`, groupOptions);
+      const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Đơn đề xuất của ${name}${suffix}`, groupOptions);
       console.log(`Zalo document image ${index + 1}/${pages.length} (${groupOptions.kind}, ${page.length} bytes): ${sent ? "sent" : "not sent"}.`);
     }
   } catch (error) {
@@ -1756,7 +1702,7 @@ async function sendZaloProposalImages(proposal, { approved = false } = {}) {
   }
   const candidates = [
     { data: attachments.read(proposal.id, "late") || proposal.latePhotoData, caption: `Ảnh đi trễ của ${name}` },
-    { data: attachments.read(proposal.id, "payment") || proposal.paymentFileData, caption: `Chứng tư thanh toán của ${name}` },
+    { data: attachments.read(proposal.id, "payment") || proposal.paymentFileData, caption: `Chứng từ thanh toán của ${name}` },
   ];
   for (const { data, caption } of candidates) {
     if (typeof data === "string" && data.length > 1.5 * 1024 * 1024) {
@@ -1785,7 +1731,7 @@ async function sendZaloProposalImages(proposal, { approved = false } = {}) {
       const pages = await renderEvidenceImages(evidenceMatch[2], evidenceMatch[1]);
       for (const [index, page] of pages.entries()) {
         const suffix = pages.length > 1 ? ` (trang ${index + 1}/${pages.length})` : "";
-        const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Chứng tư của ${name}${suffix}`, groupOptions);
+        const sent = await zaloClient.sendGroupImage(page, "image/jpeg", `Chứng từ của ${name}${suffix}`, groupOptions);
         console.log(`Zalo evidence image ${index + 1}/${pages.length} (${groupOptions.kind}, ${page.length} bytes): ${sent ? "sent" : "not sent"}.`);
       }
     } catch (error) {
@@ -1807,10 +1753,10 @@ function renderEvidenceImages(base64, mime, { timeoutMs = 45000 } = {}) {
       if (!child.killed) child.kill();
       if (error) reject(error); else resolve(pages);
     };
-    const timer = setTimeout(() => finish(new Error("Chuyá»ƒn chá»©ng tá»« sang áº£nh quÃ¡ thá»i gian cho phÃ©p.")), timeoutMs);
+    const timer = setTimeout(() => finish(new Error("Chuyển chứng từ sang ảnh quá thời gian cho phép.")), timeoutMs);
     child.once("message", (message) => (message.error ? finish(new Error(message.error)) : finish(null, message.pages.map((page) => Buffer.from(page, "base64")))));
     child.once("error", finish);
-    child.once("exit", (code) => finish(new Error(`Tiáº¿n trÃ¬nh chuyá»ƒn chá»©ng tá»« dá»«ng Ä‘á»™t ngá»™t (mÃ£ ${code}).`)));
+    child.once("exit", (code) => finish(new Error(`Tiến trình chuyển chứng từ dừng đột ngột (mã ${code}).`)));
     child.send({ base64, mime });
   });
 }
@@ -1875,7 +1821,7 @@ async function sendUserNotification(recipients, { title, body, path: targetPath 
   const tasks = recipients.map((user) => zaloClient.getUserId(getAttendanceUserKey(user))).filter(Boolean)
     .map((zaloUserId) => zaloClient.sendDirectMessage(zaloUserId, `${title}
 ${body}
-Xem trÃªn Gusa: ${url}`));
+Xem trên Gusa: ${url}`));
   const devices = getPushDevices().filter((device) => recipientIds.has(device.userId));
   const messaging = devices.length ? getFirebaseMessaging() : null;
   if (messaging) {
@@ -1893,7 +1839,7 @@ Xem trÃªn Gusa: ${url}`));
 
 
 const recruitment = createRecruitment({ dataPath, users, getCurrentUser, isManagementUser, sendJson, send, getClientIp: (req) => getRequestIp(req, attendanceTrustedProxyHops), notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
-// A person's KPI result for a month: the KPI % of their KPI report templates (Î£ Ä‘iá»ƒm Ä‘áº¡t Ã· Î£ Ä‘iá»ƒm chuáº©n).
+// A person's KPI result for a month: the KPI % of their KPI report templates (Σ điểm đạt ÷ Σ điểm chuẩn).
 const kpiPercentFor = (userId, month) => {
   const user = users.get(userId);
   if (!user) return null;
@@ -1910,8 +1856,8 @@ setInterval(() => { workReports.sendReminders().catch((error) => console.error("
 const productionOrders = createProductionOrders({ dataPath, users, getCurrentUser, isManagementUser, getUserKey: getAttendanceUserKey, sendJson, send, notify: sendUserNotification, publish: () => proposalEventClients.forEach((client) => client.response.write("event: production\ndata: {}\n\n")) });
 
 async function sendZaloApprovedToGroup(proposal) {
-  const typeLabels = { late: "Äi trá»…", "early-leave": "Vá» sá»›m", "half-day": "Nghá»‰ ná»­a ngÃ y", leave: "Nghá»‰ phÃ©p", "unauthorized-leave": "Nghá»‰ khÃ´ng phÃ©p", other: "KhÃ¡c", payment: "Thanh toÃ¡n" };
-  const text = `Äá» xuáº¥t ${proposalTypeName(proposal, typeLabels)} cá»§a ${proposal.userName || "nhÃ¢n viÃªn"} Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t.\nXem trÃªn Gusa: ${getProposalReviewUrl(proposal)}`;
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", other: "Khác", payment: "Thanh toán" };
+  const text = `Đề xuất ${proposalTypeName(proposal, typeLabels)} của ${proposal.userName || "nhân viên"} đã được duyệt.\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
   try {
     console.log(`Zalo approved group: sending proposal ${proposal.id} (rss ${Math.round(process.memoryUsage().rss / 1048576)}MB).`);
     if (await zaloClient.sendGroupMessage(text, { kind: "approved" })) {
@@ -1931,10 +1877,10 @@ async function sendZaloApprovedToGroup(proposal) {
 // Lets Admin/CEO resend a proposal's Zalo group message after a failed delivery.
 async function resendProposalZalo(req, res, proposalId) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chá»‰ Admin/CEO Ä‘Æ°á»£c gá»­i láº¡i thÃ´ng bÃ¡o Zalo.");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được gửi lại thông báo Zalo.");
   const proposal = getProposals().find((item) => item.id === proposalId);
-  if (!proposal) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y Ä‘á» xuáº¥t.");
-  if (!zaloClient.isConfigured()) return send(res, 503, "Zalo OA chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh trÃªn mÃ¡y chá»§.");
+  if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
+  if (!zaloClient.isConfigured()) return send(res, 503, "Zalo OA chưa được cấu hình trên máy chủ.");
   let sent;
   if (proposal.status === "pending") {
     const managementApproval = proposal.type === "payment" && getPaymentFlow(proposal) === "ceo" && getPaymentStage(proposal) === "accounting";
@@ -1942,18 +1888,18 @@ async function resendProposalZalo(req, res, proposalId) {
   } else if (proposal.status === "approved") {
     sent = await sendZaloApprovedToGroup(proposal);
   } else {
-    return send(res, 409, "Chá»‰ gá»­i láº¡i Ä‘Æ°á»£c Ä‘á» xuáº¥t Ä‘ang chá» duyá»‡t hoáº·c Ä‘Ã£ duyá»‡t.");
+    return send(res, 409, "Chỉ gửi lại được đề xuất đang chờ duyệt hoặc đã duyệt.");
   }
-  if (!sent) return send(res, 502, `Gá»­i Zalo tháº¥t báº¡i: ${zaloClient.getStatus().lastError?.message || "khÃ´ng rÃµ nguyÃªn nhÃ¢n"}`);
+  if (!sent) return send(res, 502, `Gửi Zalo thất bại: ${zaloClient.getStatus().lastError?.message || "không rõ nguyên nhân"}`);
   console.log(`Zalo notification resent for proposal ${proposal.id} by ${currentUser.email}.`);
   sendJson(res, 200, { sent: true });
 }
 
 // Tells the group where the proposal was posted that it was rejected, with the reason.
 async function sendZaloRejectedToGroup(proposal) {
-  const typeLabels = { late: "Äi trá»…", "early-leave": "Vá» sá»›m", "half-day": "Nghá»‰ ná»­a ngÃ y", leave: "Nghá»‰ phÃ©p", "unauthorized-leave": "Nghá»‰ khÃ´ng phÃ©p", other: "KhÃ¡c", payment: "Thanh toÃ¡n" };
+  const typeLabels = { late: "Đi trễ", "early-leave": "Về sớm", "half-day": "Nghỉ nửa ngày", leave: "Nghỉ phép", "unauthorized-leave": "Nghỉ không phép", other: "Khác", payment: "Thanh toán" };
   const reason = String(proposal.rejectionReason || "").trim().slice(0, 500);
-  const text = `Äá» xuáº¥t ${proposalTypeName(proposal, typeLabels)} cá»§a ${proposal.userName || "nhÃ¢n viÃªn"} Ä‘Ã£ bá»‹ tá»« chá»‘i.${reason ? `\nLÃ½ do: ${reason}` : ""}\nXem trÃªn Gusa: ${getProposalReviewUrl(proposal)}`;
+  const text = `Đề xuất ${proposalTypeName(proposal, typeLabels)} của ${proposal.userName || "nhân viên"} đã bị từ chối.${reason ? `\nLý do: ${reason}` : ""}\nXem trên Gusa: ${getProposalReviewUrl(proposal)}`;
   try {
     await zaloClient.sendGroupMessage(text, { kind: proposal.type === "payment" ? "payment" : "general" });
   } catch (error) {
@@ -1982,22 +1928,22 @@ async function updateProposalStatus(req, res) {
   const payload = JSON.parse(body || "{}");
   const proposals = getProposals();
   const proposal = proposals.find((item) => item.id === String(payload.id || ""));
-  if (!proposal) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y Ä‘á» xuáº¥t.");
+  if (!proposal) return send(res, 404, "Không tìm thấy đề xuất.");
   const now = new Date().toISOString();
   let movedToAccounting = false;
   if (proposal.type === "payment") {
     const paymentFlow = getPaymentFlow(proposal);
     const paymentStage = getPaymentStage(proposal);
-    if (proposal.status !== "pending") return send(res, 409, "Äá» xuáº¥t nÃ y Ä‘Ã£ Ä‘Æ°á»£c xá»­ lÃ½.");
+    if (proposal.status !== "pending") return send(res, 409, "Đề xuất này đã được xử lý.");
     if (payload.action === "confirm") {
-      if (currentUser.role !== "accountant" || paymentStage !== "accounting") return send(res, 403, "Chá»‰ káº¿ toÃ¡n Ä‘Æ°á»£c xÃ¡c nháº­n Ä‘á» xuáº¥t Ä‘ang chá» káº¿ toÃ¡n.");
+      if (currentUser.role !== "accountant" || paymentStage !== "accounting") return send(res, 403, "Chỉ kế toán được xác nhận đề xuất đang chờ kế toán.");
       proposal.status = "approved";
       proposal.paymentStage = "completed";
       proposal.accountingConfirmedAt = now;
       proposal.accountingConfirmedBy = getAttendanceUserKey(currentUser);
       proposal.reviewedAt = now;
     } else if (payload.action === "accounting-reject") {
-      if (currentUser.role !== "accountant" || paymentFlow !== "accountant" || paymentStage !== "accounting") return send(res, 403, "Chá»‰ káº¿ toÃ¡n Ä‘Æ°á»£c tá»« chá»‘i Ä‘á» xuáº¥t trá»±c tiáº¿p Ä‘ang chá» káº¿ toÃ¡n.");
+      if (currentUser.role !== "accountant" || paymentFlow !== "accountant" || paymentStage !== "accounting") return send(res, 403, "Chỉ kế toán được từ chối đề xuất trực tiếp đang chờ kế toán.");
       // The reason is optional; the page asks for confirmation before rejecting without one.
       const rejectionReason = String(payload.rejectionReason || "").trim().slice(0, 1000);
       proposal.status = "rejected";
@@ -2007,8 +1953,8 @@ async function updateProposalStatus(req, res) {
       proposal.accountingRejectedBy = getAttendanceUserKey(currentUser);
       proposal.reviewedAt = now;
     } else {
-      if (!isManagementUser(currentUser) || !["approved", "rejected"].includes(payload.status)) return send(res, 403, "Báº¡n khÃ´ng cÃ³ quyá»n xá»­ lÃ½ Ä‘á» xuáº¥t nÃ y.");
-      if (paymentFlow !== "ceo" || paymentStage !== "management") return send(res, 409, "Äá» xuáº¥t nÃ y khÃ´ng cÃ²n á»Ÿ bÆ°á»›c duyá»‡t cá»§a CEO/Admin.");
+      if (!isManagementUser(currentUser) || !["approved", "rejected"].includes(payload.status)) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");
+      if (paymentFlow !== "ceo" || paymentStage !== "management") return send(res, 409, "Đề xuất này không còn ở bước duyệt của CEO/Admin.");
       const rejectionReason = String(payload.rejectionReason || "").trim().slice(0, 1000);
       proposal.managementReviewedAt = now;
       proposal.managementReviewedBy = getAttendanceUserKey(currentUser);
@@ -2025,9 +1971,9 @@ async function updateProposalStatus(req, res) {
       }
     }
   } else {
-    if (!isManagementUser(currentUser) && !(currentUser.role === "accountant" && isAccountingTeamProposal(proposal))) return send(res, 403, "Báº¡n khÃ´ng cÃ³ quyá»n xá»­ lÃ½ Ä‘á» xuáº¥t nÃ y.");
-    if (! ["approved", "rejected"].includes(payload.status)) return send(res, 400, "Tráº¡ng thÃ¡i Ä‘á» xuáº¥t khÃ´ng há»£p lá»‡.");
-    if (proposal.status !== "pending") return send(res, 409, "Äá» xuáº¥t nÃ y Ä‘Ã£ Ä‘Æ°á»£c xá»­ lÃ½.");
+    if (!isManagementUser(currentUser) && !(currentUser.role === "accountant" && isAccountingTeamProposal(proposal))) return send(res, 403, "Bạn không có quyền xử lý đề xuất này.");
+    if (! ["approved", "rejected"].includes(payload.status)) return send(res, 400, "Trạng thái đề xuất không hợp lệ.");
+    if (proposal.status !== "pending") return send(res, 409, "Đề xuất này đã được xử lý.");
     const rejectionReason = String(payload.rejectionReason || "").trim().slice(0, 1000);
     if (payload.status === "rejected" && rejectionReason) proposal.rejectionReason = rejectionReason;
     proposal.status = payload.status;
@@ -2058,8 +2004,8 @@ async function cancelProposal(req, res, proposalId) {
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
   const proposals = getProposals();
   const proposal = proposals.find((item) => item.id === proposalId && item.userId === getAttendanceUserKey(currentUser));
-  if (!proposal || proposal.type !== "payment") return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y Ä‘á» xuáº¥t.");
-  if (proposal.status !== "pending") return send(res, 400, "Chá»‰ cÃ³ thá»ƒ há»§y Ä‘á» xuáº¥t Ä‘ang chá» duyá»‡t.");
+  if (!proposal || proposal.type !== "payment") return send(res, 404, "Không tìm thấy đề xuất.");
+  if (proposal.status !== "pending") return send(res, 400, "Chỉ có thể hủy đề xuất đang chờ duyệt.");
   proposal.status = "canceled";
   proposal.canceledAt = new Date().toISOString();
   fs.writeFileSync(proposalsPath, JSON.stringify(proposals, null, 2));
@@ -2077,11 +2023,11 @@ async function createProposal(req, res) {
   const signatureData = typeof payload.signatureData === "string" ? payload.signatureData : "";
   const signatureName = typeof payload.signatureName === "string" ? payload.signatureName.trim() : "";
   if (allowedTypes.includes(type)) {
-    if (!signatureName || signatureName.length > 150) return send(res, 400, "Vui lÃ²ng nháº­p há» vÃ  tÃªn Ä‘áº§y Ä‘á»§ cá»§a ngÆ°á»i kÃ½ (tá»‘i Ä‘a 150 kÃ½ tá»±).");
+    if (!signatureName || signatureName.length > 150) return send(res, 400, "Vui lòng nhập họ và tên đầy đủ của người ký (tối đa 150 ký tự).");
     const signatureBytes = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signatureData) && signatureData.length <= 256 * 1024
       ? Buffer.from(signatureData.slice("data:image/png;base64,".length), "base64") : null;
     if (!signatureBytes || signatureBytes.length < 57 || signatureBytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" || signatureBytes.toString("ascii", 12, 16) !== "IHDR" || signatureBytes.readUInt32BE(16) !== 600 || signatureBytes.readUInt32BE(20) !== 200 || !signatureBytes.includes(Buffer.from("IDAT")) || signatureBytes.subarray(-12).toString("hex") !== "0000000049454e44ae426082") {
-      return send(res, 400, "Vui lÃ²ng kÃ½ tÃªn há»£p lá»‡ trong báº£ng chá»¯ kÃ½ trÆ°á»›c khi gá»­i Ä‘á» xuáº¥t.");
+      return send(res, 400, "Vui lòng ký tên hợp lệ trong bảng chữ ký trước khi gửi đề xuất.");
     }
   }
   const date = String(payload.date || "");
@@ -2113,11 +2059,11 @@ async function createProposal(req, res) {
   const hasLateProof = type === "late" && typeof payload.latePhotoData === "string" && payload.latePhotoData.startsWith("data:image/") && payload.latePhotoData.length <= 7 * 1024 * 1024 && Number.isFinite(Number(payload.latitude)) && Number.isFinite(Number(payload.longitude));
   const validPayment = type === "payment" && category && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0;
   const validPaymentFile = type === "payment" && ((!paymentFileName && !paymentFileData) || (paymentFileName && paymentFileData.startsWith("data:") && paymentFileData.length <= 9.5 * 1024 * 1024));
-  if (type === "other" && !subject) return send(res, 400, "Vui lÃ²ng nháº­p tÃªn Ä‘á» xuáº¥t (vÃ­ dá»¥: Äi cÃ´ng tÃ¡c).");
-  if (type === "half-day" && !["half-day-morning", "half-day-afternoon"].includes(halfDayPeriod)) return send(res, 400, "Vui lÃ²ng chá»n buá»•i sÃ¡ng hoáº·c buá»•i chiá»u.");
-  if (!validEvidence) return send(res, 400, "Chá»©ng tá»« pháº£i lÃ  áº£nh, PDF, Word hoáº·c Excel vÃ  khÃ´ng quÃ¡ 7MB.");
-  if (type === "late" && !/^\d{2}:\d{2}$/.test(time)) return send(res, 400, "Vui lÃ²ng nháº­p giá» dá»± kiáº¿n Ä‘áº¿n cÃ´ng ty.");
-  if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || !reason || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Äá» xuáº¥t Ä‘i trá»… cáº§n cÃ³ áº£nh vÃ  vá»‹ trÃ­ xÃ¡c nháº­n." : "Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ thÃ´ng tin Ä‘á» xuáº¥t.");
+  if (type === "other" && !subject) return send(res, 400, "Vui lòng nhập tên đề xuất (ví dụ: Đi công tác).");
+  if (type === "half-day" && !["half-day-morning", "half-day-afternoon"].includes(halfDayPeriod)) return send(res, 400, "Vui lòng chọn buổi sáng hoặc buổi chiều.");
+  if (!validEvidence) return send(res, 400, "Chứng từ phải là ảnh, PDF, Word hoặc Excel và không quá 7MB.");
+  if (type === "late" && !/^\d{2}:\d{2}$/.test(time)) return send(res, 400, "Vui lòng nhập giờ dự kiến đến công ty.");
+  if (!allowedTypes.includes(type) || (!/^\d{4}-\d{2}-\d{2}$/.test(date) && !multipleLeave) || (multipleLeave && (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(dateTo) || dateTo < dateFrom)) || (time && !/^\d{2}:\d{2}$/.test(time)) || !reason || (type === "late" && !hasLateProof) || (type === "payment" && (!validPayment || !validPaymentFile))) return send(res, 400, type === "late" ? "Đề xuất đi trễ cần có ảnh và vị trí xác nhận." : "Vui lòng nhập đầy đủ thông tin đề xuất.");
   const paymentFlow = payload.paymentFlow === "accountant" ? "accountant" : "ceo";
   const proposal = { id: crypto.randomUUID(), userId: getAttendanceUserKey(currentUser), userName: currentUser.name || currentUser.email, type, date, ...(multipleLeave ? { dateFrom, dateTo } : {}), ...(type === "half-day" ? { attendanceType: halfDayPeriod, ...(evidenceFileName ? { evidenceFileName, evidenceFileType: evidenceMime, evidenceFileData } : {}) } : {}), ...(type === "other" ? { subject } : {}), ...(type === "payment" ? { paymentFlow, paymentStage: paymentFlow === "accountant" ? "accounting" : "management", category, amount, paymentFileName, paymentFileType, paymentFileData, ...paymentTemplateFields } : {}), time, ...(type === "late" ? { latePhotoData: payload.latePhotoData, latitude: Number(payload.latitude), longitude: Number(payload.longitude) } : {}), reason, status: "pending", createdAt: new Date().toISOString() };
   const proposals = getProposals();
@@ -2174,14 +2120,14 @@ function serveAttendanceOverview(req, res) {
 async function updateAttendance(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser) return send(res, 401, "Unauthorized");
-  if (currentUser.status !== "active") return send(res, 403, "TÃ i khoáº£n chÆ°a Ä‘Æ°á»£c phÃ©p cháº¥m cÃ´ng.");
+  if (currentUser.status !== "active") return send(res, 403, "Tài khoản chưa được phép chấm công.");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
   const action = payload.action;
   const mode = payload.mode === "online" ? "online" : "office";
   const attendanceType = ["full-day", "half-day-morning", "half-day-afternoon"].includes(payload.attendanceType) ? payload.attendanceType : "full-day";
-  if (!['check-in', 'check-out'].includes(action)) return send(res, 400, "HÃ nh Ä‘á»™ng khÃ´ng há»£p lá»‡");
+  if (!['check-in', 'check-out'].includes(action)) return send(res, 400, "Hành động không hợp lệ");
   const userKey = getAttendanceUserKey(currentUser);
   const dateKey = getLocalDateKey();
   const attendance = getAttendance();
@@ -2191,7 +2137,7 @@ async function updateAttendance(req, res) {
   const site = action === "check-in" ? (mode === "office" ? normalizeAttendanceSite(payload.site) : "q4") : normalizeAttendanceSite(record.site);
   let siteProof = null;
   if (needsOfficeNetwork(action, mode, record)) {
-    // Quáº­n 4 needs no check (neither GPS nor office network); other offices are checked by their GPS point.
+    // Quận 4 needs no check (neither GPS nor office network); other offices are checked by their GPS point.
     const point = site === "q4" ? null : getAttendanceSites().sites[site];
     const label = ATTENDANCE_SITES[site].label;
     if (point) {
@@ -2199,18 +2145,18 @@ async function updateAttendance(req, res) {
       if (result.message) return sendJson(res, 403, { message: result.message });
       siteProof = result.proof;
     } else if (site !== "q4") {
-      return sendJson(res, 403, { message: `Admin/CEO chÆ°a lÆ°u vá»‹ trÃ­ cháº¥m cÃ´ng ${label}.` });
+      return sendJson(res, 403, { message: `Admin/CEO chưa lưu vị trí chấm công ${label}.` });
     }
   }
   const now = new Date().toISOString();
   if (action === "check-in") {
-    if (record.checkIn) return sendJson(res, 409, { message: "Báº¡n Ä‘Ã£ check-in hÃ´m nay.", record });
-    if (mode === "online" && (!payload.onlineProof?.photoCapturedAt || !payload.onlineProof.photoData?.startsWith("data:image/") || !Number.isFinite(Number(payload.onlineProof.latitude)) || !Number.isFinite(Number(payload.onlineProof.longitude)))) return send(res, 400, "Vui lÃ²ng chá»¥p áº£nh vÃ  chia sáº» vá»‹ trÃ­ trÆ°á»›c khi check-in online.");
+    if (record.checkIn) return sendJson(res, 409, { message: "Bạn đã check-in hôm nay.", record });
+    if (mode === "online" && (!payload.onlineProof?.photoCapturedAt || !payload.onlineProof.photoData?.startsWith("data:image/") || !Number.isFinite(Number(payload.onlineProof.latitude)) || !Number.isFinite(Number(payload.onlineProof.longitude)))) return send(res, 400, "Vui lòng chụp ảnh và chia sẻ vị trí trước khi check-in online.");
     if (mode === "office") {
       const currentMinutes = getLocalMinutes();
       const shift = getAttendanceShift(site, attendanceType);
       if (currentMinutes < shift.checkInFrom || currentMinutes > shift.checkInTo) {
-        return send(res, 400, `Khung giá» check-in cho ca nÃ y lÃ  ${formatShiftTime(shift.checkInFrom)}â€“${formatShiftTime(shift.checkInTo)}.`);
+        return send(res, 400, `Khung giờ check-in cho ca này là ${formatShiftTime(shift.checkInFrom)}–${formatShiftTime(shift.checkInTo)}.`);
       }
     }
     record.checkIn = now;
@@ -2228,12 +2174,12 @@ async function updateAttendance(req, res) {
     if (mode === "online") record.onlineProof = { photoCapturedAt: payload.onlineProof.photoCapturedAt, photoData: payload.onlineProof.photoData, latitude: Number(payload.onlineProof.latitude), longitude: Number(payload.onlineProof.longitude), accuracy: Number(payload.onlineProof.accuracy) || null };
     else delete record.onlineProof;
   } else {
-    if (!record.checkIn) return send(res, 400, "Báº¡n chÆ°a check-in hÃ´m nay");
-    if (record.checkOut) return sendJson(res, 409, { message: "Báº¡n Ä‘Ã£ check-out hÃ´m nay.", record });
+    if (!record.checkIn) return send(res, 400, "Bạn chưa check-in hôm nay");
+    if (record.checkOut) return sendJson(res, 409, { message: "Bạn đã check-out hôm nay.", record });
     const workReportBlock = workReports.checkoutBlock(currentUser);
     if (workReportBlock) return sendJson(res, 409, { message: workReportBlock, needsWorkReport: true });
     const checkoutMinutes = getAttendanceShift(site, record.attendanceType).checkOutFrom;
-    if (getLocalMinutes() < checkoutMinutes) return send(res, 400, `Báº¡n chá»‰ cÃ³ thá»ƒ check-out tá»« ${formatShiftTime(checkoutMinutes)}.`);
+    if (getLocalMinutes() < checkoutMinutes) return send(res, 400, `Bạn chỉ có thể check-out từ ${formatShiftTime(checkoutMinutes)}.`);
     record.checkOut = now;
     if (siteProof) record.siteCheckOut = siteProof;
     record.status = "completed";
@@ -2247,16 +2193,16 @@ async function updateAttendance(req, res) {
 // Admin/CEO can clear a wrongful late mark; the day still counts as worked.
 async function waiveAttendanceLate(req, res) {
   const currentUser = getCurrentUser(req);
-  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chá»‰ Admin/CEO Ä‘Æ°á»£c bá» Ä‘i trá»….");
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được bỏ đi trễ.");
   let body = "";
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
   const userId = String(payload.userId || "");
   const date = String(payload.date || "");
-  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return send(res, 400, "Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.");
+  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return send(res, 400, "Dữ liệu không hợp lệ.");
   const attendance = getAttendance();
   const record = attendance[userId]?.[date];
-  if (!record?.late) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y láº§n Ä‘i trá»… nÃ y.");
+  if (!record?.late) return send(res, 404, "Không tìm thấy lần đi trễ này.");
   record.lateWaived = { minutes: record.lateMinutes ?? null, by: getAttendanceUserKey(currentUser), at: new Date().toISOString() };
   record.late = false;
   delete record.lateMinutes;
@@ -2273,7 +2219,7 @@ async function updateAttendanceOverviewStatus(req, res) {
   const userId = String(payload.userId || "");
   const date = String(payload.date || "");
   const status = String(payload.status || "");
-  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !["absent", "present", "half-day", "working", "leave", "unauthorized-leave", "other", "online"].includes(status)) return send(res, 400, "Dá»¯ liá»‡u tráº¡ng thÃ¡i khÃ´ng há»£p lá»‡");
+  if (!users.has(userId) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !["absent", "present", "half-day", "working", "leave", "unauthorized-leave", "other", "online"].includes(status)) return send(res, 400, "Dữ liệu trạng thái không hợp lệ");
   const attendance = getAttendance();
   const records = attendance[userId] || {};
   const record = records[date] || { date };
@@ -2419,10 +2365,10 @@ async function updateOrganizationMember(req, res, nodeId) {
   for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body || "{}");
   const member = payload.member || {};
-  if (!String(member.name || "").trim()) return send(res, 400, "ThÃ nh viÃªn cáº§n cÃ³ há» tÃªn");
+  if (!String(member.name || "").trim()) return send(res, 400, "Thành viên cần có họ tên");
   const nodeName = String(payload.nodeName || "").trim().slice(0, 120);
   if (!isValidOrganizationNodeId(nodeId)) {
-    if (!nodeName) return send(res, 400, "Thiáº¿u tÃªn vá»‹ trÃ­ cáº§n lÆ°u thÃ nh viÃªn.");
+    if (!nodeName) return send(res, 400, "Thiếu tên vị trí cần lưu thành viên.");
     const chart = { nodes: getOrganizationChart(), freeLines: [] };
     try {
       const saved = JSON.parse(fs.readFileSync(organizationChartPath, "utf8"));
@@ -2442,9 +2388,9 @@ async function updateOrganizationMember(req, res, nodeId) {
   const avatar = String(member.avatar || "").trim();
   const startDate = String(member.startDate || "").trim();
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: applicationTimeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  if (startDate && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate > today)) return send(res, 400, "NgÃ y báº¯t Ä‘áº§u khÃ´ng há»£p lá»‡.");
-  if (avatar && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar) && !/^https?:\/\//.test(avatar)) return send(res, 400, "áº¢nh Ä‘áº¡i diá»‡n khÃ´ng há»£p lá»‡");
-  if (Buffer.byteLength(avatar, "utf8") > 7 * 1024 * 1024) return send(res, 413, "áº¢nh Ä‘áº¡i diá»‡n khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 5 MB");
+  if (startDate && (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate > today)) return send(res, 400, "Ngày bắt đầu không hợp lệ.");
+  if (avatar && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar) && !/^https?:\/\//.test(avatar)) return send(res, 400, "Ảnh đại diện không hợp lệ");
+  if (Buffer.byteLength(avatar, "utf8") > 7 * 1024 * 1024) return send(res, 413, "Ảnh đại diện không được vượt quá 5 MB");
   const membersByNode = getOrganizationMembers();
   const members = membersByNode[nodeId] || [];
   const existingMember = members.find((item) => item.id === String(member.id || ""));
@@ -2474,7 +2420,7 @@ function deleteOrganizationMember(req, res, nodeId, memberId) {
   const membersByNode = getOrganizationMembers();
   const members = membersByNode[nodeId] || [];
   const nextMembers = members.filter((member) => member.id !== memberId);
-  if (nextMembers.length === members.length) return send(res, 404, "KhÃ´ng tÃ¬m tháº¥y thÃ nh viÃªn");
+  if (nextMembers.length === members.length) return send(res, 404, "Không tìm thấy thành viên");
   membersByNode[nodeId] = nextMembers;
   fs.writeFileSync(organizationMembersPath, JSON.stringify(membersByNode, null, 2));
   sendJson(res, 200, { members: nextMembers });
@@ -2524,8 +2470,8 @@ async function updateOrganizationChart(req, res) {
   const payload = JSON.parse(body || "{}");
   const nodes = payload.nodes;
   const freeLines = Array.isArray(payload.freeLines) ? payload.freeLines : [];
-  if (!Array.isArray(nodes) || nodes.length > 100) return send(res, 400, "Dá»¯ liá»‡u sÆ¡ Ä‘á»“ khÃ´ng há»£p lá»‡");
-  if (freeLines.length > 2000) return send(res, 400, "Sá»‘ lÆ°á»£ng Ä‘oáº¡n ná»‘i quÃ¡ lá»›n");
+  if (!Array.isArray(nodes) || nodes.length > 100) return send(res, 400, "Dữ liệu sơ đồ không hợp lệ");
+  if (freeLines.length > 2000) return send(res, 400, "Số lượng đoạn nối quá lớn");
   const cleanNodes = nodes.map((node) => ({
     id: String(node.id || ""),
     parentId: node.parentId ? String(node.parentId) : null,
@@ -2546,15 +2492,15 @@ async function updateOrganizationChart(req, res) {
     x2: Math.max(0, Math.min(10000, Number(line.x2) || 0)),
     y2: Math.max(0, Math.min(10000, Number(line.y2) || 0)),
   }));
-  if (cleanNodes.some((node) => !node.id || !node.name)) return send(res, 400, "Má»—i vá»‹ trÃ­ cáº§n cÃ³ tÃªn");
+  if (cleanNodes.some((node) => !node.id || !node.name)) return send(res, 400, "Mỗi vị trí cần có tên");
   const ids = new Set(cleanNodes.map((node) => node.id));
-  if (cleanNodes.some((node) => node.parentId === node.id || (node.parentId && !ids.has(node.parentId)))) return send(res, 400, "Cáº¥p trÃªn khÃ´ng há»£p lá»‡");
+  if (cleanNodes.some((node) => node.parentId === node.id || (node.parentId && !ids.has(node.parentId)))) return send(res, 400, "Cấp trên không hợp lệ");
   const parents = new Map(cleanNodes.map((node) => [node.id, node.parentId]));
   for (const node of cleanNodes) {
     const visited = new Set([node.id]);
     let parentId = node.parentId;
     while (parentId) {
-      if (visited.has(parentId)) return send(res, 400, "SÆ¡ Ä‘á»“ khÃ´ng Ä‘Æ°á»£c cÃ³ vÃ²ng láº·p");
+      if (visited.has(parentId)) return send(res, 400, "Sơ đồ không được có vòng lặp");
       visited.add(parentId);
       parentId = parents.get(parentId) || null;
     }
@@ -2563,25 +2509,25 @@ async function updateOrganizationChart(req, res) {
   sendJson(res, 200, { nodes: cleanNodes, freeLines: cleanFreeLines });
 }
 
-// Má»Ÿ trang cáº¥p quyá»n Zalo OA (Admin/CEO) â€” dÃ¹ng khi refresh token háº¿t háº¡n (mÃ£ -14014).
+// Mở trang cấp quyền Zalo OA (Admin/CEO) — dùng khi refresh token hết hạn (mã -14014).
 function startZaloAuth(req, res) {
   const user = getCurrentUser(req);
   if (!user) return redirect(res, `/auth/google?returnTo=${encodeURIComponent("/zalo/connect")}`);
-  if (!isManagementUser(user) || user.status !== "active") return send(res, 403, "Chá»‰ Admin/CEO Ä‘Æ°á»£c káº¿t ná»‘i láº¡i Zalo OA.");
+  if (!isManagementUser(user) || user.status !== "active") return send(res, 403, "Chỉ Admin/CEO được kết nối lại Zalo OA.");
   const proto = String(req.headers["x-forwarded-proto"] || "").split(",")[0] || "http";
   const callback = process.env.ZALO_REDIRECT_URI || `${proto}://${req.headers.host}/zalo/oauth/callback`;
   const url = zaloClient.getAuthorizationUrl(callback);
-  if (!url) return send(res, 400, "ChÆ°a cáº¥u hÃ¬nh ZALO_APP_ID trÃªn server.");
+  if (!url) return send(res, 400, "Chưa cấu hình ZALO_APP_ID trên server.");
   return redirect(res, url);
 }
 
 async function completeZaloAuth(req, res) {
   const user = getCurrentUser(req);
   if (!isManagementUser(user) || user.status !== "active") {
-    return sendJson(res, 403, { message: "ÄÄƒng nháº­p Gusa báº±ng tÃ i khoáº£n Admin/CEO rá»“i má»Ÿ láº¡i liÃªn káº¿t nÃ y." });
+    return sendJson(res, 403, { message: "Đăng nhập Gusa bằng tài khoản Admin/CEO rồi mở lại liên kết này." });
   }
   const code = new URL(req.url, "http://localhost").searchParams.get("code");
-  if (!code) return sendJson(res, 400, { message: "Thiáº¿u mÃ£ cáº¥p quyá»n Zalo." });
+  if (!code) return sendJson(res, 400, { message: "Thiếu mã cấp quyền Zalo." });
   try {
     await zaloClient.exchangeAuthorizationCode(code);
   } catch (error) {
@@ -2599,27 +2545,6 @@ setInterval(() => {
 }, 15 * 60 * 1000).unref();
 
 const server = http.createServer(async (req, res) => {
-  const startTime = Date.now();
-  const requestId = crypto.randomUUID().slice(0, 8);
-  
-  // Set a timeout for all requests (30 seconds)
-  const timeout = setTimeout(() => {
-    if (!res.headersSent) {
-      console.warn(`[${requestId}] Request timeout: ${req.method} ${req.url}`);
-      res.statusCode = 504;
-      res.end("Gateway Timeout");
-    }
-  }, 30000);
-  
-  res.on("finish", () => {
-    clearTimeout(timeout);
-    const duration = Date.now() - startTime;
-    if (duration > 5000 || res.statusCode >= 500) {
-      console.warn(`[${requestId}] ${req.method} ${req.url} -> ${res.statusCode} (${duration}ms)`);
-    }
-  });
-  res.on("close", () => clearTimeout(timeout));
-
   try {
     if (req.url.startsWith("/auth/google")) return startGoogleAuth(req, res);
     if (req.url.startsWith("/auth/callback")) return await completeGoogleAuth(req, res);
@@ -2765,8 +2690,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// Táº¯t an toÃ n: Render gá»­i SIGTERM khi deploy/khá»Ÿi Ä‘á»™ng láº¡i. Token Zalo chá»‰ dÃ¹ng má»™t láº§n,
-// nÃªn pháº£i chá» lÆ°á»£t lÃ m má»›i token Ä‘ang cháº¡y lÆ°u xong token má»›i rá»“i má»›i thoÃ¡t (tá»‘i Ä‘a 10 giÃ¢y).
+// Tắt an toàn: Render gửi SIGTERM khi deploy/khởi động lại. Token Zalo chỉ dùng một lần,
+// nên phải chờ lượt làm mới token đang chạy lưu xong token mới rồi mới thoát (tối đa 10 giây).
 let shuttingDown = false;
 for (const signal of ["SIGTERM", "SIGINT"]) {
   process.on(signal, () => {
