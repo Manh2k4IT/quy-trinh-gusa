@@ -83,7 +83,7 @@
 .production-change-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(0, 2fr); align-items: center; gap: .5rem; }
 .production-change-row span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; color: #475467; background: #eef1f5; font-weight: 700; }
 .production-technical-scroll { overflow-x: auto; padding-bottom: .25rem; }
-.production-technical-head, .production-technical-row { display: grid; grid-template-columns: minmax(105px, 1.2fr) 92px 92px repeat(5, 52px) 92px 36px; gap: .4rem; min-width: 860px; align-items: center; }
+.production-technical-head, .production-technical-row { display: grid; grid-template-columns: minmax(105px, 1.2fr) 92px 92px repeat(var(--size-count, 1), 52px) 92px 36px; gap: .4rem; min-width: 860px; align-items: center; }
 .production-technical-head { color: #475467; font-size: .78rem; font-weight: 700; }
 .production-technical-row input { min-width: 0; padding-left: .5rem; padding-right: .5rem; }
 .production-technical-head, .production-technical-row input { text-align: center; }
@@ -239,8 +239,6 @@ body[data-theme="dark"] .production-proof { background: #101c2d; border-color: #
 .production-quantity-table { width: 100%; table-layout: fixed; border-collapse: collapse; color: #111; background: #fff; font: 10px "Be Vietnam Pro", Arial, sans-serif; }
 .production-quantity-table th, .production-quantity-table td { height: 32px; padding: 4px; border: 1px solid #111; color: #111; text-align: center; vertical-align: middle; }
 .production-quantity-table th { background: #fff; font-weight: 700; }
-.production-quantity-table .is-code { width: 18%; }
-.production-quantity-table .is-size { width: 6%; }
 .production-approval-signs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 32px; text-align: center; }
 .production-approval-signs > div { display: grid; min-height: 120px; align-content: start; gap: 55px; }
 .production-approval-signs b { white-space: nowrap; }
@@ -294,7 +292,7 @@ body[data-theme="dark"] .production-assign { background: #182536; border-color: 
 .production-paper-back .production-technical-scroll { width: 100%; max-width: 100%; overflow: hidden; }
 .production-paper-back .production-technical-scroll { border: 1px solid #111; background: #fff; }
 .production-paper-back .production-technical-head,
-.production-paper-back .production-technical-row { width: 100%; min-width: 0; gap: 0; grid-template-columns: minmax(110px, 1.45fr) minmax(88px, 1fr) minmax(88px, 1fr) repeat(5, minmax(48px, .55fr)) minmax(82px, .9fr) 32px; }
+.production-paper-back .production-technical-row { width: 100%; min-width: 0; gap: 0; grid-template-columns: minmax(110px, 1.45fr) minmax(88px, 1fr) minmax(88px, 1fr) repeat(var(--size-count, 1), minmax(0, .6fr)) minmax(82px, .9fr) 32px; }
 .production-paper-back .production-technical-head > span { display: grid; min-height: 31px; place-items: center; border-right: 1px solid #111; color: #111; background: #fff; font-size: 10px; font-weight: 600; }
 .production-paper-back .production-technical-head > span:last-child { border-right: 0; }
 .production-paper-back .production-technical-row { border-top: 1px solid #111; }
@@ -302,6 +300,15 @@ body[data-theme="dark"] .production-assign { background: #182536; border-color: 
 .production-paper-back .production-technical-row input:first-child { padding-left: 7px !important; text-align: left; }
 .production-paper-back .production-technical-row input[readonly] { background: #fff !important; font-weight: 600; }
 .production-paper-back .production-technical-row .production-row-remove { width: 32px; height: 34px; border: 0; border-radius: 0; color: #111; background: #fff; }
+.production-paper-back .production-technical-head > span { line-height: 1.15; padding: 2px 3px; text-align: center; }
+.production-size-head { position: relative; }
+.production-paper-back .production-size-head input { width: 100%; min-width: 0; min-height: 30px !important; height: 30px; padding: 0 12px 0 3px !important; border: 0 !important; border-radius: 0 !important; color: #111 !important; background: transparent !important; font: 700 10px "Be Vietnam Pro", Arial, sans-serif !important; text-align: center; text-transform: uppercase; }
+.production-paper-back .production-size-head input:focus { background: #f2f7ff !important; outline: 1px solid #175cd3; }
+.production-paper-back .production-size-head button { position: absolute; top: 1px; right: 1px; width: 14px; height: 14px; padding: 0; border: 0; border-radius: 50%; color: #b42318; background: transparent; font-size: 11px; line-height: 1; cursor: pointer; }
+.production-paper-back .production-technical-row input.is-locked { color: #667085 !important; background: #f2f4f7 !important; cursor: not-allowed; }
+.production-size-actions { display: flex; flex-wrap: wrap; gap: 0 1.2rem; }
+.production-paper-back .production-size-actions { border: 1px solid #111; border-top: 0; background: #fff; }
+.production-paper-back .production-size-actions .production-link-button { padding: 8px; color: #14532d; font-size: 11px; }
 .production-paper-back > .production-link-button { display: block; width: 100%; padding: 8px; border: 1px solid #111; border-top: 0; color: #14532d; background: #fff; font-size: 11px; text-align: left; }
 .production-paper-front { width: 100%; min-width: 0; min-height: 1070px; padding: 44px 54px 38px; color: #111827; background: #fff; box-shadow: 0 2px 18px #10182820; font-family: "Be Vietnam Pro", Arial, sans-serif; }
 .production-paper-front h3 { margin: 0 0 17px; color: #111827; font: 700 19px "Be Vietnam Pro", Arial, sans-serif; letter-spacing: .1px; text-align: center; }
@@ -367,7 +374,7 @@ body[data-theme="dark"] .production-assign { background: #182536; border-color: 
   .paper-image-picker { min-width: 0; }
   .production-paper-back .production-technical-scroll { overflow-x: hidden; }
   .production-paper-back .production-technical-head,
-  .production-paper-back .production-technical-row { grid-template-columns: minmax(74px, 1.5fr) minmax(54px, 1fr) minmax(54px, 1fr) repeat(5, minmax(28px, .5fr)) minmax(52px, .9fr) 28px; }
+  .production-paper-back .production-technical-row { grid-template-columns: minmax(74px, 1.5fr) minmax(54px, 1fr) minmax(54px, 1fr) repeat(var(--size-count, 1), minmax(0, .5fr)) minmax(52px, .9fr) 28px; }
   .production-paper-back .production-technical-head > span { padding: 0 2px; font-size: 8px; line-height: 1.1; }
   .production-paper-back .production-technical-row input { min-width: 0; padding: 1px 2px !important; font-size: 9px !important; }
   .production-paper-back .production-technical-row .production-row-remove { width: 28px; }

@@ -88,25 +88,28 @@ function render() {
 function stepper(order) {
   const currentIndex = state.stageOrder.indexOf(order.status);
   const canReviewHistory = state.me.canManage || state.me.roles.includes('view-history');
-  const visibleStages = state.stageOrder.map((stage, index) => ({ stage, index })).filter(({ stage }) => stage !== 'transfer-draft');
+  const visibleStages = state.stageOrder.map((stage, index) => ({ stage, index }));
   return `<ol class="production-stepper">${visibleStages.map(({ stage, index }, visibleIndex) => {
     const status = order.status === 'rejected' ? (index === 0 ? 'is-rejected' : '') : index < currentIndex || order.status === 'in-production' ? 'is-done' : index === currentIndex ? 'is-current' : '';
     return `<li class="${status}"><button type="button" ${canReviewHistory ? `data-view-stage="${stage}"` : 'disabled'} title="${canReviewHistory ? `Xem tiến độ ${escapeHtml(state.stages[stage].label)}` : 'Bạn chưa được cấp quyền xem lại tiến độ'}"><span>${visibleIndex + 1}</span><small>${escapeHtml(state.stages[stage].label)}</small></button></li>`;
   }).join('')}</ol>`;
 }
 
+function stageFiles(order, stage) {
+  if (stage === 'washing') return [...(order.wash?.files || []).map((file) => ({ ...file, section: 'Gửi vải đi wash' })), ...(order.wash?.returnFiles || []).map((file) => ({ ...file, section: 'Hàng wash về' }))];
+  if (stage === 'handover') return (order.handover?.files || []).map((file) => ({ ...file, section: 'Bàn giao xưởng' }));
+  if (stage === 'reconcile') return Object.entries(order.reconcile?.photos || {}).flatMap(([key, list]) => list.map((file) => ({ ...file, section: ({ erp: 'Xác nhận ERPNext', transferPrint: 'Phiếu chuyển kho đã in', proposalPrint: 'Phiếu đề xuất đã in' })[key] || 'Đối chiếu' })));
+  return [];
+}
+
 function renderStageProgress(order, stage) {
   if (!state.me.canManage && !state.me.roles.includes('view-history')) return;
   const stageInfo = state.stages[stage] || {};
-  const entries = (order.history || []).filter((item) => item.stage === stage || (stage === 'fabric-prep' && item.action.includes('xác nhận bảng')) || (stage === 'washing' && item.action.includes('wash')));
-  const files = stage === 'washing'
-    ? [...(order.wash?.files || []).map((file) => ({ ...file, section: 'Gửi vải đi wash' })), ...(order.wash?.returnFiles || []).map((file) => ({ ...file, section: 'Hàng wash về' }))]
-    : stage === 'handover'
-      ? (order.handover?.files || []).map((file) => ({ ...file, section: 'Bàn giao xưởng' }))
-      : stage === 'reconcile'
-        ? Object.entries(order.reconcile?.photos || {}).flatMap(([key, list]) => list.map((file) => ({ ...file, section: ({ erp: 'Xác nhận ERPNext', transferPrint: 'Phiếu chuyển kho đã in', proposalPrint: 'Phiếu đề xuất đã in' })[key] || 'Đối chiếu' })))
-        : [];
-  const details = stageProgressDetails(order, stage);
+  // Hồ sơ cũ còn dữ liệu đưa vải đi wash / nhận hàng wash về; vẫn hiển thị trong bước "Soạn vải".
+  const covered = stage === 'fabric-prep' ? ['fabric-prep', 'washing'] : [stage];
+  const entries = (order.history || []).filter((item) => covered.includes(item.stage) || (covered.includes('fabric-prep') && item.action.includes('xác nhận bảng')) || (covered.includes('washing') && item.action.includes('wash')));
+  const files = covered.flatMap((item) => stageFiles(order, item));
+  const details = covered.map((item) => stageProgressDetails(order, item)).join('');
   detail.querySelector('[data-stage-progress]')?.remove();
   const host = document.createElement('section');
   host.className = 'production-stage-progress';
@@ -132,7 +135,7 @@ function stageProgressDetails(order, stage) {
     ['Duyệt cấp 1', order.approvals?.['approval-1'] ? `${escapeHtml(order.approvals['approval-1'].name)} · ${formatDateTime(order.approvals['approval-1'].at)}` : 'Chưa duyệt'],
     ['Duyệt cấp 2', order.approvals?.['approval-2'] ? `${escapeHtml(order.approvals['approval-2'].name)} · ${formatDateTime(order.approvals['approval-2'].at)}` : 'Chưa duyệt'],
   ]);
-  if (stage === 'fabric-prep') return `${rows([['Số lượng xác nhận', formatNumber(proposal.quantity)], ['Số dòng size', proposal.technicalRows?.length || 0]])}${productionQuantityTable(proposal.technicalRows || [])}`;
+  if (stage === 'fabric-prep') return `${rows([['Số lượng xác nhận', formatNumber(proposal.quantity)], ['Số dòng size', proposal.technicalRows?.length || 0]])}${productionQuantityTable(proposal)}`;
   if (stage === 'washing') return `${rows([
     ['Đơn vị wash', escapeHtml(order.wash?.vendor || '')], ['Đưa đi wash', formatDateTime(order.wash?.sentAt)],
     ['Nhận hàng wash', formatDateTime(order.wash?.returnedAt)],
@@ -142,7 +145,7 @@ function stageProgressDetails(order, stage) {
     ['Hao hụt cho phép', 'Tối đa 3%'], ['Mã vải vượt', escapeHtml(order.reconcile?.overLimit?.join(', ') || '')],
     ['Lý do hao hụt', escapeHtml(order.reconcile?.lossNote || '')], ['Xác nhận lúc', formatDateTime(order.reconcile?.at)],
     ['Người xác nhận', escapeHtml(order.reconcile?.name)],
-  ]);
+  ]) + fabricTable(order);
   if (stage === 'handover') return rows([
     ['Người bàn giao', escapeHtml(order.handover?.name)], ['Thời gian bàn giao', formatDateTime(order.handover?.at)],
     ['Trạng thái', order.handover ? 'Đã bàn giao cho xưởng' : 'Chưa bàn giao'],
@@ -253,36 +256,19 @@ function actionPanel(order) {
       <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt</button></div>`,
     'approval-2': () => forms['approval-1']().replace('Chữ ký duyệt cấp 1', 'Chữ ký duyệt cấp 2'),
     rejected: () => `<div class="production-form-actions"><button class="production-button" type="button" data-resubmit>Sửa &amp; gửi lại</button></div>`,
-    'fabric-prep': () => `<p class="production-hint">Kiểm tra và chỉnh lần cuối bảng số lượng theo size trước khi chuyển lập phiếu chuyển kho.</p>
+    'fabric-prep': () => `<p class="production-hint">Kiểm tra và chỉnh lần cuối bảng số lượng theo size, rồi bấm xác nhận để chuyển sang soạn vải.</p>
       <section class="production-paper-back is-step-editor">
         <h3>BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h3>
         <div class="paper-back-product-code"><strong>MÃ SP:</strong><span>${escapeHtml(order.proposal.productCode)}</span></div>
-        <div class="production-technical-scroll">
-          <div class="production-technical-head"><span>Mã</span><span>SL dự kiến</span><span>SL thực tế</span><span>S</span><span>M</span><span>L</span><span>XL</span><span>XXL</span><span>Tổng cộng</span><span></span></div>
-          <div class="production-rows" data-final-technical-rows></div>
-        </div>
-        <button class="production-link-button" type="button" data-add-final-technical>+ Thêm dòng</button>
+        ${sizeTableMarkup()}
       </section>
       <div class="production-form-actions"><button class="production-button" type="button" data-action="prepare-fabric">Xác nhận bảng</button></div>`,
-    'transfer-draft': () => `<p class="production-hint">Tạo PHIẾU CHUYỂN KHO (nháp) trên ERPNext: kho đích <strong>Kho Sản xuất</strong>, phần diễn giải ghi <strong>${escapeHtml(order.proposal.productCode)}</strong>.</p>
-      <label>Số phiếu chuyển kho (nháp) trên ERPNext<input name="erpCode" maxlength="80" value="${escapeHtml(order.transfer?.erpCode || '')}" placeholder="VD: MAT-STE-2026-00123" /></label>
-      <label>File / ảnh phiếu chuyển kho<input name="files" type="file" multiple accept="image/*,.pdf,.xls,.xlsx,.doc,.docx" /></label>
-      <p class="production-muted">Tối đa 5 file, mỗi file không quá 8MB.</p>${fileList(order)}${note()}
-      <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="create-transfer">Chuyển soạn vải &amp; wash</button></div>`,
-    washing: () => order.wash?.sentAt
-      ? `<p class="production-hint">Đã đưa đi wash lúc ${formatDateTime(order.wash.sentAt)}${order.wash.vendor ? ` (${escapeHtml(order.wash.vendor)})` : ''}. Khi hàng về, nhập số mét thực tế từng mã vải.</p>${fabricInputs(order.fabrics, 'washedMeters', { editableCode: false, allowAdd: true })}
-        <label>Ảnh thực tế hàng wash về<input name="files" type="file" multiple accept="image/*" /></label>
-        <p class="production-muted">Chụp ảnh hoặc chọn từ thư viện. Tối đa 5 ảnh, mỗi ảnh không quá 8MB.</p>${note()}
-        <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="return-wash">Báo số lượng sau wash</button></div>`
-      : `<p class="production-hint">Soạn vải theo bảng đã xác nhận rồi đưa đi wash theo Quy trình kiểm soát vải wash.</p><label>Đơn vị wash<input name="vendor" maxlength="120" /></label>
-        <label>Ảnh vải đã soạn<input name="files" type="file" multiple accept="image/*" /></label>
-        <p class="production-muted">Chụp ảnh hoặc chọn từ thư viện. Tối đa 5 ảnh, mỗi ảnh không quá 8MB.</p>${note()}
-        <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="send-wash">Đã đưa vải đi wash</button></div>`,
     reconcile: () => {
       const overLimit = order.fabrics.filter((fabric) => lossOf(fabric) > maxWashLoss);
-      return `<p class="production-hint">Mở lại phiếu chuyển kho <strong>${escapeHtml(order.transfer?.erpCode)}</strong>, sửa số lượng theo hàng wash thực tế rồi bấm xác nhận trên ERPNext. Hao hụt cho phép tối đa 3%.</p>
+      return `<p class="production-hint">Nhập số m sau wash của từng mã vải (so với số m trước wash), rồi xác nhận trên ERPNext. Hao hụt cho phép tối đa 3%.</p>
+        ${fabricInputs(order.fabrics, 'washedMeters', { editableCode: false, allowAdd: false })}
         ${overLimit.length ? `<p class="production-alert">Hao hụt vượt 3%: ${overLimit.map((fabric) => `${escapeHtml(fabric.fabricCode)} (${(lossOf(fabric) * 100).toFixed(1)}%)`).join(', ')}. Bắt buộc ghi lý do.</p>` : ''}
-        <label>Lý do hao hụt${overLimit.length ? ' (bắt buộc)' : ''}<textarea name="lossNote" rows="2" maxlength="500"></textarea></label>
+        <label>Lý do hao hụt (bắt buộc nếu hao hụt vượt 3%)<textarea name="lossNote" rows="2" maxlength="500"></textarea></label>
         ${[
           ['erpConfirmed', 'erp', 'Đã sửa số lượng và bấm xác nhận phiếu chuyển kho trên ERPNext', 'Ảnh màn hình phiếu chuyển kho đã xác nhận trên ERPNext'],
           ['printed', 'transferPrint', 'Đã in 2 phiếu chuyển kho có chữ ký từ Vận hành kho thời trang', 'Ảnh 2 phiếu chuyển kho đã in có chữ ký từ Vận hành kho thời trang'],
@@ -307,7 +293,6 @@ function actionPanel(order) {
 function proposalApprovalPreview(order) {
   const proposal = order.proposal;
   const changes = (proposal.changeNotes || []).map((row) => typeof row === 'string' ? { detail: row } : row).filter((row) => row.content || row.detail);
-  const quantities = proposal.technicalRows || [];
   return `<div class="production-approval-document">
     <section class="production-approval-page">
       <h3>PHIẾU ĐỀ XUẤT SẢN XUẤT</h3>
@@ -334,15 +319,130 @@ function proposalApprovalPreview(order) {
     <section class="production-approval-page">
       <h3>BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h3>
       <p><b>MÃ SP:</b> ${escapeHtml(proposal.productCode)}</p>
-      ${productionQuantityTable(quantities)}
+      ${productionQuantityTable(proposal)}
     </section>
   </div>`;
 }
 
-function productionQuantityTable(rows) {
-  const data = (Array.isArray(rows) ? rows : []).filter((row) =>
-    row.item || row.requirement || row.actual || row.s || row.m || row.l || row.xl || row.xxl);
-  return `<table class="production-quantity-table"><thead><tr><th class="is-code">Mã</th><th>SL dự kiến</th><th>SL thực tế</th><th class="is-size">S</th><th class="is-size">M</th><th class="is-size">L</th><th class="is-size">XL</th><th class="is-size">XXL</th><th>Tổng cộng</th></tr></thead><tbody>${(data.length ? data : [{}]).map((row) => `<tr><td class="is-code">${escapeHtml(row.item || '')}</td><td>${escapeHtml(row.requirement || '')}</td><td>${escapeHtml(row.actual || '')}</td>${['s', 'm', 'l', 'xl', 'xxl'].map((size) => `<td class="is-size">${escapeHtml(row[size] || '0')}</td>`).join('')}<td>${escapeHtml(row.note || '0')}</td></tr>`).join('')}</tbody></table>`;
+const maxSizeColumns = 10;
+const maxSizeRows = 10;
+const legacySizeKeys = ['s', 'm', 'l', 'xl', 'xxl'];
+
+// Cột size do người dùng tự đặt tên; phiếu cũ (S/M/L/XL/XXL cố định) vẫn đọc được.
+function sizeColumnsOf(proposal) {
+  const saved = Array.isArray(proposal?.sizeColumns) ? proposal.sizeColumns.filter((label) => String(label ?? '').trim()) : [];
+  if (saved.length) return saved;
+  const legacy = (proposal?.technicalRows || []).some((row) => legacySizeKeys.some((key) => row[key]));
+  return legacy ? ['S', 'M', 'L', 'XL', 'XXL'] : ['S'];
+}
+
+function sizeValuesOf(row, columns) {
+  return columns.map((label, index) => Array.isArray(row.sizes) ? row.sizes[index] ?? '' : row[String(label).toLowerCase()] ?? '');
+}
+
+const sizeTotalOf = (values) => values.reduce((sum, value) => sum + (Number(value) || 0), 0);
+
+function productionQuantityTable(proposal) {
+  const columns = sizeColumnsOf(proposal);
+  const rows = (proposal?.technicalRows || []).filter((row) => row.item || row.requirement || row.actual || sizeValuesOf(row, columns).some(Boolean));
+  const sizeWidth = Math.max(4, Math.floor(40 / columns.length));
+  const body = (rows.length ? rows : [{}]).map((row) => {
+    const sizes = sizeValuesOf(row, columns);
+    return `<tr><td>${escapeHtml(row.item || '')}</td><td>${escapeHtml(row.requirement || '')}</td><td>${escapeHtml(row.actual || '')}</td>${sizes.map((value) => `<td>${escapeHtml(value || '0')}</td>`).join('')}<td>${sizeTotalOf(sizes)}</td></tr>`;
+  }).join('');
+  return `<table class="production-quantity-table"><colgroup><col style="width:18%"><col style="width:14%"><col style="width:14%">${columns.map(() => `<col style="width:${sizeWidth}%">`).join('')}<col style="width:12%"></colgroup><thead><tr><th>Mã</th><th>Số m trước wash</th><th>Số m sau wash</th>${columns.map((label) => `<th>${escapeHtml(label)}</th>`).join('')}<th>Tổng cộng</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+// Bảng nhập số lượng theo size dùng chung cho phiếu lập đề xuất và bước soạn vải.
+function sizeTableMarkup() {
+  return `<div class="production-size-table" data-size-table>
+    <div class="production-technical-scroll">
+      <div class="production-technical-head" data-size-head></div>
+      <div class="production-rows" data-size-rows></div>
+    </div>
+    <div class="production-size-actions">
+      <button class="production-link-button" type="button" data-add-size-row>+ Thêm dòng</button>
+      <button class="production-link-button" type="button" data-add-size-column>+ Thêm cột size</button>
+    </div>
+  </div>`;
+}
+
+function sizeRowMarkup(row, columns, { lockActual = false } = {}) {
+  const sizes = sizeValuesOf(row, columns);
+  return `<div class="production-technical-row" data-size-row>
+    <input name="technical-item" maxlength="100" placeholder="Mã" value="${escapeHtml(row.item || '')}" />
+    <input name="technical-requirement" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Số m" value="${escapeHtml(row.requirement || '')}" />
+    <input name="technical-actual" type="number" ${lockActual ? 'readonly tabindex="-1" class="is-locked" title="Cột này bị khóa ở bước này"' : 'min="0" step="0.01" inputmode="decimal" placeholder="Số m"'} value="${escapeHtml(row.actual || '')}" />
+    ${sizes.map((value) => `<input name="technical-size" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${escapeHtml(value)}" data-size-quantity />`).join('')}
+    <input name="technical-total" type="number" readonly tabindex="-1" value="${sizeTotalOf(sizes)}" data-size-total />
+    <button type="button" class="production-row-remove" data-remove-size-row aria-label="Xóa dòng">×</button>
+  </div>`;
+}
+
+function renderSizeTable(root, { columns, rows }, options = {}) {
+  root.style.setProperty('--size-count', columns.length);
+  root.querySelector('[data-size-head]').innerHTML = `<span>Mã</span><span>Số m trước wash</span><span>Số m sau wash</span>${columns.map((label, index) => `<span class="production-size-head"><input data-size-label value="${escapeHtml(label)}" maxlength="10" placeholder="Size" aria-label="Tên cột size" />${columns.length > 1 ? `<button type="button" data-remove-size="${index}" aria-label="Xóa cột size">×</button>` : ''}</span>`).join('')}<span>Tổng cộng</span><span></span>`;
+  root.querySelector('[data-size-rows]').innerHTML = rows.map((row) => sizeRowMarkup(row, columns, options)).join('');
+  root.querySelector('[data-add-size-column]').hidden = columns.length >= maxSizeColumns;
+  root.querySelector('[data-add-size-row]').hidden = rows.length >= maxSizeRows;
+}
+
+function readSizeTable(root) {
+  return {
+    columns: [...root.querySelectorAll('[data-size-label]')].map((input) => input.value.trim()),
+    rows: [...root.querySelectorAll('[data-size-row]')].map((row) => ({
+      item: row.querySelector('[name="technical-item"]').value,
+      requirement: row.querySelector('[name="technical-requirement"]').value,
+      actual: row.querySelector('[name="technical-actual"]').value,
+      sizes: [...row.querySelectorAll('[data-size-quantity]')].map((input) => input.value),
+    })),
+  };
+}
+
+// Dữ liệu gửi lên máy chủ; cột size để trống tên sẽ được đặt tên mặc định.
+function sizeTablePayload(root) {
+  const { columns, rows } = readSizeTable(root);
+  return { sizeColumns: columns.map((label, index) => label || `Size ${index + 1}`), technicalRows: rows };
+}
+
+function mountSizeTable(root, data, options = {}) {
+  renderSizeTable(root, data, options);
+  root.addEventListener('input', (event) => {
+    const row = event.target.closest('[data-size-row]');
+    if (!row || !event.target.matches('[data-size-quantity]')) return;
+    row.querySelector('[data-size-total]').value = sizeTotalOf([...row.querySelectorAll('[data-size-quantity]')].map((input) => input.value));
+  });
+  root.addEventListener('click', (event) => {
+    const table = readSizeTable(root);
+    if (event.target.closest('[data-add-size-column]')) {
+      if (table.columns.length >= maxSizeColumns) return;
+      table.columns.push('');
+      table.rows.forEach((row) => row.sizes.push(''));
+      renderSizeTable(root, table, options);
+      root.querySelectorAll('[data-size-label]')[table.columns.length - 1].focus();
+      return;
+    }
+    const removeColumn = event.target.closest('[data-remove-size]');
+    if (removeColumn) {
+      const index = Number(removeColumn.dataset.removeSize);
+      table.columns.splice(index, 1);
+      table.rows.forEach((row) => row.sizes.splice(index, 1));
+      renderSizeTable(root, table, options);
+      return;
+    }
+    if (event.target.closest('[data-add-size-row]')) {
+      if (table.rows.length >= maxSizeRows) return;
+      table.rows.push({ item: options.defaultItem || '', sizes: table.columns.map(() => '') });
+      renderSizeTable(root, table, options);
+      return;
+    }
+    const removeRow = event.target.closest('[data-remove-size-row]');
+    if (removeRow) {
+      table.rows.splice([...root.querySelectorAll('[data-size-row]')].indexOf(removeRow.closest('[data-size-row]')), 1);
+      if (!table.rows.length) table.rows.push({ item: options.defaultItem || '', sizes: table.columns.map(() => '') });
+      renderSizeTable(root, table, options);
+    }
+  });
 }
 
 function openDetail(orderId) {
@@ -384,8 +484,6 @@ function printProposal(order) {
   const changeNotes = (proposal.changeNotes || [])
     .map((row) => typeof row === 'string' ? { content: '', detail: row } : row)
     .filter((row) => row.content || row.detail);
-  const technicalRows = (proposal.technicalRows || []).filter((row) =>
-    row.item || row.requirement || row.actual || row.s || row.m || row.l || row.xl || row.xxl);
   const html = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${escapeHtml(order.code)} - Phiếu đề xuất sản xuất</title><style>
     @page { size: A4; margin: 10mm 12mm; }
     * { box-sizing: border-box; }
@@ -436,8 +534,6 @@ function printProposal(order) {
     .production-quantity-table { width: 100%; table-layout: fixed; border-collapse: collapse; color: #111; background: #fff; font: 10px "Arial", sans-serif; }
     .production-quantity-table th, .production-quantity-table td { height: 8mm; padding: 2px 4px; border: 1px solid #111; text-align: center; vertical-align: middle; }
     .production-quantity-table th { color: #111; background: #fff; font-weight: 700; }
-    .production-quantity-table .is-code { width: 18%; }
-    .production-quantity-table .is-size { width: 6%; }
     .back-notes { margin-top: 8px; min-height: 30mm; padding: 6px; border: 1px solid #000; }
     .back-signs { margin-top: 7px; }
     .front-signs { margin: 3.5mm 0 0; font-family: Arial, sans-serif; }
@@ -472,7 +568,7 @@ function printProposal(order) {
   <section class="page back">
     <h1 class="back-title">BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h1>
     <p class="back-code"><b>Mã SP:</b> ${escapeHtml(proposal.productCode)}</p>
-    ${productionQuantityTable(technicalRows)}
+    ${productionQuantityTable(proposal)}
     <span class="page-label">Mặt 2/2</span>
   </section>
   </body></html>`;
@@ -504,8 +600,8 @@ function updateLossPreview() {
     const washed = Number(row.querySelector('[name="washedMeters"]').value);
     const output = row.querySelector('[data-loss-for]');
     const loss = washed && cut ? (cut - washed) / cut : null;
-    output.textContent = loss == null ? '' : `Hao hụt ${(loss * 100).toFixed(1)}%`;
-    output.classList.toggle('is-danger', loss > maxWashLoss);
+    output.textContent = loss == null ? '' : loss < 0 ? 'Lớn hơn số m trước wash' : `Hao hụt ${(loss * 100).toFixed(1)}%`;
+    output.classList.toggle('is-danger', loss != null && (loss < 0 || loss > maxWashLoss));
   });
 }
 
@@ -530,16 +626,8 @@ async function runAction(button) {
       return;
     }
   }
-  if (action === 'return-wash') payload.fabrics = collectFabrics(form);
-  if (action === 'prepare-fabric') payload.technicalRows = [...form.querySelectorAll('[data-final-technical-row]')].map((row) => ({
-    item: row.querySelector('[name="technical-item"]').value,
-    requirement: row.querySelector('[name="technical-requirement"]').value,
-    actual: row.querySelector('[name="technical-actual"]').value,
-    ...Object.fromEntries(['s', 'm', 'l', 'xl', 'xxl'].map((name) => [name, row.querySelector(`[name="technical-${name}"]`).value])),
-  }));
-  if (action === 'create-transfer') payload.erpCode = value('erpCode');
-  if (action === 'send-wash') payload.vendor = value('vendor');
-  if (action === 'reconcile') Object.assign(payload, { lossNote: value('lossNote'), erpConfirmed: checked('erpConfirmed'), printed: checked('printed'), proposalPrinted: checked('proposalPrinted') });
+  if (action === 'prepare-fabric') Object.assign(payload, sizeTablePayload(form.querySelector('[data-size-table]')));
+  if (action === 'reconcile') Object.assign(payload, { fabrics: collectFabrics(form), lossNote: value('lossNote'), erpConfirmed: checked('erpConfirmed'), printed: checked('printed'), proposalPrinted: checked('proposalPrinted') });
   if (action === 'handover') payload.signed = checked('signed');
   if (action === 'workshop-receive') Object.assign(payload, { unitPrice: value('unitPrice'), expectedDate: value('expectedDate') });
   if (['reject', 'send-back'].includes(action) && !payload.note.trim()) {
@@ -555,7 +643,7 @@ async function runAction(button) {
       payload.photos = {};
       for (const key of ['erp', 'transferPrint', 'proposalPrint']) payload.photos[key] = await readFiles(form.querySelector(`[name="photo-${key}"]`));
     }
-    if (['create-transfer', 'send-wash', 'return-wash', 'handover'].includes(action)) payload.files = await readFiles(form.querySelector('[name="files"]'));
+    if (action === 'handover') payload.files = await readFiles(form.querySelector('[name="files"]'));
     await request(`/api/production/${detailModal.dataset.orderId}/action`, { method: 'POST', body: JSON.stringify(payload) });
     await load();
     window.refreshProductionBadge?.();
@@ -647,33 +735,10 @@ function initializeApprovalSignature() {
 }
 
 function initializeFinalQuantityEditor(order) {
-  const container = detail.querySelector('[data-final-technical-rows]');
-  if (!container) return;
-  const addRow = (row = {}) => {
-    container.insertAdjacentHTML('beforeend', `<div class="production-technical-row" data-final-technical-row>
-      <input name="technical-item" maxlength="100" placeholder="Mã" value="${escapeHtml(row.item || order.proposal.productCode)}" />
-      <input name="technical-requirement" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(row.requirement || '')}" placeholder="SL dự kiến" />
-      <input name="technical-actual" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(row.actual || '')}" placeholder="SL thực tế" />
-      ${['s', 'm', 'l', 'xl', 'xxl'].map((name) => `<input name="technical-${name}" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(row[name] ?? '')}" placeholder="0" data-size-quantity />`).join('')}
-      <input type="number" readonly tabindex="-1" value="0" data-size-total />
-      <button type="button" class="production-row-remove" data-remove-final-row aria-label="Xóa dòng">×</button>
-    </div>`);
-    updateFinalRowTotal(container.lastElementChild);
-  };
-  const rows = order.proposal.technicalRows?.length ? order.proposal.technicalRows : [{}];
-  rows.forEach(addRow);
-  container.addEventListener('input', (event) => updateFinalRowTotal(event.target.closest('[data-final-technical-row]')));
-  container.addEventListener('click', (event) => {
-    if (!event.target.closest('[data-remove-final-row]')) return;
-    event.target.closest('[data-final-technical-row]').remove();
-    if (!container.children.length) addRow();
-  });
-  detail.querySelector('[data-add-final-technical]').addEventListener('click', () => { if (container.children.length < 10) addRow(); });
-}
-
-function updateFinalRowTotal(row) {
-  if (!row) return;
-  row.querySelector('[data-size-total]').value = [...row.querySelectorAll('[data-size-quantity]')].reduce((sum, input) => sum + Number(input.value || 0), 0);
+  const root = detail.querySelector('[data-size-table]');
+  if (!root) return;
+  const rows = order.proposal.technicalRows?.length ? order.proposal.technicalRows : [{ item: order.proposal.productCode }];
+  mountSizeTable(root, { columns: sizeColumnsOf(order.proposal), rows }, { lockActual: true, defaultItem: order.proposal.productCode });
 }
 
 // Phiếu đề xuất: định mức, màu/size, chữ ký.
@@ -730,26 +795,9 @@ function addVariant(row = {}) {
 }
 createForm.querySelector('[data-add-variant]').addEventListener('click', () => addVariant());
 variantRows.addEventListener('click', (event) => event.target.closest('[data-remove-row]')?.closest('[data-variant-row]').remove());
-const technicalRows = createForm.querySelector('[data-technical-rows]');
-function addTechnical(row = {}) {
-  if (!row.item && !row.requirement && technicalRows.children.length >= 10) return;
-  technicalRows.insertAdjacentHTML('beforeend', `<div class="production-technical-row" data-technical-row>
-    <input name="technical-item" maxlength="100" placeholder="Mã" value="${escapeHtml(row.item || '')}" />
-    <input name="technical-requirement" type="number" min="0" step="1" inputmode="numeric" placeholder="SL dự kiến" value="${escapeHtml(row.requirement || '')}" />
-    <input name="technical-actual" type="number" min="0" step="1" inputmode="numeric" placeholder="SL thực tế" value="${escapeHtml(row.actual || '')}" />
-    ${['s', 'm', 'l', 'xl', 'xxl'].map((name) => `<input name="technical-${name}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${escapeHtml(row[name] ?? '')}" data-size-quantity />`).join('')}
-    <input name="technical-total" type="number" readonly tabindex="-1" placeholder="0" value="${escapeHtml(row.total || '')}" data-size-total />
-    <button type="button" class="production-row-remove" data-remove-row aria-label="Xóa dòng">×</button></div>`);
-  updateTechnicalTotal(technicalRows.lastElementChild);
-}
-createForm.querySelector('[data-add-technical]').addEventListener('click', () => addTechnical());
-technicalRows.addEventListener('click', (event) => event.target.closest('[data-remove-row]')?.closest('[data-technical-row]').remove());
-function updateTechnicalTotal(row) {
-  if (!row) return;
-  const total = [...row.querySelectorAll('[data-size-quantity]')].reduce((sum, input) => sum + Number(input.value || 0), 0);
-  row.querySelector('[data-size-total]').value = total;
-}
-technicalRows.addEventListener('input', (event) => updateTechnicalTotal(event.target.closest('[data-technical-row]')));
+const sizeTableRoot = createForm.querySelector('[data-size-table]');
+const defaultSizeTable = () => ({ columns: ['S'], rows: [{}] });
+mountSizeTable(sizeTableRoot, defaultSizeTable());
 
 const changeRows = createForm.querySelector('[data-change-rows]');
 function updateChangeNumbers() {
@@ -805,7 +853,7 @@ function openCreate(order = null) {
   createForm.reset();
   clearSignature();
   variantRows.innerHTML = '';
-  technicalRows.innerHTML = '';
+  renderSizeTable(sizeTableRoot, defaultSizeTable());
   changeRows.innerHTML = '';
   existingProductImage = '';
   productImageInput.value = '';
@@ -816,7 +864,7 @@ function openCreate(order = null) {
   if (order) {
     ['date', 'deliveryDate', 'productCode', 'productName', 'reason', 'quantity', 'fabricNorm', 'fabric', 'color', 'sampleStatus', 'patternStatus', 'imageStatus', 'sampleSize', 'note', 'signatureName'].forEach((name) => { createForm.elements[name].value = order.proposal[name] ?? ''; });
     order.proposal.variants?.forEach(addVariant);
-    order.proposal.technicalRows?.forEach(addTechnical);
+    renderSizeTable(sizeTableRoot, { columns: sizeColumnsOf(order.proposal), rows: order.proposal.technicalRows?.length ? order.proposal.technicalRows : [{}] });
     const savedChanges = (order.proposal.changeNotes || []).map((note) => typeof note === 'string' ? { detail: note } : note);
     (savedChanges.length ? savedChanges : [{}]).forEach(addChangeRow);
     existingProductImage = order.proposal.productImage || '';
@@ -828,7 +876,6 @@ function openCreate(order = null) {
     createForm.elements.date.value = todayKey();
     createForm.elements.reason.value = '';
     ['sampleStatus', 'patternStatus', 'imageStatus'].forEach((name) => { createForm.elements[name].value = 'Có'; });
-    addTechnical();
     addChangeRow();
   }
   productImageInput.required = !existingProductImage;
@@ -854,11 +901,9 @@ createForm.addEventListener('submit', async (event) => {
     content: row.querySelector('[name="changeContent"]').value,
     detail: row.querySelector('[name="changeDetail"]').value,
   }));
-  data.technicalRows = [...technicalRows.querySelectorAll('[data-technical-row]')].map((row) => ({
-    ...Object.fromEntries(['item', 'requirement', 's', 'm', 'l', 'xl', 'xxl'].map((name) => [name, row.querySelector(`[name="technical-${name}"]`).value])),
-    actual: row.querySelector('[name="technical-actual"]').value,
-    note: row.querySelector('[name="technical-total"]').value,
-  }));
+  Object.assign(data, sizeTablePayload(sizeTableRoot));
+  const sizeTotal = data.technicalRows.reduce((sum, row) => sum + sizeTotalOf(row.sizes), 0);
+  if (!variantTotal && sizeTotal) data.quantity = String(sizeTotal);
   data.signatureData = signatureCanvas.toDataURL('image/png');
   try {
     await updateProductPreview();

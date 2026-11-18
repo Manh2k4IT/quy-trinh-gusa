@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="management.css?v=20261105-5" />
-    <link rel="stylesheet" href="production.css?v=20261118-49" />
+    <link rel="stylesheet" href="production.css?v=20261118-50" />
   </head>
   <body>
     <div class="mobile-menu-backdrop" data-mobile-menu-backdrop hidden></div>
@@ -111,11 +111,16 @@
           <section class="production-paper-back">
             <h3>BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h3>
             <div class="paper-back-product-code"><strong>MÃ SP:</strong><span data-back-product-code></span></div>
-            <div class="production-technical-scroll">
-              <div class="production-technical-head"><span>Mã</span><span>SL dự kiến</span><span>SL thực tế</span><span>S</span><span>M</span><span>L</span><span>XL</span><span>XXL</span><span>Tổng cộng</span><span></span></div>
-              <div class="production-rows" data-technical-rows></div>
+            <div class="production-size-table" data-size-table>
+              <div class="production-technical-scroll">
+                <div class="production-technical-head" data-size-head></div>
+                <div class="production-rows" data-size-rows></div>
+              </div>
+              <div class="production-size-actions">
+                <button class="production-link-button" type="button" data-add-size-row>+ Thêm dòng</button>
+                <button class="production-link-button" type="button" data-add-size-column>+ Thêm cột size</button>
+              </div>
             </div>
-            <button class="production-link-button" type="button" data-add-technical>+ Thêm dòng thông số</button>
           </section>
           <input name="note" type="hidden" value="" />
           <p class="production-error" data-create-error role="alert"></p>
@@ -137,7 +142,7 @@
       </div>
     </div>
 
-    <script src="production.js?v=20261118-49"></script>
+    <script src="production.js?v=20261118-53"></script>
     <script src="admin-menu.js?v=20261111-docs"></script>
   </body>
 </html>

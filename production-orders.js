@@ -6,30 +6,27 @@ const crypto = require("node:crypto");
 const stages = {
   "approval-1": { label: "Chờ duyệt cấp 1", role: "approval-1", step: "Bước 3" },
   "approval-2": { label: "Chờ duyệt cấp 2", role: "approval-2", step: "Bước 4" },
-  "fabric-prep": { label: "Chọn & soạn vải", role: "fabric-prep", step: "Bước 5" },
-  washing: { label: "Soạn vải & wash", role: "wash-send", step: "Bước 7–8" },
+  "fabric-prep": { label: "Soạn vải", role: "fabric-prep", step: "Bước 5" },
   reconcile: { label: "Đối chiếu sau wash", role: "reconcile", step: "Bước 9–10" },
   handover: { label: "Ký phiếu & bàn giao", role: "handover", step: "Bước 11–12" },
   "workshop-receive": { label: "Xưởng nhận & báo giá", role: "workshop-receive", step: "Bước 12–14" },
   "in-production": { label: "Đang sản xuất", role: null, step: "Hoàn tất đợt 1" },
   rejected: { label: "Bị từ chối", role: "create", step: "Sửa & gửi lại" },
 };
-const stageOrder = ["approval-1", "approval-2", "fabric-prep", "washing", "reconcile", "handover", "workshop-receive", "in-production"];
+const stageOrder = ["approval-1", "approval-2", "fabric-prep", "reconcile", "handover", "workshop-receive", "in-production"];
 // Phân công theo từng bước của QT.SX.01.
 const roles = {
   create: { label: "Bước 1–2 · Lập & ký phiếu đề xuất sản xuất", hint: "Thống kê mã cần sản xuất, lập phiếu, ký tên; sửa & gửi lại khi bị từ chối." },
   "approval-1": { label: "Bước 3 · Duyệt cấp 1", hint: "Duyệt hoặc từ chối kế hoạch sản xuất." },
   "approval-2": { label: "Bước 4 · Duyệt cấp 2", hint: "Duyệt sau khi cấp 1 đã duyệt." },
-  "fabric-prep": { label: "Bước 5 · Chọn & soạn vải", hint: "Soạn vải theo phiếu đã duyệt, nhập mã vải và số mét." },
-  "wash-send": { label: "Bước 7 · Soạn vải theo phiếu & đưa đi wash", hint: "Chụp ảnh vải đã soạn, ghi đơn vị wash." },
-  "wash-return": { label: "Bước 8 · Kiểm vải sau wash", hint: "Nhập số mét thực tế khi hàng wash về, chụp ảnh hàng về." },
+  "fabric-prep": { label: "Bước 5 · Soạn vải", hint: "Soạn vải theo phiếu đã duyệt, nhập mã vải và số mét." },
   reconcile: { label: "Bước 9–10 · Đối chiếu, xác nhận ERPNext & in phiếu", hint: "Kiểm hao hụt, xác nhận phiếu chuyển kho, in phiếu có chữ ký." },
   handover: { label: "Bước 11–12 · Ký phiếu & bàn giao cho xưởng", hint: "Ký phiếu, bàn giao bộ đề xuất và vải, chụp ảnh xác nhận." },
   "workshop-receive": { label: "Bước 12–14 · Xưởng nhận vải & báo giá", hint: "Xác nhận đã nhận, nhập đơn giá và ngày giao dự kiến." },
   "view-history": { label: "Quyền xem lại tiến độ quy trình", hint: "Xem hồ sơ, nhấn các bước 1, 2, 3… để xem người xử lý, thời gian, ghi chú và ảnh đã lưu." },
 };
 // Phân công cũ theo vai trò → bước tương ứng.
-const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", "wash-send": "washer", "wash-return": "washer", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "view-history": "accountant" };
+const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "view-history": "accountant" };
 const maxWashLoss = 0.03;
 const maxFiles = 5;
 const maxFileBytes = 8 * 1024 * 1024;
@@ -52,7 +49,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     const orders = readJson(ordersPath, []);
     return Array.isArray(orders) ? orders.map((order) => ({
       ...order,
-      status: order.status === "transfer-draft" ? "washing" : order.status,
+      status: ["transfer-draft", "washing"].includes(order.status) ? "reconcile" : order.status,
       fabrics: (order.fabrics || []).map((fabric) => ({ ...fabric, cutMeters: fabric.cutMeters ?? fabric.plannedMeters })),
     })) : [];
   };
@@ -68,7 +65,6 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
   };
 
   function stageRole(order) {
-    if (order.status === "washing" && order.wash?.sentAt) return "wash-return";
     return stages[order.status]?.role || null;
   }
 
@@ -112,6 +108,28 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
   }
   const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
 
+  const sizeNumber = (value) => {
+    const number = Number(String(value ?? "").trim().replace(",", "."));
+    return Number.isFinite(number) && number > 0 ? String(Math.round(number)) : "";
+  };
+
+  // Bảng số lượng theo size: tên cột size do người dùng đặt, cột tổng cộng luôn được tính lại ở máy chủ.
+  function cleanSizeTable(payload) {
+    const labels = (Array.isArray(payload.sizeColumns) ? payload.sizeColumns : []).slice(0, 10).map((label, index) => text(label, 12) || `Size ${index + 1}`);
+    const sizeColumns = labels.length ? labels : ["S"];
+    const rows = (Array.isArray(payload.technicalRows) ? payload.technicalRows : []).slice(0, 10).map((row) => {
+      const sizes = sizeColumns.map((_, index) => sizeNumber(row?.sizes?.[index]));
+      return {
+        item: text(row?.item, 100),
+        requirement: text(row?.requirement, 30),
+        actual: text(row?.actual, 30),
+        sizes,
+        note: String(sizes.reduce((sum, value) => sum + Number(value || 0), 0)),
+      };
+    }).filter((row) => row.item || row.requirement || row.actual || row.sizes.some(Boolean));
+    return { sizeColumns, rows };
+  }
+
   function validateProposal(payload) {
     const proposal = {
       date: text(payload.date, 10),
@@ -152,20 +170,9 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
         ? { content: "", detail: text(value, 500) }
         : { content: text(value?.content, 200), detail: text(value?.detail, 500) })
       .filter((row) => row.content || row.detail);
-    proposal.technicalRows = (Array.isArray(payload.technicalRows) ? payload.technicalRows : [])
-      .slice(0, 10)
-      .map((row) => ({
-        item: text(row.item, 100),
-        requirement: text(row.requirement, 300),
-        actual: text(row.actual, 30),
-        s: text(row.s, 30),
-        m: text(row.m, 30),
-        l: text(row.l, 30),
-        xl: text(row.xl, 30),
-        xxl: text(row.xxl, 30),
-        note: String(["s", "m", "l", "xl", "xxl"].reduce((sum, key) => sum + Number(row[key] || 0), 0)),
-      }))
-      .filter((row) => Object.values(row).some(Boolean));
+    const sizeTable = cleanSizeTable(payload);
+    proposal.sizeColumns = sizeTable.sizeColumns;
+    proposal.technicalRows = sizeTable.rows;
     for (const variant of Array.isArray(payload.variants) ? payload.variants.slice(0, 60) : []) {
       const row = { color: text(variant.color, 60), size: text(variant.size, 30), quantity: amount(variant.quantity, { integer: true }) };
       if (!row.color && !row.size && !variant.quantity) continue;
@@ -270,82 +277,42 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     },
     "prepare-fabric"(order, user, payload) {
       if (order.status !== "fabric-prep") throw new Error("Đề xuất không ở bước soạn vải.");
-      const rows = (Array.isArray(payload.technicalRows) ? payload.technicalRows : []).slice(0, 10).map((row) => {
-        const clean = {
-          item: text(row.item, 100),
-          requirement: text(row.requirement, 30),
-          actual: text(row.actual, 30),
-          s: text(row.s, 30),
-          m: text(row.m, 30),
-          l: text(row.l, 30),
-          xl: text(row.xl, 30),
-          xxl: text(row.xxl, 30),
-        };
-        clean.note = String(["s", "m", "l", "xl", "xxl"].reduce((sum, key) => sum + Number(clean[key] || 0), 0));
-        return clean;
-      }).filter((row) => row.item);
+      const table = cleanSizeTable(payload);
+      const previous = order.proposal.technicalRows || [];
+      // Cột "số m sau wash" bị khóa ở bước này: luôn giữ giá trị đã lưu, bỏ qua giá trị gửi lên.
+      const rows = table.rows.filter((row) => row.item).map((row) => ({ ...row, actual: previous.find((old) => old.item === row.item)?.actual || "" }));
       if (!rows.length) throw new Error("Vui lòng nhập ít nhất một dòng mã sản phẩm.");
-      for (const row of rows) {
-        if (!row.requirement || Number(row.requirement) <= 0) throw new Error(`Vui lòng nhập số lượng dự kiến cho mã ${row.item}.`);
-      }
+      const meters = rows.map((row) => {
+        const value = amount(row.requirement);
+        if (!value) throw new Error(`Vui lòng nhập số m trước wash cho mã ${row.item}.`);
+        return value;
+      });
+      order.proposal.sizeColumns = table.sizeColumns;
       order.proposal.technicalRows = rows;
-      order.proposal.quantity = rows.reduce((sum, row) => sum + Number(row.requirement || 0), 0);
-      order.fabrics = rows.map((row) => ({
+      const productTotal = rows.reduce((sum, row) => sum + Number(row.note || 0), 0);
+      if (productTotal > 0) order.proposal.quantity = productTotal;
+      order.fabrics = rows.map((row, index) => ({
         fabricCode: row.item,
-        plannedMeters: Number(row.requirement),
-        cutMeters: Number(row.requirement),
+        plannedMeters: meters[index],
+        cutMeters: meters[index],
       }));
-      addHistory(order, user, "Đã xác nhận bảng, chuyển soạn vải & wash", text(payload.note, 500));
-      return "washing";
-    },
-    "create-transfer"(order, user, payload) {
-      if (order.status !== "transfer-draft") throw new Error("Đề xuất không ở bước lập phiếu chuyển kho.");
-      const erpCode = text(payload.erpCode, 80);
-      if (!erpCode) throw new Error("Vui lòng nhập số phiếu chuyển kho (nháp) trên ERPNext.");
-      const rows = Array.isArray(payload.fabrics) ? payload.fabrics : [];
-      const fabrics = order.fabrics.map((fabric) => {
-        const cutMeters = amount(rows.find((row) => row.fabricCode === fabric.fabricCode)?.cutMeters ?? fabric.plannedMeters);
-        if (!cutMeters) throw new Error(`Số mét cắt của vải ${fabric.fabricCode} phải lớn hơn 0.`);
-        return { ...fabric, cutMeters };
-      });
-      const files = [...(order.transfer?.files || []), ...saveFiles(payload.files)];
-      if (files.length > maxFiles) throw new Error(`Chỉ đính kèm tối đa ${maxFiles} file.`);
-      order.fabrics = fabrics;
-      order.transfer = { erpCode, warehouse: "Kho Sản xuất", note: order.proposal.productCode, files };
-      addHistory(order, user, `Lập phiếu chuyển kho nháp ${erpCode}`, text(payload.note, 500));
-      return "washing";
-    },
-    "send-wash"(order, user, payload) {
-      if (order.status !== "washing" || order.wash?.sentAt) throw new Error("Vải đã được đưa đi wash.");
-      order.wash = { sentAt: new Date().toISOString(), vendor: text(payload.vendor, 120), files: saveFiles(payload.files, { imagesOnly: true }) };
-      addHistory(order, user, "Đưa vải đi wash", text(payload.note, 500));
-      return "washing";
-    },
-    "return-wash"(order, user, payload) {
-      if (order.status !== "washing" || !order.wash?.sentAt) throw new Error("Cần xác nhận đưa vải đi wash trước.");
-      const rows = Array.isArray(payload.fabrics) ? payload.fabrics : [];
-      order.fabrics = order.fabrics.map((fabric) => {
-        const washedMeters = amount(rows.find((row) => row.fabricCode === fabric.fabricCode)?.washedMeters);
-        if (!washedMeters) throw new Error(`Vui lòng nhập số mét sau wash của vải ${fabric.fabricCode}.`);
-        if (washedMeters > fabric.cutMeters) throw new Error(`Số mét sau wash của vải ${fabric.fabricCode} không được lớn hơn trước wash.`);
-        return { ...fabric, washedMeters };
-      });
-      // Mã vải phát sinh khi hàng wash về (không có trên phiếu chuyển kho).
-      for (const row of rows.filter((item) => !order.fabrics.some((fabric) => fabric.fabricCode === text(item.fabricCode, 60)))) {
-        const fabricCode = text(row.fabricCode, 60);
-        const washedMeters = amount(row.washedMeters);
-        if (!fabricCode) throw new Error("Vui lòng nhập mã vải cho dòng mới thêm.");
-        if (!washedMeters) throw new Error(`Vui lòng nhập số mét sau wash của vải ${fabricCode}.`);
-        if (order.fabrics.some((fabric) => fabric.fabricCode === fabricCode)) throw new Error(`Mã vải ${fabricCode} bị trùng.`);
-        order.fabrics.push({ fabricCode, washedMeters, addedAfterWash: true });
-      }
-      order.wash.returnFiles = saveFiles(payload.files, { imagesOnly: true });
-      order.wash.returnedAt = new Date().toISOString();
-      addHistory(order, user, "Nhận vải sau wash, báo số lượng thực tế", text(payload.note, 500));
+      addHistory(order, user, "Đã xác nhận bảng, chuyển đối chiếu", text(payload.note, 500));
       return "reconcile";
     },
     reconcile(order, user, payload) {
       if (order.status !== "reconcile") throw new Error("Đề xuất không ở bước đối chiếu.");
+      // Số m sau wash được nhập ở bước này (mặc định lấy giá trị đã lưu nếu không gửi lên).
+      const entered = Array.isArray(payload.fabrics) ? payload.fabrics : [];
+      order.fabrics = order.fabrics.map((fabric) => {
+        const washedMeters = amount(entered.find((row) => row.fabricCode === fabric.fabricCode)?.washedMeters) ?? fabric.washedMeters;
+        if (!washedMeters) throw new Error(`Vui lòng nhập số m sau wash của mã ${fabric.fabricCode}.`);
+        if (washedMeters > fabric.cutMeters) throw new Error(`Số m sau wash của mã ${fabric.fabricCode} không được lớn hơn số m trước wash (${fabric.cutMeters}).`);
+        return { ...fabric, washedMeters };
+      });
+      order.proposal.technicalRows = (order.proposal.technicalRows || []).map((row) => {
+        const fabric = order.fabrics.find((item) => item.fabricCode === row.item);
+        return fabric ? { ...row, actual: String(fabric.washedMeters) } : row;
+      });
       const overLimit = order.fabrics.filter((fabric) => washLoss(fabric) > maxWashLoss);
       const lossNote = text(payload.lossNote, 500);
       if (overLimit.length && !lossNote) throw new Error(`Hao hụt vượt 3% (${overLimit.map((fabric) => fabric.fabricCode).join(", ")}). Vui lòng ghi lý do.`);
