@@ -7,7 +7,6 @@ const stages = {
   "approval-1": { label: "Chờ duyệt cấp 1", role: "approval-1", step: "Bước 3" },
   "approval-2": { label: "Chờ duyệt cấp 2", role: "approval-2", step: "Bước 4" },
   "fabric-prep": { label: "Chọn & soạn vải", role: "fabric-prep", step: "Bước 5" },
-  "transfer-draft": { label: "Lập phiếu chuyển kho", role: "transfer-draft", step: "Bước 6" },
   washing: { label: "Soạn vải & wash", role: "wash-send", step: "Bước 7–8" },
   reconcile: { label: "Đối chiếu sau wash", role: "reconcile", step: "Bước 9–10" },
   handover: { label: "Ký phiếu & bàn giao", role: "handover", step: "Bước 11–12" },
@@ -15,23 +14,22 @@ const stages = {
   "in-production": { label: "Đang sản xuất", role: null, step: "Hoàn tất đợt 1" },
   rejected: { label: "Bị từ chối", role: "create", step: "Sửa & gửi lại" },
 };
-const stageOrder = ["approval-1", "approval-2", "fabric-prep", "transfer-draft", "washing", "reconcile", "handover", "workshop-receive", "in-production"];
+const stageOrder = ["approval-1", "approval-2", "fabric-prep", "washing", "reconcile", "handover", "workshop-receive", "in-production"];
 // Phân công theo từng bước của QT.SX.01.
 const roles = {
   create: { label: "Bước 1–2 · Lập & ký phiếu đề xuất sản xuất", hint: "Thống kê mã cần sản xuất, lập phiếu, ký tên; sửa & gửi lại khi bị từ chối." },
   "approval-1": { label: "Bước 3 · Duyệt cấp 1", hint: "Duyệt hoặc từ chối kế hoạch sản xuất." },
   "approval-2": { label: "Bước 4 · Duyệt cấp 2", hint: "Duyệt sau khi cấp 1 đã duyệt." },
   "fabric-prep": { label: "Bước 5 · Chọn & soạn vải", hint: "Soạn vải theo phiếu đã duyệt, nhập mã vải và số mét." },
-  "transfer-draft": { label: "Bước 6 · Lập phiếu chuyển kho (nháp)", hint: "Tạo phiếu chuyển kho trên ERPNext, đính kèm file/ảnh phiếu." },
   "wash-send": { label: "Bước 7 · Soạn vải theo phiếu & đưa đi wash", hint: "Chụp ảnh vải đã soạn, ghi đơn vị wash." },
   "wash-return": { label: "Bước 8 · Kiểm vải sau wash", hint: "Nhập số mét thực tế khi hàng wash về, chụp ảnh hàng về." },
   reconcile: { label: "Bước 9–10 · Đối chiếu, xác nhận ERPNext & in phiếu", hint: "Kiểm hao hụt, xác nhận phiếu chuyển kho, in phiếu có chữ ký." },
   handover: { label: "Bước 11–12 · Ký phiếu & bàn giao cho xưởng", hint: "Ký phiếu, bàn giao bộ đề xuất và vải, chụp ảnh xác nhận." },
   "workshop-receive": { label: "Bước 12–14 · Xưởng nhận vải & báo giá", hint: "Xác nhận đã nhận, nhập đơn giá và ngày giao dự kiến." },
-  accountant: { label: "Kế toán theo dõi", hint: "Xem toàn bộ hồ sơ (việc của kế toán ở đợt 2)." },
+  "view-history": { label: "Quyền xem lại tiến độ quy trình", hint: "Xem hồ sơ, nhấn các bước 1, 2, 3… để xem người xử lý, thời gian, ghi chú và ảnh đã lưu." },
 };
 // Phân công cũ theo vai trò → bước tương ứng.
-const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", "transfer-draft": "warehouse", "wash-send": "washer", "wash-return": "washer", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", accountant: "accountant" };
+const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", "wash-send": "washer", "wash-return": "washer", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "view-history": "accountant" };
 const maxWashLoss = 0.03;
 const maxFiles = 5;
 const maxFileBytes = 8 * 1024 * 1024;
@@ -52,15 +50,21 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
 
   const getOrders = () => {
     const orders = readJson(ordersPath, []);
-    return Array.isArray(orders) ? orders : [];
+    return Array.isArray(orders) ? orders.map((order) => ({
+      ...order,
+      status: order.status === "transfer-draft" ? "washing" : order.status,
+      fabrics: (order.fabrics || []).map((fabric) => ({ ...fabric, cutMeters: fabric.cutMeters ?? fabric.plannedMeters })),
+    })) : [];
   };
   const saveOrders = (orders) => fs.writeFileSync(ordersPath, JSON.stringify(orders, null, 2));
   const getAssignees = () => {
     const saved = readJson(settingsPath, {}).assignees || {};
-    return Object.fromEntries(Object.keys(roles).map((role) => {
+    const mapped = Object.fromEntries(Object.keys(roles).map((role) => {
       const ids = Array.isArray(saved[role]) ? saved[role] : saved[legacyRoles[role]];
       return [role, Array.isArray(ids) ? ids : []];
     }));
+    mapped["view-history"] = [...new Set([...(mapped["view-history"] || []), ...(Array.isArray(saved.accountant) ? saved.accountant : [])])];
+    return mapped;
   };
 
   function stageRole(order) {
@@ -113,17 +117,55 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       date: text(payload.date, 10),
       productCode: text(payload.productCode, 60),
       productName: text(payload.productName, 200),
+      reason: text(payload.reason, 300),
+      deliveryDate: text(payload.deliveryDate, 10),
       quantity: amount(payload.quantity, { integer: true }),
       fabricNorm: amount(payload.fabricNorm),
+      sampleStatus: text(payload.sampleStatus, 60),
+      patternStatus: text(payload.patternStatus, 60),
+      imageStatus: text(payload.imageStatus, 60),
+      sampleSize: text(payload.sampleSize, 30),
+      fabric: text(payload.fabric, 200),
+      color: text(payload.color, 200),
       note: text(payload.note, 1000),
+      changeNotes: [],
+      technicalRows: [],
+      productImage: typeof payload.productImage === "string" ? payload.productImage : "",
       signatureName: text(payload.signatureName, 150),
       signatureData: typeof payload.signatureData === "string" ? payload.signatureData : "",
       variants: [],
     };
     if (!isDate(proposal.date)) throw new Error("Vui lòng chọn ngày đề xuất.");
     if (!proposal.productCode || !proposal.productName) throw new Error("Vui lòng nhập mã và tên thành phẩm.");
+    if (!proposal.reason) throw new Error("Vui lòng nhập lý do sản xuất.");
+    if (!isDate(proposal.deliveryDate)) throw new Error("Vui lòng chọn ngày giao hàng bắt buộc.");
     if (!proposal.quantity) throw new Error("Số lượng sản xuất phải là số nguyên lớn hơn 0.");
     if (!proposal.fabricNorm) throw new Error("Định mức vải (m/sản phẩm) phải lớn hơn 0.");
+    if (!proposal.sampleStatus || !proposal.patternStatus || !proposal.imageStatus) throw new Error("Vui lòng xác nhận tình trạng mẫu, rập và hình ảnh sản phẩm.");
+    if (!proposal.sampleSize) throw new Error("Vui lòng nhập size mẫu.");
+    if (!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(proposal.productImage) || proposal.productImage.length > 11 * 1024 * 1024) {
+      throw new Error("Vui lòng tải hình ảnh sản phẩm hợp lệ (tối đa 8MB).");
+    }
+    proposal.changeNotes = (Array.isArray(payload.changeNotes) ? payload.changeNotes : [])
+      .slice(0, 30)
+      .map((value) => typeof value === "string"
+        ? { content: "", detail: text(value, 500) }
+        : { content: text(value?.content, 200), detail: text(value?.detail, 500) })
+      .filter((row) => row.content || row.detail);
+    proposal.technicalRows = (Array.isArray(payload.technicalRows) ? payload.technicalRows : [])
+      .slice(0, 10)
+      .map((row) => ({
+        item: text(row.item, 100),
+        requirement: text(row.requirement, 300),
+        actual: text(row.actual, 30),
+        s: text(row.s, 30),
+        m: text(row.m, 30),
+        l: text(row.l, 30),
+        xl: text(row.xl, 30),
+        xxl: text(row.xxl, 30),
+        note: String(["s", "m", "l", "xl", "xxl"].reduce((sum, key) => sum + Number(row[key] || 0), 0)),
+      }))
+      .filter((row) => Object.values(row).some(Boolean));
     for (const variant of Array.isArray(payload.variants) ? payload.variants.slice(0, 60) : []) {
       const row = { color: text(variant.color, 60), size: text(variant.size, 30), quantity: amount(variant.quantity, { integer: true }) };
       if (!row.color && !row.size && !variant.quantity) continue;
@@ -202,8 +244,14 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
   const actions = {
     approve(order, user, payload) {
       if (!["approval-1", "approval-2"].includes(order.status)) throw new Error("Đề xuất không ở bước duyệt.");
-      order.approvals = { ...order.approvals, [order.status]: { ...actor(user), at: new Date().toISOString() } };
-      addHistory(order, user, "Duyệt", text(payload.note, 500));
+      const approvalName = text(payload.approvalName, 150);
+      const approvalSignature = typeof payload.approvalSignature === "string" ? payload.approvalSignature : "";
+      if (!approvalName) throw new Error("Vui lòng nhập họ và tên người duyệt.");
+      if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(approvalSignature) || approvalSignature.length > 256 * 1024) {
+        throw new Error("Vui lòng ký xác nhận trước khi duyệt.");
+      }
+      order.approvals = { ...order.approvals, [order.status]: { ...actor(user), name: approvalName, signatureData: approvalSignature, at: new Date().toISOString() } };
+      addHistory(order, user, order.status === "approval-1" ? "Đã duyệt cấp 1" : "Đã duyệt cấp 2", text(payload.note, 500));
       return order.status === "approval-1" ? "approval-2" : "fabric-prep";
     },
     reject(order, user, payload) {
@@ -222,9 +270,33 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     },
     "prepare-fabric"(order, user, payload) {
       if (order.status !== "fabric-prep") throw new Error("Đề xuất không ở bước soạn vải.");
-      order.fabrics = validateFabrics(payload.fabrics, "plannedMeters");
-      addHistory(order, user, "Đã soạn vải, chuyển lập phiếu chuyển kho", text(payload.note, 500));
-      return "transfer-draft";
+      const rows = (Array.isArray(payload.technicalRows) ? payload.technicalRows : []).slice(0, 10).map((row) => {
+        const clean = {
+          item: text(row.item, 100),
+          requirement: text(row.requirement, 30),
+          actual: text(row.actual, 30),
+          s: text(row.s, 30),
+          m: text(row.m, 30),
+          l: text(row.l, 30),
+          xl: text(row.xl, 30),
+          xxl: text(row.xxl, 30),
+        };
+        clean.note = String(["s", "m", "l", "xl", "xxl"].reduce((sum, key) => sum + Number(clean[key] || 0), 0));
+        return clean;
+      }).filter((row) => row.item);
+      if (!rows.length) throw new Error("Vui lòng nhập ít nhất một dòng mã sản phẩm.");
+      for (const row of rows) {
+        if (!row.requirement || Number(row.requirement) <= 0) throw new Error(`Vui lòng nhập số lượng dự kiến cho mã ${row.item}.`);
+      }
+      order.proposal.technicalRows = rows;
+      order.proposal.quantity = rows.reduce((sum, row) => sum + Number(row.requirement || 0), 0);
+      order.fabrics = rows.map((row) => ({
+        fabricCode: row.item,
+        plannedMeters: Number(row.requirement),
+        cutMeters: Number(row.requirement),
+      }));
+      addHistory(order, user, "Đã xác nhận bảng, chuyển soạn vải & wash", text(payload.note, 500));
+      return "washing";
     },
     "create-transfer"(order, user, payload) {
       if (order.status !== "transfer-draft") throw new Error("Đề xuất không ở bước lập phiếu chuyển kho.");
@@ -396,6 +468,24 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     sendJson(res, 200, { order: publicOrder(order, user) });
   }
 
+  function remove(req, res, user, orderId) {
+    if (!isManagementUser(user)) return send(res, 403, "Chỉ CEO/Quản trị được xóa hồ sơ sản xuất.");
+    const orders = getOrders();
+    const order = orders.find((item) => item.id === orderId);
+    if (!order) return send(res, 404, "Không tìm thấy đề xuất sản xuất.");
+    const files = [...(order.transfer?.files || []), ...(order.wash?.files || []), ...(order.wash?.returnFiles || []), ...Object.values(order.reconcile?.photos || {}).flat(), ...(order.handover?.files || [])];
+    for (const file of files) {
+      try {
+        fs.rmSync(path.join(filesDirectory, file.id), { force: true });
+      } catch (error) {
+        console.error(`Production file delete failed ${file.id}:`, error);
+      }
+    }
+    saveOrders(orders.filter((item) => item.id !== orderId));
+    publish();
+    sendJson(res, 200, { ok: true, id: orderId });
+  }
+
   async function updateSettings(req, res, user) {
     if (!isManagementUser(user)) return send(res, 403, "Chỉ CEO/Quản trị được phân công.");
     const payload = await readBody(req);
@@ -420,6 +510,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       else if (req.method === "POST" && pathname === "/api/production") await create(req, res, user);
       else if (req.method === "POST" && pathname === "/api/production/settings") await updateSettings(req, res, user);
       else if (req.method === "GET" && /^\/api\/production\/[\w-]+\/files\/[\w-]+$/.test(pathname)) serveFile(res, pathname.split("/")[3], pathname.split("/")[5]);
+      else if (req.method === "DELETE" && /^\/api\/production\/[\w-]+$/.test(pathname)) remove(req, res, user, pathname.split("/")[3]);
       else if (req.method === "POST" && /^\/api\/production\/[\w-]+\/action$/.test(pathname)) await act(req, res, user, pathname.split("/")[3]);
       else send(res, 404, "Not found");
     } catch (error) {

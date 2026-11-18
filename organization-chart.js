@@ -110,7 +110,20 @@ if (mobileMenuBackdrop) {
   mobileMenuBackdrop.addEventListener("click", () => setMobileMenu(false));
 }
 
-if (localStorage.getItem("gusa-sidebar-collapsed") === "true") appShell.classList.add("is-collapsed");
+const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
+if (sidebarToggle) {
+  const syncToggleLabel = () => sidebarToggle.setAttribute("aria-label", appShell.classList.contains("is-collapsed") ? "Mở rộng menu" : "Thu gọn menu");
+  sidebarToggle.addEventListener("click", () => {
+    const collapsed = appShell.classList.toggle("is-collapsed");
+    localStorage.setItem("gusa-sidebar-collapsed", String(collapsed));
+    syncToggleLabel();
+  });
+}
+
+if (localStorage.getItem("gusa-sidebar-collapsed") === "true") {
+  appShell.classList.add("is-collapsed");
+  if (sidebarToggle) sidebarToggle.setAttribute("aria-label", "Mở rộng menu");
+}
 
 document.querySelector("[data-theme-trigger]").addEventListener("click", () => {
   toggleTheme();
