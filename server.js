@@ -1619,6 +1619,7 @@ function serveNotifications(req, res) {
     text: `${order.code} · ${order.productCode}: ${order.step}`,
     url: `/production.html?id=${order.id}`,
   }));
+  items.push(...productionOrders.washLossAlertsFor(currentUser));
   const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
   const currentUserId = getAttendanceUserKey(currentUser);
   const canSeeAllDecisions = isManagementUser(currentUser);

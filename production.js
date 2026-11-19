@@ -1,5 +1,5 @@
 (function () {
-const maxWashLoss = 0.03;
+const maxWashLoss = 0.05;
 const statusText = document.querySelector('[data-status]');
 const list = document.querySelector('[data-list]');
 const summary = document.querySelector('[data-stage-summary]');
@@ -20,7 +20,11 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => 
 const formatDate = (value) => value ? value.slice(0, 10).split('-').reverse().join('/') : '';
 const formatDateTime = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 const formatNumber = (value) => value == null ? '' : Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
-const todayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+const todayKey = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const value = (type) => parts.find((part) => part.type === type)?.value || '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+};
 const lossOf = (fabric) => fabric.cutMeters && fabric.washedMeters != null ? (fabric.cutMeters - fabric.washedMeters) / fabric.cutMeters : null;
 const isOverdue = (order) => order.status === 'in-production' && order.workshop?.expectedDate < todayKey();
 
@@ -57,6 +61,7 @@ function filteredOrders() {
     if (activeTab === 'mine' && !order.canAct) return false;
     if (activeTab === 'active' && ['in-production'].includes(order.status)) return false;
     if (activeTab === 'producing' && order.status !== 'in-production') return false;
+    if (activeTab === 'loss' && !order.washLossAlert?.exceeded) return false;
     if (stageFilter && order.status !== stageFilter) return false;
     if (!query) return true;
     return [order.code, order.proposal.productCode, order.proposal.productName].some((value) => value.toLowerCase().includes(query));
@@ -65,6 +70,8 @@ function filteredOrders() {
 
 function render() {
   document.querySelectorAll('[data-tab]').forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.tab === activeTab)));
+  const lossTab = document.querySelector('[data-tab="loss"]');
+  if (lossTab) lossTab.hidden = !state.me.canManage;
   const mineCount = state.orders.filter((order) => order.canAct).length;
   const mineTab = document.querySelector('[data-tab="mine"]');
   mineTab.innerHTML = `Việc của tôi${mineCount ? ` <span class="notification-badge is-inline">${mineCount > 99 ? '99+' : mineCount}</span>` : ''}`;
@@ -77,7 +84,7 @@ function render() {
   list.innerHTML = orders.length ? orders.map((order) => `
     <div class="production-item-wrap"><button type="button" class="production-item" data-open-order="${order.id}">
       <span class="production-item-main">
-        <span class="production-item-code">${escapeHtml(order.code)}${order.canAct ? '<em>Cần bạn xử lý</em>' : ''}${isOverdue(order) ? '<em class="is-danger">Trễ hạn giao</em>' : ''}</span>
+        <span class="production-item-code">${escapeHtml(order.code)}${order.canAct ? '<em>Cần bạn xử lý</em>' : ''}${order.washLossAlert?.exceeded ? `<em class="is-danger">Hao hụt &gt; 5%: ${escapeHtml(order.washLossAlert.items.map((item) => `${item.fabricCode} (${item.lossPercent}%)`).join(', '))}</em>` : ''}${isOverdue(order) ? '<em class="is-danger">Trễ hạn giao</em>' : ''}</span>
         <strong>${escapeHtml(order.proposal.productCode)} · ${escapeHtml(order.proposal.productName)}</strong>
         <span class="production-muted">SL ${formatNumber(order.proposal.quantity)} · Lập bởi ${escapeHtml(order.createdBy.name)} · Cập nhật ${formatDateTime(order.updatedAt)}</span>
       </span>
@@ -128,21 +135,21 @@ function stageProgressDetails(order, stage) {
   if (stage === 'approval-1') return rows([
     ['Người lập', escapeHtml(order.createdBy?.name)], ['Ngày lập', formatDateTime(order.createdAt)],
     ['Mã thành phẩm', escapeHtml(proposal.productCode)], ['Sản phẩm', escapeHtml(proposal.productName)],
-    ['Ngày giao dự kiến', formatDate(proposal.deliveryDate)], ['Số lượng', formatNumber(proposal.quantity)],
+    ...(proposal.deliveryDate ? [['Ngày giao dự kiến', formatDate(proposal.deliveryDate)]] : []), ['Số lượng', formatNumber(proposal.quantity)],
     ['Trạng thái duyệt', order.approvals?.['approval-1'] ? `Đã duyệt bởi ${escapeHtml(order.approvals['approval-1'].name)}` : 'Chưa duyệt'],
   ]);
   if (stage === 'approval-2') return rows([
     ['Duyệt cấp 1', order.approvals?.['approval-1'] ? `${escapeHtml(order.approvals['approval-1'].name)} · ${formatDateTime(order.approvals['approval-1'].at)}` : 'Chưa duyệt'],
     ['Duyệt cấp 2', order.approvals?.['approval-2'] ? `${escapeHtml(order.approvals['approval-2'].name)} · ${formatDateTime(order.approvals['approval-2'].at)}` : 'Chưa duyệt'],
   ]);
-  if (stage === 'fabric-prep') return `${rows([['Số lượng xác nhận', formatNumber(proposal.quantity)], ['Số dòng size', proposal.technicalRows?.length || 0]])}${productionQuantityTable(proposal)}`;
+  if (stage === 'fabric-prep') return `${rows([['Số lượng xác nhận', formatNumber(proposal.quantity)], ['Số dòng size', proposal.technicalRows?.length || 0]])}${productionQuantityTable(proposal, order.fabrics)}`;
   if (stage === 'washing') return `${rows([
     ['Đơn vị wash', escapeHtml(order.wash?.vendor || '')], ['Đưa đi wash', formatDateTime(order.wash?.sentAt)],
     ['Nhận hàng wash', formatDateTime(order.wash?.returnedAt)],
     ['Số mã vải', order.fabrics?.length || 0],
   ])}${fabricTable(order)}`;
   if (stage === 'reconcile') return rows([
-    ['Hao hụt cho phép', 'Tối đa 3%'], ['Mã vải vượt', escapeHtml(order.reconcile?.overLimit?.join(', ') || '')],
+    ['Hao hụt cho phép', 'Tối đa 5%'], ['Mã vải vượt', escapeHtml(order.reconcile?.overLimit?.join(', ') || '')],
     ['Lý do hao hụt', escapeHtml(order.reconcile?.lossNote || '')], ['Xác nhận lúc', formatDateTime(order.reconcile?.at)],
     ['Người xác nhận', escapeHtml(order.reconcile?.name)],
   ]) + fabricTable(order);
@@ -168,7 +175,7 @@ function fabricTable(order) {
   const hasCut = order.fabrics.some((fabric) => fabric.cutMeters);
   const hasWash = order.fabrics.some((fabric) => fabric.washedMeters != null);
   return `<div class="production-table-wrap"><table class="production-table">
-    <thead><tr><th>Mã vải</th><th>Soạn (m)</th>${hasCut ? '<th>Cắt trước wash (m)</th>' : ''}${hasWash ? '<th>Sau wash (m)</th><th>Hao hụt</th>' : ''}</tr></thead>
+    <thead><tr><th>Mẫu vải</th><th>Soạn (m)</th>${hasCut ? '<th>Cắt trước wash (m)</th>' : ''}${hasWash ? '<th>Sau wash (m)</th><th>Hao hụt</th>' : ''}</tr></thead>
     <tbody>${order.fabrics.map((fabric) => {
       const loss = lossOf(fabric);
       return `<tr><td>${escapeHtml(fabric.fabricCode)}${fabric.addedAfterWash ? ' <small class="production-muted">(phát sinh)</small>' : ''}</td><td>${formatNumber(fabric.plannedMeters)}</td>${hasCut ? `<td>${formatNumber(fabric.cutMeters)}</td>` : ''}${hasWash ? `<td>${formatNumber(fabric.washedMeters)}</td><td class="${loss > maxWashLoss ? 'is-danger' : 'is-ok'}">${loss == null ? '' : `${(loss * 100).toFixed(1)}%`}</td>` : ''}</tr>`;
@@ -187,7 +194,7 @@ function fabricInputs(rows, field, { editableCode = true, allowAdd = editableCod
 function fabricRow(row = {}, field, editableCode = true) {
   const loss = field === 'washedMeters' ? `<span class="production-loss" data-loss-for></span>` : '';
   return `<div class="production-row${field === 'washedMeters' ? ' is-wash' : ''}" data-fabric-row data-cut="${row.cutMeters ?? ''}">
-    <input name="fabricCode" placeholder="Mã vải" value="${escapeHtml(row.fabricCode || '')}" ${editableCode ? '' : 'readonly'} maxlength="60" />
+    <input name="fabricCode" placeholder="Mẫu vải" value="${escapeHtml(row.fabricCode || '')}" ${editableCode ? '' : 'readonly'} maxlength="60" />
     <input name="${field}" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="${field === 'plannedMeters' ? 'Số mét soạn' : field === 'cutMeters' ? 'Số mét cắt (trước wash)' : row.cutMeters ? `Sau wash (trước: ${formatNumber(row.cutMeters)} m)` : 'Số mét sau wash'}" value="${row[field] ?? ''}" />
     ${loss}
     ${editableCode ? '<button type="button" class="production-row-remove" data-remove-row aria-label="Xóa dòng">×</button>' : field === 'washedMeters' ? '<span></span>' : ''}
@@ -256,7 +263,7 @@ function actionPanel(order) {
       <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt</button></div>`,
     'approval-2': () => forms['approval-1']().replace('Chữ ký duyệt cấp 1', 'Chữ ký duyệt cấp 2'),
     rejected: () => `<div class="production-form-actions"><button class="production-button" type="button" data-resubmit>Sửa &amp; gửi lại</button></div>`,
-    'fabric-prep': () => `<p class="production-hint">Kiểm tra và chỉnh lần cuối bảng số lượng theo size, rồi bấm xác nhận để chuyển sang soạn vải.</p>
+    'fabric-prep': () => `<p class="production-hint">Số m sau wash đã được đối chiếu. Kiểm tra và chỉnh lần cuối bảng số lượng theo size, rồi bấm xác nhận bàn giao.</p>
       <section class="production-paper-back is-step-editor">
         <h3>BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h3>
         <div class="paper-back-product-code"><strong>MÃ SP:</strong><span>${escapeHtml(order.proposal.productCode)}</span></div>
@@ -265,10 +272,10 @@ function actionPanel(order) {
       <div class="production-form-actions"><button class="production-button" type="button" data-action="prepare-fabric">Xác nhận bảng</button></div>`,
     reconcile: () => {
       const overLimit = order.fabrics.filter((fabric) => lossOf(fabric) > maxWashLoss);
-      return `<p class="production-hint">Nhập số m sau wash của từng mã vải (so với số m trước wash), rồi xác nhận trên ERPNext. Hao hụt cho phép tối đa 3%.</p>
+      return `<p class="production-hint">Nhập số m sau wash của từng mã vải (so với số m trước wash), rồi xác nhận trên ERPNext. Hao hụt cho phép tối đa 5%.</p>
         ${fabricInputs(order.fabrics, 'washedMeters', { editableCode: false, allowAdd: false })}
-        ${overLimit.length ? `<p class="production-alert">Hao hụt vượt 3%: ${overLimit.map((fabric) => `${escapeHtml(fabric.fabricCode)} (${(lossOf(fabric) * 100).toFixed(1)}%)`).join(', ')}. Bắt buộc ghi lý do.</p>` : ''}
-        <label>Lý do hao hụt (bắt buộc nếu hao hụt vượt 3%)<textarea name="lossNote" rows="2" maxlength="500"></textarea></label>
+        ${overLimit.length ? `<p class="production-alert">Hao hụt vượt 5%: ${overLimit.map((fabric) => `${escapeHtml(fabric.fabricCode)} (${(lossOf(fabric) * 100).toFixed(1)}%)`).join(', ')}. Bắt buộc ghi lý do.</p>` : ''}
+        <label>Lý do hao hụt (bắt buộc nếu hao hụt vượt 5%)<textarea name="lossNote" rows="2" maxlength="500"></textarea></label>
         ${[
           ['erpConfirmed', 'erp', 'Đã sửa số lượng và bấm xác nhận phiếu chuyển kho trên ERPNext', 'Ảnh màn hình phiếu chuyển kho đã xác nhận trên ERPNext'],
           ['printed', 'transferPrint', 'Đã in 2 phiếu chuyển kho có chữ ký từ Vận hành kho thời trang', 'Ảnh 2 phiếu chuyển kho đã in có chữ ký từ Vận hành kho thời trang'],
@@ -284,7 +291,7 @@ function actionPanel(order) {
       <p class="production-muted">Chụp ảnh hoặc chọn từ thư viện. Tối đa 5 ảnh.</p>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="handover">Bàn giao bộ đề xuất &amp; vải cho xưởng</button></div>`,
     'workshop-receive': () => `<p class="production-hint">Xác nhận đã nhận đủ bộ đề xuất (phiếu đề xuất + phiếu chuyển kho) và vải.</p>
-      <div class="production-grid"><label>Đơn giá sản xuất (đ/sản phẩm)<input name="unitPrice" type="number" min="1" step="1" inputmode="numeric" /></label><label>Ngày giao hàng dự kiến<input name="expectedDate" type="date" /></label></div>${note()}
+      <div class="production-grid"><label>Đơn giá sản xuất (đ/sản phẩm)<input name="unitPrice" type="number" min="1" step="1" inputmode="numeric" /></label><label>Ngày giao hàng dự kiến<input name="expectedDate" type="date" min="${todayKey()}" /></label></div>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="workshop-receive">Xác nhận đã nhận</button></div>`,
   };
   return forms[order.status] ? `<section class="production-action" data-action-form><h3>${escapeHtml(order.stageStep)} · ${escapeHtml(order.stageLabel)}</h3>${forms[order.status]()}<p class="production-error" data-action-error role="alert"></p></section>` : '';
@@ -299,7 +306,7 @@ function proposalApprovalPreview(order) {
       <p class="production-approval-proposal-date"><b>NGÀY ĐỀ XUẤT:</b> ${formatDate(proposal.date)}</p>
       <p class="production-approval-product-line"><span><b>MÃ SP:</b> ${escapeHtml(proposal.productCode)}</span><span><b>TÊN SP:</b> ${escapeHtml(proposal.productName)}</span></p>
       <p><b>LÝ DO SẢN XUẤT:</b> ${escapeHtml(proposal.reason || '')}</p>
-      <p><b>NGÀY GIAO HÀNG DỰ KIẾN:</b> ${formatDate(proposal.deliveryDate)}</p>
+      ${proposal.deliveryDate ? `<p><b>NGÀY GIAO HÀNG DỰ KIẾN:</b> ${formatDate(proposal.deliveryDate)}</p>` : ''}
       <div class="production-approval-status">
         <b>TÌNH TRẠNG</b>
         <span>- Mẫu thực tế: ${escapeHtml(proposal.sampleStatus || 'Có')}</span>
@@ -319,7 +326,7 @@ function proposalApprovalPreview(order) {
     <section class="production-approval-page">
       <h3>BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h3>
       <p><b>MÃ SP:</b> ${escapeHtml(proposal.productCode)}</p>
-      ${productionQuantityTable(proposal)}
+      ${productionQuantityTable(proposal, order.fabrics)}
     </section>
   </div>`;
 }
@@ -342,15 +349,17 @@ function sizeValuesOf(row, columns) {
 
 const sizeTotalOf = (values) => values.reduce((sum, value) => sum + (Number(value) || 0), 0);
 
-function productionQuantityTable(proposal) {
+function productionQuantityTable(proposal, fabrics = []) {
   const columns = sizeColumnsOf(proposal);
   const rows = (proposal?.technicalRows || []).filter((row) => row.item || row.requirement || row.actual || sizeValuesOf(row, columns).some(Boolean));
   const sizeWidth = Math.max(4, Math.floor(40 / columns.length));
   const body = (rows.length ? rows : [{}]).map((row) => {
     const sizes = sizeValuesOf(row, columns);
-    return `<tr><td>${escapeHtml(row.item || '')}</td><td>${escapeHtml(row.requirement || '')}</td><td>${escapeHtml(row.actual || '')}</td>${sizes.map((value) => `<td>${escapeHtml(value || '0')}</td>`).join('')}<td>${sizeTotalOf(sizes)}</td></tr>`;
+    const fabric = fabrics.find((item) => String(item.fabricCode || '').trim().toLowerCase() === String(row.item || '').trim().toLowerCase());
+    const actual = row.actual || (fabric?.washedMeters != null ? String(fabric.washedMeters) : '');
+    return `<tr><td>${escapeHtml(row.item || '')}</td><td>${escapeHtml(row.requirement || '')}</td><td>${escapeHtml(actual)}</td>${sizes.map((value) => `<td>${escapeHtml(value || '0')}</td>`).join('')}<td>${sizeTotalOf(sizes)}</td></tr>`;
   }).join('');
-  return `<table class="production-quantity-table"><colgroup><col style="width:18%"><col style="width:14%"><col style="width:14%">${columns.map(() => `<col style="width:${sizeWidth}%">`).join('')}<col style="width:12%"></colgroup><thead><tr><th>Mã</th><th>Số m trước wash</th><th>Số m sau wash</th>${columns.map((label) => `<th>${escapeHtml(label)}</th>`).join('')}<th>Tổng cộng</th></tr></thead><tbody>${body}</tbody></table>`;
+  return `<table class="production-quantity-table"><colgroup><col style="width:18%"><col style="width:14%"><col style="width:14%">${columns.map(() => `<col style="width:${sizeWidth}%">`).join('')}<col style="width:12%"></colgroup><thead><tr><th>Mẫu vải</th><th>Số m trước wash</th><th>Số m sau wash</th>${columns.map((label) => `<th>${escapeHtml(label)}</th>`).join('')}<th>Tổng cộng</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
 // Bảng nhập số lượng theo size dùng chung cho phiếu lập đề xuất và bước soạn vải.
@@ -370,7 +379,7 @@ function sizeTableMarkup() {
 function sizeRowMarkup(row, columns, { lockActual = false } = {}) {
   const sizes = sizeValuesOf(row, columns);
   return `<div class="production-technical-row" data-size-row>
-    <input name="technical-item" maxlength="100" placeholder="Mã" value="${escapeHtml(row.item || '')}" />
+    <input name="technical-item" maxlength="100" placeholder="Mẫu vải" value="${escapeHtml(row.item || '')}" />
     <input name="technical-requirement" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Số m" value="${escapeHtml(row.requirement || '')}" />
     <input name="technical-actual" type="number" ${lockActual ? 'readonly tabindex="-1" class="is-locked" title="Cột này bị khóa ở bước này"' : 'min="0" step="0.01" inputmode="decimal" placeholder="Số m"'} value="${escapeHtml(row.actual || '')}" />
     ${sizes.map((value) => `<input name="technical-size" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${escapeHtml(value)}" data-size-quantity />`).join('')}
@@ -381,7 +390,7 @@ function sizeRowMarkup(row, columns, { lockActual = false } = {}) {
 
 function renderSizeTable(root, { columns, rows }, options = {}) {
   root.style.setProperty('--size-count', columns.length);
-  root.querySelector('[data-size-head]').innerHTML = `<span>Mã</span><span>Số m trước wash</span><span>Số m sau wash</span>${columns.map((label, index) => `<span class="production-size-head"><input data-size-label value="${escapeHtml(label)}" maxlength="10" placeholder="Size" aria-label="Tên cột size" />${columns.length > 1 ? `<button type="button" data-remove-size="${index}" aria-label="Xóa cột size">×</button>` : ''}</span>`).join('')}<span>Tổng cộng</span><span></span>`;
+  root.querySelector('[data-size-head]').innerHTML = `<span>Mẫu vải</span><span>Số m trước wash</span><span>Số m sau wash</span>${columns.map((label, index) => `<span class="production-size-head"><input data-size-label value="${escapeHtml(label)}" maxlength="10" placeholder="Size" aria-label="Tên cột size" />${columns.length > 1 ? `<button type="button" data-remove-size="${index}" aria-label="Xóa cột size">×</button>` : ''}</span>`).join('')}<span>Tổng cộng</span><span></span>`;
   root.querySelector('[data-size-rows]').innerHTML = rows.map((row) => sizeRowMarkup(row, columns, options)).join('');
   root.querySelector('[data-add-size-column]').hidden = columns.length >= maxSizeColumns;
   root.querySelector('[data-add-size-row]').hidden = rows.length >= maxSizeRows;
@@ -459,6 +468,7 @@ function openDetail(orderId) {
     </div>
     ${stepper(order)}
     ${rejection ? `<p class="production-alert">Bị từ chối bởi ${escapeHtml(rejection.name)}: ${escapeHtml(rejection.note)}</p>` : ''}
+    ${order.washLossAlert?.exceeded ? `<p class="production-alert"><strong>Cảnh báo hao hụt vượt 5%:</strong> ${escapeHtml(order.washLossAlert.items.map((item) => `${item.fabricCode} (${item.lossPercent}%)`).join(', '))}${order.washLossAlert.lossNote ? `<br><strong>Lý do:</strong> ${escapeHtml(order.washLossAlert.lossNote)}` : ''}</p>` : ''}
     ${isOverdue(order) ? `<p class="production-alert">Đã quá ngày giao dự kiến ${formatDate(order.workshop.expectedDate)}.</p>` : ''}
     ${approvalReview ? '' : actionPanel(order)}
     <section class="production-section"><div class="production-section-head"><h3>Phiếu đề xuất sản xuất</h3><button class="production-button is-secondary" type="button" data-print-proposal>In phiếu đề xuất sản xuất</button></div>
@@ -547,7 +557,7 @@ function printProposal(order) {
     <div class="front-info">
       <p class="front-product-line"><span><strong>Mã SP:</strong> ${escapeHtml(proposal.productCode)}</span>${proposal.productName ? `<span><strong>Tên SP:</strong> ${escapeHtml(proposal.productName)}</span>` : ''}</p>
       <p><strong>Lý do sản xuất:</strong> ${escapeHtml(proposal.reason || 'Đơn sản xuất bán tại shop')}</p>
-      <p><strong>Ngày giao hàng dự kiến:</strong> ${formatDate(proposal.deliveryDate)}</p>
+      ${proposal.deliveryDate ? `<p><strong>Ngày giao hàng dự kiến:</strong> ${formatDate(proposal.deliveryDate)}</p>` : ''}
       <p><strong>Tình trạng</strong></p>
       <ul class="front-status">
         <li>Mẫu thực tế: ${escapeHtml(proposal.sampleStatus || 'Có')}</li>
@@ -568,7 +578,7 @@ function printProposal(order) {
   <section class="page back">
     <h1 class="back-title">BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h1>
     <p class="back-code"><b>Mã SP:</b> ${escapeHtml(proposal.productCode)}</p>
-    ${productionQuantityTable(proposal)}
+    ${productionQuantityTable(order.proposal, order.fabrics)}
     <span class="page-label">Mặt 2/2</span>
   </section>
   </body></html>`;
@@ -629,7 +639,14 @@ async function runAction(button) {
   if (action === 'prepare-fabric') Object.assign(payload, sizeTablePayload(form.querySelector('[data-size-table]')));
   if (action === 'reconcile') Object.assign(payload, { fabrics: collectFabrics(form), lossNote: value('lossNote'), erpConfirmed: checked('erpConfirmed'), printed: checked('printed'), proposalPrinted: checked('proposalPrinted') });
   if (action === 'handover') payload.signed = checked('signed');
-  if (action === 'workshop-receive') Object.assign(payload, { unitPrice: value('unitPrice'), expectedDate: value('expectedDate') });
+  if (action === 'workshop-receive') {
+    Object.assign(payload, { unitPrice: value('unitPrice'), expectedDate: value('expectedDate') });
+    if (payload.expectedDate && payload.expectedDate < todayKey()) {
+      error.textContent = 'Ngày giao hàng dự kiến không được trước ngày hôm nay.';
+      form.querySelector('[name="expectedDate"]')?.focus();
+      return;
+    }
+  }
   if (['reject', 'send-back'].includes(action) && !payload.note.trim()) {
     error.textContent = action === 'reject' ? 'Vui lòng nhập lý do từ chối vào ô ý kiến.' : 'Vui lòng nhập lý do trả lại vào ô ghi chú.';
     form.querySelector('[name="note"]')?.focus();
@@ -862,7 +879,7 @@ function openCreate(order = null) {
   resubmitOrderId = order?.id || '';
   document.querySelector('[data-create-title]').textContent = order ? `Sửa & gửi lại ${order.code}` : 'Lập phiếu đề xuất sản xuất';
   if (order) {
-    ['date', 'deliveryDate', 'productCode', 'productName', 'reason', 'quantity', 'fabricNorm', 'fabric', 'color', 'sampleStatus', 'patternStatus', 'imageStatus', 'sampleSize', 'note', 'signatureName'].forEach((name) => { createForm.elements[name].value = order.proposal[name] ?? ''; });
+    ['date', 'productCode', 'productName', 'reason', 'quantity', 'fabricNorm', 'fabric', 'color', 'sampleStatus', 'patternStatus', 'imageStatus', 'sampleSize', 'note', 'signatureName'].forEach((name) => { createForm.elements[name].value = order.proposal[name] ?? ''; });
     order.proposal.variants?.forEach(addVariant);
     renderSizeTable(sizeTableRoot, { columns: sizeColumnsOf(order.proposal), rows: order.proposal.technicalRows?.length ? order.proposal.technicalRows : [{}] });
     const savedChanges = (order.proposal.changeNotes || []).map((note) => typeof note === 'string' ? { detail: note } : note);
@@ -893,7 +910,7 @@ createForm.addEventListener('submit', async (event) => {
     createError.textContent = 'Vui lòng ký tên trong khung chữ ký.';
     return;
   }
-  const data = Object.fromEntries(['date', 'deliveryDate', 'productCode', 'productName', 'reason', 'quantity', 'fabricNorm', 'fabric', 'color', 'sampleStatus', 'patternStatus', 'imageStatus', 'sampleSize', 'note', 'signatureName'].map((name) => [name, createForm.elements[name].value]));
+  const data = Object.fromEntries(['date', 'productCode', 'productName', 'reason', 'quantity', 'fabricNorm', 'fabric', 'color', 'sampleStatus', 'patternStatus', 'imageStatus', 'sampleSize', 'note', 'signatureName'].map((name) => [name, createForm.elements[name].value]));
   data.variants = [...variantRows.querySelectorAll('[data-variant-row]')].map((row) => ({ color: row.querySelector('[name="color"]').value, size: row.querySelector('[name="size"]').value, quantity: row.querySelector('[name="variantQuantity"]').value }));
   const variantTotal = data.variants.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
   if (variantTotal) data.quantity = String(variantTotal);

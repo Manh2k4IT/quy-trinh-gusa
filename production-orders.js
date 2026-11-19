@@ -6,28 +6,28 @@ const crypto = require("node:crypto");
 const stages = {
   "approval-1": { label: "Chờ duyệt cấp 1", role: "approval-1", step: "Bước 3" },
   "approval-2": { label: "Chờ duyệt cấp 2", role: "approval-2", step: "Bước 4" },
-  "fabric-prep": { label: "Soạn vải", role: "fabric-prep", step: "Bước 5" },
-  reconcile: { label: "Đối chiếu sau wash", role: "reconcile", step: "Bước 9–10" },
+  reconcile: { label: "Đối chiếu sau wash", role: "reconcile", step: "Bước 3" },
+  "fabric-prep": { label: "Soạn vải", role: "fabric-prep", step: "Bước 4" },
   handover: { label: "Ký phiếu & bàn giao", role: "handover", step: "Bước 11–12" },
   "workshop-receive": { label: "Xưởng nhận & báo giá", role: "workshop-receive", step: "Bước 12–14" },
   "in-production": { label: "Đang sản xuất", role: null, step: "Hoàn tất đợt 1" },
   rejected: { label: "Bị từ chối", role: "create", step: "Sửa & gửi lại" },
 };
-const stageOrder = ["approval-1", "approval-2", "fabric-prep", "reconcile", "handover", "workshop-receive", "in-production"];
+const stageOrder = ["approval-1", "approval-2", "reconcile", "fabric-prep", "handover", "workshop-receive", "in-production"];
 // Phân công theo từng bước của QT.SX.01.
 const roles = {
   create: { label: "Bước 1–2 · Lập & ký phiếu đề xuất sản xuất", hint: "Thống kê mã cần sản xuất, lập phiếu, ký tên; sửa & gửi lại khi bị từ chối." },
   "approval-1": { label: "Bước 3 · Duyệt cấp 1", hint: "Duyệt hoặc từ chối kế hoạch sản xuất." },
   "approval-2": { label: "Bước 4 · Duyệt cấp 2", hint: "Duyệt sau khi cấp 1 đã duyệt." },
-  "fabric-prep": { label: "Bước 5 · Soạn vải", hint: "Soạn vải theo phiếu đã duyệt, nhập mã vải và số mét." },
-  reconcile: { label: "Bước 9–10 · Đối chiếu, xác nhận ERPNext & in phiếu", hint: "Kiểm hao hụt, xác nhận phiếu chuyển kho, in phiếu có chữ ký." },
+  reconcile: { label: "Bước 3 · Đối chiếu sau wash", hint: "Nhập số mét sau wash, kiểm hao hụt và xác nhận ERPNext." },
+  "fabric-prep": { label: "Bước 4 · Soạn vải", hint: "Sau khi đối chiếu, kiểm tra và xác nhận bảng số lượng theo size." },
   handover: { label: "Bước 11–12 · Ký phiếu & bàn giao cho xưởng", hint: "Ký phiếu, bàn giao bộ đề xuất và vải, chụp ảnh xác nhận." },
   "workshop-receive": { label: "Bước 12–14 · Xưởng nhận vải & báo giá", hint: "Xác nhận đã nhận, nhập đơn giá và ngày giao dự kiến." },
   "view-history": { label: "Quyền xem lại tiến độ quy trình", hint: "Xem hồ sơ, nhấn các bước 1, 2, 3… để xem người xử lý, thời gian, ghi chú và ảnh đã lưu." },
 };
 // Phân công cũ theo vai trò → bước tương ứng.
 const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "view-history": "accountant" };
-const maxWashLoss = 0.03;
+const maxWashLoss = 0.05;
 const maxFiles = 5;
 const maxFileBytes = 8 * 1024 * 1024;
 
@@ -47,11 +47,18 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
 
   const getOrders = () => {
     const orders = readJson(ordersPath, []);
-    return Array.isArray(orders) ? orders.map((order) => ({
-      ...order,
-      status: ["transfer-draft", "washing"].includes(order.status) ? "reconcile" : order.status,
-      fabrics: (order.fabrics || []).map((fabric) => ({ ...fabric, cutMeters: fabric.cutMeters ?? fabric.plannedMeters })),
-    })) : [];
+    return Array.isArray(orders) ? orders.map((order) => {
+      const status = ["transfer-draft", "washing"].includes(order.status) ? "reconcile" : order.status;
+      let fabrics = (order.fabrics || []).map((fabric) => ({ ...fabric, cutMeters: fabric.cutMeters ?? fabric.plannedMeters }));
+      if (!fabrics.length && status === "reconcile") {
+        fabrics = (order.proposal?.technicalRows || []).filter((row) => row.item).map((row) => ({
+          fabricCode: row.item,
+          plannedMeters: amount(row.requirement),
+          cutMeters: amount(row.requirement),
+        })).filter((fabric) => fabric.plannedMeters);
+      }
+      return { ...order, status, fabrics };
+    }) : [];
   };
   const saveOrders = (orders) => fs.writeFileSync(ordersPath, JSON.stringify(orders, null, 2));
   const getAssignees = () => {
@@ -100,6 +107,11 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
   }
 
   const text = (value, max = 200) => String(value ?? "").trim().slice(0, max);
+  const todayKey = () => {
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const value = (type) => parts.find((part) => part.type === type)?.value || "";
+    return `${value("year")}-${value("month")}-${value("day")}`;
+  };
   function amount(value, { integer = false } = {}) {
     const raw = String(value ?? "").trim().replace(",", ".");
     if (!(integer ? /^\d+$/ : /^\d+(\.\d{1,2})?$/).test(raw)) return null;
@@ -156,7 +168,6 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     if (!isDate(proposal.date)) throw new Error("Vui lòng chọn ngày đề xuất.");
     if (!proposal.productCode || !proposal.productName) throw new Error("Vui lòng nhập mã và tên thành phẩm.");
     if (!proposal.reason) throw new Error("Vui lòng nhập lý do sản xuất.");
-    if (!isDate(proposal.deliveryDate)) throw new Error("Vui lòng chọn ngày giao hàng bắt buộc.");
     if (!proposal.quantity) throw new Error("Số lượng sản xuất phải là số nguyên lớn hơn 0.");
     if (!proposal.fabricNorm) throw new Error("Định mức vải (m/sản phẩm) phải lớn hơn 0.");
     if (!proposal.sampleStatus || !proposal.patternStatus || !proposal.imageStatus) throw new Error("Vui lòng xác nhận tình trạng mẫu, rập và hình ảnh sản phẩm.");
@@ -259,7 +270,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       }
       order.approvals = { ...order.approvals, [order.status]: { ...actor(user), name: approvalName, signatureData: approvalSignature, at: new Date().toISOString() } };
       addHistory(order, user, order.status === "approval-1" ? "Đã duyệt cấp 1" : "Đã duyệt cấp 2", text(payload.note, 500));
-      return order.status === "approval-1" ? "approval-2" : "fabric-prep";
+      return order.status === "approval-1" ? "approval-2" : "reconcile";
     },
     reject(order, user, payload) {
       if (!["approval-1", "approval-2"].includes(order.status)) throw new Error("Đề xuất không ở bước duyệt.");
@@ -279,8 +290,12 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       if (order.status !== "fabric-prep") throw new Error("Đề xuất không ở bước soạn vải.");
       const table = cleanSizeTable(payload);
       const previous = order.proposal.technicalRows || [];
-      // Cột "số m sau wash" bị khóa ở bước này: luôn giữ giá trị đã lưu, bỏ qua giá trị gửi lên.
-      const rows = table.rows.filter((row) => row.item).map((row) => ({ ...row, actual: previous.find((old) => old.item === row.item)?.actual || "" }));
+      // Cột số m sau wash đã được nhập ở bước đối chiếu và được giữ lại khi xác nhận bảng.
+      const rows = table.rows.filter((row) => row.item).map((row) => {
+        const old = previous.find((item) => text(item.item, 100).toLowerCase() === text(row.item, 100).toLowerCase());
+        const fabric = (order.fabrics || []).find((item) => text(item.fabricCode, 100).toLowerCase() === text(row.item, 100).toLowerCase());
+        return { ...row, actual: String(fabric?.washedMeters ?? old?.actual ?? "") };
+      });
       if (!rows.length) throw new Error("Vui lòng nhập ít nhất một dòng mã sản phẩm.");
       const meters = rows.map((row) => {
         const value = amount(row.requirement);
@@ -291,31 +306,46 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       order.proposal.technicalRows = rows;
       const productTotal = rows.reduce((sum, row) => sum + Number(row.note || 0), 0);
       if (productTotal > 0) order.proposal.quantity = productTotal;
-      order.fabrics = rows.map((row, index) => ({
-        fabricCode: row.item,
-        plannedMeters: meters[index],
-        cutMeters: meters[index],
-      }));
-      addHistory(order, user, "Đã xác nhận bảng, chuyển đối chiếu", text(payload.note, 500));
-      return "reconcile";
+      order.fabrics = rows.map((row, index) => {
+        const existing = (order.fabrics || []).find((item) => text(item.fabricCode, 100).toLowerCase() === text(row.item, 100).toLowerCase());
+        return {
+          fabricCode: row.item,
+          plannedMeters: meters[index],
+          cutMeters: meters[index],
+          washedMeters: existing?.washedMeters,
+        };
+      });
+      addHistory(order, user, "Đã xác nhận bảng sau đối chiếu", text(payload.note, 500));
+      return "handover";
     },
     reconcile(order, user, payload) {
       if (order.status !== "reconcile") throw new Error("Đề xuất không ở bước đối chiếu.");
       // Số m sau wash được nhập ở bước này (mặc định lấy giá trị đã lưu nếu không gửi lên).
       const entered = Array.isArray(payload.fabrics) ? payload.fabrics : [];
+      const fabricKey = (value) => text(value, 100).toLowerCase();
+      if (!order.fabrics?.length) {
+        order.fabrics = (order.proposal?.technicalRows || []).filter((row) => row.item).map((row) => ({
+          fabricCode: row.item,
+          plannedMeters: amount(row.requirement),
+          cutMeters: amount(row.requirement),
+        })).filter((fabric) => fabric.cutMeters);
+      }
       order.fabrics = order.fabrics.map((fabric) => {
-        const washedMeters = amount(entered.find((row) => row.fabricCode === fabric.fabricCode)?.washedMeters) ?? fabric.washedMeters;
+        const key = fabricKey(fabric.fabricCode);
+        const submitted = entered.find((row) => fabricKey(row.fabricCode) === key);
+        const washedMeters = amount(submitted?.washedMeters) ?? amount(fabric.washedMeters);
         if (!washedMeters) throw new Error(`Vui lòng nhập số m sau wash của mã ${fabric.fabricCode}.`);
         if (washedMeters > fabric.cutMeters) throw new Error(`Số m sau wash của mã ${fabric.fabricCode} không được lớn hơn số m trước wash (${fabric.cutMeters}).`);
         return { ...fabric, washedMeters };
       });
       order.proposal.technicalRows = (order.proposal.technicalRows || []).map((row) => {
-        const fabric = order.fabrics.find((item) => item.fabricCode === row.item);
+        const key = fabricKey(row.item);
+        const fabric = order.fabrics.find((item) => fabricKey(item.fabricCode) === key);
         return fabric ? { ...row, actual: String(fabric.washedMeters) } : row;
       });
       const overLimit = order.fabrics.filter((fabric) => washLoss(fabric) > maxWashLoss);
       const lossNote = text(payload.lossNote, 500);
-      if (overLimit.length && !lossNote) throw new Error(`Hao hụt vượt 3% (${overLimit.map((fabric) => fabric.fabricCode).join(", ")}). Vui lòng ghi lý do.`);
+      if (overLimit.length && !lossNote) throw new Error(`Hao hụt vượt 5% (${overLimit.map((fabric) => fabric.fabricCode).join(", ")}). Vui lòng ghi lý do.`);
       if (payload.erpConfirmed !== true) throw new Error("Vui lòng xác nhận đã bấm xác nhận phiếu chuyển kho trên ERPNext.");
       if (payload.printed !== true) throw new Error("Vui lòng xác nhận đã in 2 phiếu chuyển kho có chữ ký từ Vận hành kho thời trang.");
       if (payload.proposalPrinted !== true) throw new Error("Vui lòng xác nhận đã in 2 phiếu đề xuất sản xuất có chữ ký từ Vận hành kho thời trang.");
@@ -326,7 +356,16 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       const photos = Object.fromEntries(Object.keys(photoGroups).map((key) => [key, saveFiles(payload.photos[key], { imagesOnly: true })]));
       order.reconcile = { lossNote, overLimit: overLimit.map((fabric) => fabric.fabricCode), photos, at: new Date().toISOString(), ...actor(user) };
       addHistory(order, user, "Đối chiếu khớp, xác nhận ERPNext, in 2 phiếu chuyển kho & 2 phiếu đề xuất có chữ ký từ Vận hành kho thời trang", lossNote);
-      return "handover";
+      if (overLimit.length) {
+        const management = [...users.values()].filter((item) => item.status === "active" && isManagementUser(item));
+        const detail = overLimit.map((fabric) => `${fabric.fabricCode} ${(washLoss(fabric) * 100).toFixed(1)}%`).join(", ");
+        notify(management, {
+          title: "Cảnh báo hao hụt vải vượt 5%",
+          body: `${order.code} · ${order.proposal.productCode}: ${detail}.${lossNote ? ` Lý do: ${lossNote}` : ""}`,
+          path: `/production.html?id=${order.id}`,
+        }).catch((error) => console.error("Production wash-loss notification failed:", error.message));
+      }
+      return "fabric-prep";
     },
     handover(order, user, payload) {
       if (order.status !== "handover") throw new Error("Đề xuất không ở bước bàn giao.");
@@ -341,7 +380,9 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       const unitPrice = amount(payload.unitPrice, { integer: true });
       if (!unitPrice) throw new Error("Vui lòng nhập đơn giá sản xuất (đồng/sản phẩm).");
       if (!isDate(payload.expectedDate)) throw new Error("Vui lòng chọn ngày giao hàng dự kiến.");
+      if (payload.expectedDate < todayKey()) throw new Error("Ngày giao hàng dự kiến không được trước ngày hôm nay.");
       order.workshop = { receivedAt: new Date().toISOString(), unitPrice, expectedDate: payload.expectedDate, ...actor(user) };
+      order.proposal.deliveryDate = payload.expectedDate;
       addHistory(order, user, "Xưởng nhận đủ bộ đề xuất & vải; nhập đơn giá, ngày giao dự kiến", text(payload.note, 500));
       return "in-production";
     },
@@ -378,7 +419,16 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
 
   function publicOrder(order, user) {
     const role = stageRole(order);
-    return { ...order, stageLabel: stages[order.status]?.label, stageStep: stages[order.status]?.step, stageRole: role, canAct: canAct(user, order) };
+    const overLimitItems = (order.fabrics || []).filter((fabric) => washLoss(fabric) > maxWashLoss).map((fabric) => ({
+      fabricCode: fabric.fabricCode,
+      lossPercent: Number(((washLoss(fabric) || 0) * 100).toFixed(1)),
+    }));
+    const washLossAlert = {
+      exceeded: overLimitItems.length > 0,
+      items: overLimitItems,
+      lossNote: order.reconcile?.lossNote || "",
+    };
+    return { ...order, stageLabel: stages[order.status]?.label, stageStep: stages[order.status]?.step, stageRole: role, canAct: canAct(user, order), washLossAlert };
   }
 
   async function readBody(req) {
@@ -491,7 +541,24 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     return getOrders().filter((order) => canAct(user, order)).map((order) => ({ id: order.id, code: order.code, productCode: order.proposal.productCode, updatedAt: order.updatedAt, step: roles[stageRole(order)].label }));
   }
 
-  return { handle, pendingFor, dataFiles: ["production-orders.json", "production-settings.json"] };
+  function washLossAlertsFor(user) {
+    if (!isManagementUser(user)) return [];
+    return getOrders().filter((order) => order.reconcile?.at && (order.fabrics || []).some((fabric) => washLoss(fabric) > maxWashLoss))
+      .map((order) => {
+        const exceeded = order.fabrics.filter((fabric) => washLoss(fabric) > maxWashLoss);
+        const details = exceeded.map((fabric) => `${fabric.fabricCode} (${(washLoss(fabric) * 100).toFixed(1)}%)`).join(", ");
+        return {
+          id: `production-wash-loss-${order.id}-${order.reconcile.at}`,
+          kind: "action",
+          title: "Cảnh báo hao hụt vải vượt 5%",
+          text: `${order.code} · ${order.proposal.productCode}: ${details}.${order.reconcile.lossNote ? ` Lý do: ${order.reconcile.lossNote}` : ""}`,
+          url: `/production.html?id=${encodeURIComponent(order.id)}`,
+          time: order.reconcile.at,
+        };
+      });
+  }
+
+  return { handle, pendingFor, washLossAlertsFor, dataFiles: ["production-orders.json", "production-settings.json"] };
 }
 
 module.exports = { createProductionOrders };
