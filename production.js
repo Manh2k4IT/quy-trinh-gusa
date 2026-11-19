@@ -59,7 +59,7 @@ function filteredOrders() {
   const query = searchInput.value.trim().toLowerCase();
   return state.orders.filter((order) => {
     if (activeTab === 'mine' && !order.canAct) return false;
-    if (activeTab === 'active' && ['in-production'].includes(order.status)) return false;
+    if (activeTab === 'active' && ['in-production', 'completed'].includes(order.status)) return false;
     if (activeTab === 'producing' && order.status !== 'in-production') return false;
     if (activeTab === 'loss' && !order.washLossAlert?.exceeded) return false;
     if (stageFilter && order.status !== stageFilter) return false;
@@ -76,7 +76,7 @@ function render() {
   const mineTab = document.querySelector('[data-tab="mine"]');
   mineTab.innerHTML = `Việc của tôi${mineCount ? ` <span class="notification-badge is-inline">${mineCount > 99 ? '99+' : mineCount}</span>` : ''}`;
   const counts = state.orders.reduce((result, order) => ({ ...result, [order.status]: (result[order.status] || 0) + 1 }), {});
-  summary.innerHTML = [...state.stageOrder, 'rejected'].filter((stage) => counts[stage]).map((stage) => `
+  summary.innerHTML = [...state.stageOrder, 'completed', 'rejected'].filter((stage) => counts[stage]).map((stage) => `
     <button type="button" class="production-stage-chip${stageFilter === stage ? ' is-active' : ''}" data-stage-filter="${stage}" data-stage="${stage}">
       <strong>${counts[stage]}</strong><span>${escapeHtml(state.stages[stage].label)}</span>
     </button>`).join('');
@@ -97,7 +97,7 @@ function stepper(order) {
   const canReviewHistory = state.me.canManage || state.me.roles.includes('view-history');
   const visibleStages = state.stageOrder.map((stage, index) => ({ stage, index }));
   return `<ol class="production-stepper">${visibleStages.map(({ stage, index }, visibleIndex) => {
-    const status = order.status === 'rejected' ? (index === 0 ? 'is-rejected' : '') : index < currentIndex || order.status === 'in-production' ? 'is-done' : index === currentIndex ? 'is-current' : '';
+    const status = order.status === 'rejected' ? (index === 0 ? 'is-rejected' : '') : order.status === 'completed' || index < currentIndex ? 'is-done' : index === currentIndex ? 'is-current' : '';
     return `<li class="${status}"><button type="button" ${canReviewHistory ? `data-view-stage="${stage}"` : 'disabled'} title="${canReviewHistory ? `Xem tiến độ ${escapeHtml(state.stages[stage].label)}` : 'Bạn chưa được cấp quyền xem lại tiến độ'}"><span>${visibleIndex + 1}</span><small>${escapeHtml(state.stages[stage].label)}</small></button></li>`;
   }).join('')}</ol>`;
 }
@@ -106,6 +106,7 @@ function stageFiles(order, stage) {
   if (stage === 'washing') return [...(order.wash?.files || []).map((file) => ({ ...file, section: 'Gửi vải đi wash' })), ...(order.wash?.returnFiles || []).map((file) => ({ ...file, section: 'Hàng wash về' }))];
   if (stage === 'handover') return (order.handover?.files || []).map((file) => ({ ...file, section: 'Bàn giao xưởng' }));
   if (stage === 'reconcile') return Object.entries(order.reconcile?.photos || {}).flatMap(([key, list]) => list.map((file) => ({ ...file, section: ({ erp: 'Xác nhận ERPNext', transferPrint: 'Phiếu chuyển kho đã in', proposalPrint: 'Phiếu đề xuất đã in' })[key] || 'Đối chiếu' })));
+  if (stage === 'product-receive') return [...(order.receipt?.documentFiles || []).map((file) => ({ ...file, section: 'Chứng từ Vận hành & Kế toán xác nhận' })), ...(order.receipt?.productFiles || []).map((file) => ({ ...file, section: 'Ảnh sản phẩm tiếp nhận' }))];
   return [];
 }
 
@@ -166,6 +167,16 @@ function stageProgressDetails(order, stage) {
   if (stage === 'in-production') return rows([
     ['Trạng thái', 'Đang sản xuất'], ['Ngày giao dự kiến', formatDate(order.workshop?.expectedDate)],
     ['Người xưởng nhận', escapeHtml(order.workshop?.name)],
+  ]);
+  if (stage === 'product-receive') return rows([
+    ['Số lượng sản phẩm đã nhận', formatNumber(order.receipt?.receivedQuantity)],
+    ['Người tiếp nhận', escapeHtml(order.receipt?.name)],
+    ['Thời gian tiếp nhận', formatDateTime(order.receipt?.at)],
+  ]);
+  if (stage === 'completed') return rows([
+    ['Số lượng sản phẩm đã nhận', formatNumber(order.receipt?.receivedQuantity)],
+    ['Người tiếp nhận', escapeHtml(order.receipt?.name)],
+    ['Thời gian tiếp nhận', formatDateTime(order.receipt?.at)],
   ]);
   return '';
 }
@@ -293,6 +304,13 @@ function actionPanel(order) {
     'workshop-receive': () => `<p class="production-hint">Xác nhận đã nhận đủ bộ đề xuất (phiếu đề xuất + phiếu chuyển kho) và vải.</p>
       <div class="production-grid"><label>Đơn giá sản xuất (đ/sản phẩm)<input name="unitPrice" type="number" min="1" step="1" inputmode="numeric" /></label><label>Ngày giao hàng dự kiến<input name="expectedDate" type="date" min="${todayKey()}" /></label></div>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="workshop-receive">Xác nhận đã nhận</button></div>`,
+    'in-production': () => `<p class="production-hint">Khi xưởng đã sản xuất xong, xác nhận hoàn tất để chuyển sang bước tiếp nhận sản phẩm.</p>${note()}
+      <div class="production-form-actions"><button class="production-button" type="button" data-action="complete-production">Xưởng báo hoàn tất sản xuất</button></div>`,
+    'product-receive': () => `<p class="production-hint">Nhập số lượng sản phẩm thực nhận và tải ảnh chứng từ đã được Vận hành, Kế toán xác nhận cùng ảnh sản phẩm.</p>
+      <label>Số lượng sản phẩm đã nhận<input name="receivedQuantity" type="number" min="1" step="1" inputmode="numeric" required /></label>
+      <label>Ảnh chứng từ đã xác nhận từ Vận hành và Kế toán (bắt buộc)<input name="photo-documents" type="file" accept="image/*" capture="environment" required /></label>
+      <label>Ảnh sản phẩm tiếp nhận (bắt buộc)<input name="photo-products" type="file" accept="image/*" capture="environment" required /></label>${note()}
+      <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="product-receive">Xác nhận tiếp nhận sản phẩm</button></div>`,
   };
   return forms[order.status] ? `<section class="production-action" data-action-form><h3>${escapeHtml(order.stageStep)} · ${escapeHtml(order.stageLabel)}</h3>${forms[order.status]()}<p class="production-error" data-action-error role="alert"></p></section>` : '';
 }
@@ -477,6 +495,7 @@ function openDetail(orderId) {
     ${approvalReview ? actionPanel(order) : ''}
     ${order.handover?.files?.length ? `<section class="production-section"><h3>Bàn giao cho phòng sản xuất</h3>${infoRows([['Người bàn giao', escapeHtml(order.handover.name)], ['Thời gian', formatDateTime(order.handover.at)]])}${fileList(order, order.handover.files)}</section>` : ''}
     ${order.workshop ? `<section class="production-section"><h3>Xưởng sản xuất</h3>${infoRows([['Người nhận', escapeHtml(order.workshop.name)], ['Ngày nhận', formatDateTime(order.workshop.receivedAt)], ['Đơn giá', `${formatNumber(order.workshop.unitPrice)} đ/sp`], ['Thành tiền dự kiến', `${formatNumber(order.workshop.unitPrice * proposal.quantity)} đ`], ['Giao dự kiến', formatDate(order.workshop.expectedDate)]])}</section>` : ''}
+    ${order.receipt ? `<section class="production-section"><h3>Tiếp nhận sản phẩm</h3>${infoRows([['Số lượng đã nhận', formatNumber(order.receipt.receivedQuantity)], ['Người tiếp nhận', escapeHtml(order.receipt.name)], ['Thời gian', formatDateTime(order.receipt.at)]])}<p class="production-hint">Chứng từ Vận hành &amp; Kế toán xác nhận</p>${fileList(order, order.receipt.documentFiles)}<p class="production-hint">Ảnh sản phẩm tiếp nhận</p>${fileList(order, order.receipt.productFiles)}</section>` : ''}
     <section class="production-section"><h3>Lịch sử</h3><ol class="production-history">${[...order.history].reverse().map((item) => `<li><strong>${escapeHtml(item.action === 'Duyệt' && item.stage === 'approval-1' ? 'Đã duyệt cấp 1' : item.action === 'Duyệt' && item.stage === 'approval-2' ? 'Đã duyệt cấp 2' : item.action)}</strong><span>${escapeHtml(item.name)} · ${formatDateTime(item.at)}</span>${item.note ? `<p>${escapeHtml(item.note)}</p>` : ''}</li>`).join('')}</ol></section>`;
   detailModal.hidden = false;
   updateLossPreview();
@@ -647,6 +666,7 @@ async function runAction(button) {
       return;
     }
   }
+  if (action === 'product-receive') payload.receivedQuantity = value('receivedQuantity');
   if (['reject', 'send-back'].includes(action) && !payload.note.trim()) {
     error.textContent = action === 'reject' ? 'Vui lòng nhập lý do từ chối vào ô ý kiến.' : 'Vui lòng nhập lý do trả lại vào ô ghi chú.';
     form.querySelector('[name="note"]')?.focus();
@@ -661,6 +681,12 @@ async function runAction(button) {
       for (const key of ['erp', 'transferPrint', 'proposalPrint']) payload.photos[key] = await readFiles(form.querySelector(`[name="photo-${key}"]`));
     }
     if (action === 'handover') payload.files = await readFiles(form.querySelector('[name="files"]'));
+    if (action === 'product-receive') {
+      payload.photos = {
+        documents: await readFiles(form.querySelector('[name="photo-documents"]')),
+        products: await readFiles(form.querySelector('[name="photo-products"]')),
+      };
+    }
     await request(`/api/production/${detailModal.dataset.orderId}/action`, { method: 'POST', body: JSON.stringify(payload) });
     await load();
     window.refreshProductionBadge?.();

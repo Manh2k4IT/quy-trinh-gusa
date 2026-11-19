@@ -2,31 +2,35 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
-// QT.SX.01 — đợt 1: từ lập đề xuất sản xuất đến bàn giao vải cho xưởng (bước 1–14).
+// QT.SX.01 — từ lập đề xuất sản xuất đến tiếp nhận sản phẩm.
 const stages = {
   "approval-1": { label: "Chờ duyệt cấp 1", role: "approval-1", step: "Bước 3" },
   "approval-2": { label: "Chờ duyệt cấp 2", role: "approval-2", step: "Bước 4" },
   reconcile: { label: "Đối chiếu sau wash", role: "reconcile", step: "Bước 3" },
-  "fabric-prep": { label: "Soạn vải", role: "fabric-prep", step: "Bước 4" },
+  "fabric-prep": { label: "Xác nhận soạn vải", role: "fabric-prep", step: "Bước 4" },
   handover: { label: "Ký phiếu & bàn giao", role: "handover", step: "Bước 11–12" },
   "workshop-receive": { label: "Xưởng nhận & báo giá", role: "workshop-receive", step: "Bước 12–14" },
-  "in-production": { label: "Đang sản xuất", role: null, step: "Hoàn tất đợt 1" },
+  "in-production": { label: "Đang sản xuất", role: "production-complete", step: "Bước 7" },
+  "product-receive": { label: "Tiếp nhận sản phẩm", role: "product-receive", step: "Bước 8" },
+  completed: { label: "Hoàn tất", role: null, step: "Hoàn tất" },
   rejected: { label: "Bị từ chối", role: "create", step: "Sửa & gửi lại" },
 };
-const stageOrder = ["approval-1", "approval-2", "reconcile", "fabric-prep", "handover", "workshop-receive", "in-production"];
+const stageOrder = ["approval-1", "approval-2", "reconcile", "fabric-prep", "handover", "workshop-receive", "in-production", "product-receive"];
 // Phân công theo từng bước của QT.SX.01.
 const roles = {
   create: { label: "Bước 1–2 · Lập & ký phiếu đề xuất sản xuất", hint: "Thống kê mã cần sản xuất, lập phiếu, ký tên; sửa & gửi lại khi bị từ chối." },
   "approval-1": { label: "Bước 3 · Duyệt cấp 1", hint: "Duyệt hoặc từ chối kế hoạch sản xuất." },
   "approval-2": { label: "Bước 4 · Duyệt cấp 2", hint: "Duyệt sau khi cấp 1 đã duyệt." },
   reconcile: { label: "Bước 3 · Đối chiếu sau wash", hint: "Nhập số mét sau wash, kiểm hao hụt và xác nhận ERPNext." },
-  "fabric-prep": { label: "Bước 4 · Soạn vải", hint: "Sau khi đối chiếu, kiểm tra và xác nhận bảng số lượng theo size." },
+  "fabric-prep": { label: "Bước 4 · Xác nhận soạn vải", hint: "Sau khi đối chiếu, kiểm tra và xác nhận bảng số lượng theo size." },
   handover: { label: "Bước 11–12 · Ký phiếu & bàn giao cho xưởng", hint: "Ký phiếu, bàn giao bộ đề xuất và vải, chụp ảnh xác nhận." },
   "workshop-receive": { label: "Bước 12–14 · Xưởng nhận vải & báo giá", hint: "Xác nhận đã nhận, nhập đơn giá và ngày giao dự kiến." },
+  "production-complete": { label: "Bước 7 · Hoàn tất sản xuất", hint: "Báo hoàn tất khi xưởng đã sản xuất xong để chuyển sang tiếp nhận sản phẩm." },
+  "product-receive": { label: "Bước 8 · Tiếp nhận sản phẩm", hint: "Nhập số lượng thực nhận và tải ảnh chứng từ đã xác nhận cùng ảnh sản phẩm." },
   "view-history": { label: "Quyền xem lại tiến độ quy trình", hint: "Xem hồ sơ, nhấn các bước 1, 2, 3… để xem người xử lý, thời gian, ghi chú và ảnh đã lưu." },
 };
 // Phân công cũ theo vai trò → bước tương ứng.
-const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "view-history": "accountant" };
+const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "production-complete": "workshop", "product-receive": "accountant", "view-history": "accountant" };
 const maxWashLoss = 0.05;
 const maxFiles = 5;
 const maxFileBytes = 8 * 1024 * 1024;
@@ -234,7 +238,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
 
   function serveFile(res, orderId, fileId) {
     const order = getOrders().find((item) => item.id === orderId);
-    const file = [...(order?.transfer?.files || []), ...(order?.wash?.files || []), ...(order?.wash?.returnFiles || []), ...Object.values(order?.reconcile?.photos || {}).flat(), ...(order?.handover?.files || [])].find((item) => item.id === fileId);
+    const file = [...(order?.transfer?.files || []), ...(order?.wash?.files || []), ...(order?.wash?.returnFiles || []), ...Object.values(order?.reconcile?.photos || {}).flat(), ...(order?.handover?.files || []), ...(order?.receipt?.documentFiles || []), ...(order?.receipt?.productFiles || [])].find((item) => item.id === fileId);
     if (!file) return send(res, 404, "Không tìm thấy file.");
     let body;
     try {
@@ -287,7 +291,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       return "approval-1";
     },
     "prepare-fabric"(order, user, payload) {
-      if (order.status !== "fabric-prep") throw new Error("Đề xuất không ở bước soạn vải.");
+      if (order.status !== "fabric-prep") throw new Error("Đề xuất không ở bước xác nhận soạn vải.");
       const table = cleanSizeTable(payload);
       const previous = order.proposal.technicalRows || [];
       // Cột số m sau wash đã được nhập ở bước đối chiếu và được giữ lại khi xác nhận bảng.
@@ -386,6 +390,28 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       addHistory(order, user, "Xưởng nhận đủ bộ đề xuất & vải; nhập đơn giá, ngày giao dự kiến", text(payload.note, 500));
       return "in-production";
     },
+    "complete-production"(order, user, payload) {
+      if (order.status !== "in-production") throw new Error("Đề xuất không ở trạng thái đang sản xuất.");
+      addHistory(order, user, "Xưởng báo hoàn tất sản xuất", text(payload.note, 500));
+      return "product-receive";
+    },
+    "product-receive"(order, user, payload) {
+      if (order.status !== "product-receive") throw new Error("Đề xuất không ở bước tiếp nhận sản phẩm.");
+      const receivedQuantity = amount(payload.receivedQuantity, { integer: true });
+      if (!receivedQuantity) throw new Error("Vui lòng nhập số lượng sản phẩm thực nhận là số nguyên lớn hơn 0.");
+      if (!Array.isArray(payload.photos?.documents) || payload.photos.documents.length !== 1) throw new Error("Vui lòng tải lên 1 ảnh chứng từ đã xác nhận từ Vận hành và Kế toán.");
+      if (!Array.isArray(payload.photos?.products) || payload.photos.products.length !== 1) throw new Error("Vui lòng tải lên 1 ảnh sản phẩm thực nhận.");
+      const [documentFile, productFile] = saveFiles([...payload.photos.documents, ...payload.photos.products], { imagesOnly: true });
+      order.receipt = {
+        receivedQuantity,
+        documentFiles: [documentFile],
+        productFiles: [productFile],
+        at: new Date().toISOString(),
+        ...actor(user),
+      };
+      addHistory(order, user, `Đã tiếp nhận ${receivedQuantity} sản phẩm`);
+      return "completed";
+    },
     "send-back"(order, user, payload) {
       const index = stageOrder.indexOf(order.status);
       if (index < 3 || order.status === "in-production") throw new Error("Không thể trả lại ở bước này.");
@@ -410,9 +436,13 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     const recipients = usersWithRole(role || "create");
     const body = order.status === "in-production"
       ? `${order.code} · ${order.proposal.productCode}: xưởng đã nhận, giao dự kiến ${order.workshop.expectedDate.split("-").reverse().join("/")}.`
-      : order.status === "rejected"
-        ? `${order.code} · ${order.proposal.productCode} bị từ chối. Vui lòng xem lý do và gửi lại.`
-        : `${order.code} · ${order.proposal.productCode} đang chờ bạn: ${roles[role].label}.`;
+      : order.status === "product-receive"
+        ? `${order.code} · ${order.proposal.productCode}: xưởng đã báo hoàn tất, vui lòng tiếp nhận sản phẩm.`
+        : order.status === "completed"
+          ? `${order.code} · ${order.proposal.productCode}: đã tiếp nhận đủ sản phẩm, quy trình hoàn tất.`
+          : order.status === "rejected"
+            ? `${order.code} · ${order.proposal.productCode} bị từ chối. Vui lòng xem lý do và gửi lại.`
+            : `${order.code} · ${order.proposal.productCode} đang chờ bạn: ${roles[role].label}.`;
     notify(recipients, { title: "Quy trình sản xuất", body, path: `/production.html?id=${order.id}` })
       .catch((error) => console.error("Production notification failed:", error.message));
   }
@@ -490,7 +520,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     const orders = getOrders();
     const order = orders.find((item) => item.id === orderId);
     if (!order) return send(res, 404, "Không tìm thấy đề xuất sản xuất.");
-    const files = [...(order.transfer?.files || []), ...(order.wash?.files || []), ...(order.wash?.returnFiles || []), ...Object.values(order.reconcile?.photos || {}).flat(), ...(order.handover?.files || [])];
+    const files = [...(order.transfer?.files || []), ...(order.wash?.files || []), ...(order.wash?.returnFiles || []), ...Object.values(order.reconcile?.photos || {}).flat(), ...(order.handover?.files || []), ...(order.receipt?.documentFiles || []), ...(order.receipt?.productFiles || [])];
     for (const file of files) {
       try {
         fs.rmSync(path.join(filesDirectory, file.id), { force: true });
