@@ -315,7 +315,12 @@ function actionPanel(order) {
       <div class="production-grid"><label>Đơn giá sản xuất (đ/sản phẩm)<input name="unitPrice" type="number" min="1" step="1" inputmode="numeric" /></label><label>Ngày giao hàng dự kiến<input name="expectedDate" type="date" min="${todayKey()}" /></label></div>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="workshop-receive">Xác nhận đã nhận</button></div>`,
     'selling-price': () => `<p class="production-hint">Nhập giá bán dự kiến cho mỗi sản phẩm.</p>
-      <div class="production-grid"><label>Giá bán (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" /></label></div>${note()}
+      <div class="production-selling-product">
+        <div><span>Mã thành phẩm</span><strong>${escapeHtml(order.proposal.productCode)}</strong></div>
+        <div><span>Tên thành phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
+        <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
+      </div>
+      <div class="production-grid"><label>Giá bán cho sản phẩm này (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" required /></label></div>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="selling-price">Xác nhận giá bán</button></div>`,
     'in-production': () => `<p class="production-hint">Khi xưởng đã sản xuất xong, xác nhận hoàn tất để chuyển sang bước tiếp nhận sản phẩm.</p>${note()}
       <div class="production-form-actions"><button class="production-button" type="button" data-action="complete-production">Xưởng báo hoàn tất sản xuất</button></div>`,
