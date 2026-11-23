@@ -174,7 +174,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       variants: [],
     };
     if (!isDate(proposal.date)) throw new Error("Vui lòng chọn ngày đề xuất.");
-    if (!proposal.productCode || !proposal.productName) throw new Error("Vui lòng nhập mã và tên thành phẩm.");
+    if (!proposal.productCode || !proposal.productName) throw new Error("Vui lòng nhập mã và tên sản phẩm.");
     if (!proposal.reason) throw new Error("Vui lòng nhập lý do sản xuất.");
     if (!proposal.quantity) throw new Error("Số lượng sản xuất phải là số nguyên lớn hơn 0.");
     if (!proposal.fabricNorm) throw new Error("Định mức vải (m/sản phẩm) phải lớn hơn 0.");

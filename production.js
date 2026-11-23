@@ -135,7 +135,7 @@ function stageProgressDetails(order, stage) {
   const rows = (values) => `<dl class="production-info production-stage-detail">${values.filter(([, value]) => value !== '' && value != null).map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
   if (stage === 'approval-1') return rows([
     ['Người lập', escapeHtml(order.createdBy?.name)], ['Ngày lập', formatDateTime(order.createdAt)],
-    ['Mã thành phẩm', escapeHtml(proposal.productCode)], ['Sản phẩm', escapeHtml(proposal.productName)],
+    ['Mã sản phẩm', escapeHtml(proposal.productCode)], ['Tên sản phẩm', escapeHtml(proposal.productName)],
     ...(proposal.deliveryDate ? [['Ngày giao dự kiến', formatDate(proposal.deliveryDate)]] : []), ['Số lượng', formatNumber(proposal.quantity)],
     ['Trạng thái duyệt', order.approvals?.['approval-1'] ? `Đã duyệt bởi ${escapeHtml(order.approvals['approval-1'].name)}` : 'Chưa duyệt'],
   ]);
@@ -316,8 +316,8 @@ function actionPanel(order) {
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="workshop-receive">Xác nhận đã nhận</button></div>`,
     'selling-price': () => `<p class="production-hint">Nhập giá bán dự kiến cho mỗi sản phẩm.</p>
       <div class="production-selling-product">
-        <div><span>Mã thành phẩm</span><strong>${escapeHtml(order.proposal.productCode)}</strong></div>
-        <div><span>Tên thành phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
+        <div><span>Mã sản phẩm</span><strong>${escapeHtml(order.proposal.productCode)}</strong></div>
+        <div><span>Tên sản phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
         <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
       </div>
       <div class="production-grid"><label>Giá bán cho sản phẩm này (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" required /></label></div>${note()}
