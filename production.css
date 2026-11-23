@@ -62,6 +62,7 @@
 .production-form { display: grid; gap: .9rem; margin-top: 1rem; }
 .production-form label, .production-action label { display: grid; gap: .3rem; color: #344054; font-size: .9rem; font-weight: 600; }
 .production-form input, .production-form textarea, .production-form select, .production-action input, .production-action textarea { width: 100%; min-height: 42px; padding: .55rem .75rem; border: 1px solid #d0d5dd; border-radius: 10px; color: inherit; background: #fff; font: inherit; font-weight: 400; }
+.production-action input[readonly] { background: #f2f4f7; color: #344054; cursor: default; }
 .production-form textarea, .production-action textarea { resize: vertical; }
 .production-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
 .production-selling-product { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; padding: .8rem; border: 1px solid #d8e5f2; border-radius: 12px; background: #f8fbff; }
@@ -140,6 +141,9 @@
 .production-info { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .6rem 1rem; margin: 0; }
 .production-info dt { color: var(--muted); font-size: .8rem; }
 .production-info dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.production-final-review { display: grid; gap: .8rem; padding: .9rem; border: 1px solid #d8e5f2; border-radius: 12px; background: #f8fbff; }
+.production-final-review h4 { margin: 0; }
+.production-final-review .production-table tr.is-danger { color: #b42318; background: #fff1f0; }
 .production-table-wrap { overflow-x: auto; }
 .production-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .production-table th, .production-table td { padding: .5rem .6rem; border-bottom: 1px solid var(--line); text-align: left; }

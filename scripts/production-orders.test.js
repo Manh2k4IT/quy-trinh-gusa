@@ -109,6 +109,24 @@ test("approval level 1 requires and saves suggested selling price", async () => 
   }
 });
 
+test("approval level 2 does not overwrite the approved suggested selling price", async () => {
+  const initialOrder = order("approval-2");
+  initialOrder.proposal.suggestedSellingPrice = 180000;
+  const fixture = setup(initialOrder, "approval-2");
+  try {
+    const response = await postAction(fixture.api, "approve", {
+      approvalName: "Người duyệt",
+      approvalSignature: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+      suggestedSellingPrice: "999999",
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.order.status, "reconcile");
+    assert.equal(response.body.order.proposal.suggestedSellingPrice, 180000);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 test("workshop receive moves to selling price calculation", async () => {
   const fixture = setup(order("workshop-receive"), "workshop-receive");
   try {

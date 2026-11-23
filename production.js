@@ -315,7 +315,20 @@ function actionPanel(order) {
       </div>
       <div class="production-rejection-box" data-rejection-box hidden><label>Lý do từ chối<textarea name="note" rows="3" maxlength="500" placeholder="Nhập rõ lý do từ chối..."></textarea></label><div class="production-form-actions"><button class="production-button is-ghost" type="button" data-cancel-reject>Quay lại</button><button class="production-button is-danger" type="button" data-action="reject">Xác nhận từ chối</button></div></div>
       <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt</button></div>`,
-    'approval-2': () => forms['approval-1']().replace('Chữ ký duyệt cấp 1', 'Chữ ký duyệt cấp 2'),
+    'approval-2': () => `<div class="production-selling-product">
+        <div><span>Mã sản phẩm</span><strong>${escapeHtml(order.proposal.productCode)}</strong></div>
+        <div><span>Tên sản phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
+        <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
+      </div>
+      <label>Giá bán đề xuất (đ/sản phẩm)<input name="suggestedSellingPrice" type="number" value="${escapeHtml(order.proposal.suggestedSellingPrice || '')}" readonly /></label>
+      <div class="production-approval-signature-box">
+        <h4>Chữ ký duyệt cấp 2</h4>
+        <canvas class="production-signature" width="600" height="200" aria-label="Bảng ký duyệt" data-approval-signature></canvas>
+        <div class="production-signature-actions"><span data-approval-signature-status>Chưa có chữ ký</span><button class="production-link-button" type="button" data-clear-approval-signature>Xóa / Ký lại</button></div>
+        <label>Họ và tên người duyệt<input name="approvalName" maxlength="150" value="${escapeHtml(state.me.name || '')}" required /></label>
+      </div>
+      <div class="production-rejection-box" data-rejection-box hidden><label>Lý do từ chối<textarea name="note" rows="3" maxlength="500" placeholder="Nhập rõ lý do từ chối..."></textarea></label><div class="production-form-actions"><button class="production-button is-ghost" type="button" data-cancel-reject>Quay lại</button><button class="production-button is-danger" type="button" data-action="reject">Xác nhận từ chối</button></div></div>
+      <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt</button></div>`,
     'final-approval-2': () => `${approvalPriceAndLossSummary(order)}<div class="production-approval-signature-box">
       <h4>Chữ ký duyệt cấp 2</h4>
       <canvas class="production-signature" width="600" height="200" aria-label="Bảng ký duyệt" data-approval-signature></canvas>
