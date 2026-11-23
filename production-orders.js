@@ -12,11 +12,12 @@ const stages = {
   "workshop-receive": { label: "Xưởng nhận & báo giá", role: "workshop-receive", step: "Bước 12–14" },
   "selling-price": { label: "Tính giá bán", role: "selling-price", step: "Bước 6" },
   "in-production": { label: "Đang sản xuất", role: "production-complete", step: "Bước 7" },
+  "final-approval-2": { label: "Duyệt cấp 2 sau hoàn tất", role: "final-approval-2", step: "Giữa Bước 7–8" },
   "product-receive": { label: "Tiếp nhận sản phẩm", role: "product-receive", step: "Bước 8" },
   completed: { label: "Hoàn tất", role: null, step: "Hoàn tất" },
   rejected: { label: "Bị từ chối", role: "create", step: "Sửa & gửi lại" },
 };
-const stageOrder = ["approval-1", "approval-2", "reconcile", "fabric-prep", "handover", "workshop-receive", "selling-price", "in-production", "product-receive"];
+const stageOrder = ["approval-1", "approval-2", "reconcile", "fabric-prep", "handover", "workshop-receive", "selling-price", "in-production", "final-approval-2", "product-receive"];
 // Phân công theo từng bước của QT.SX.01.
 const roles = {
   create: { label: "Bước 1–2 · Lập & ký phiếu đề xuất sản xuất", hint: "Thống kê mã cần sản xuất, lập phiếu, ký tên; sửa & gửi lại khi bị từ chối." },
@@ -28,11 +29,12 @@ const roles = {
   "workshop-receive": { label: "Bước 12–14 · Xưởng nhận vải & báo giá", hint: "Xác nhận đã nhận, nhập đơn giá và ngày giao dự kiến." },
   "selling-price": { label: "Bước 6 · Tính giá bán", hint: "Kế toán nhập giá bán theo sản phẩm." },
   "production-complete": { label: "Bước 7 · Hoàn tất sản xuất", hint: "Báo hoàn tất khi xưởng đã sản xuất xong để chuyển sang tiếp nhận sản phẩm." },
+  "final-approval-2": { label: "Duyệt cấp 2 sau hoàn tất", hint: "Duyệt cấp 2 bằng chữ ký sau khi xưởng báo hoàn tất sản xuất." },
   "product-receive": { label: "Bước 8 · Tiếp nhận sản phẩm", hint: "Nhập số lượng thực nhận và tải ảnh chứng từ đã xác nhận cùng ảnh sản phẩm." },
   "view-history": { label: "Quyền xem lại tiến độ quy trình", hint: "Xem hồ sơ, nhấn các bước 1, 2, 3… để xem người xử lý, thời gian, ghi chú và ảnh đã lưu." },
 };
 // Phân công cũ theo vai trò → bước tương ứng.
-const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "selling-price": "accountant", "production-complete": "workshop", "product-receive": "accountant", "view-history": "accountant" };
+const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "selling-price": "accountant", "production-complete": "workshop", "final-approval-2": "approver2", "product-receive": "accountant", "view-history": "accountant" };
 const maxWashLoss = 0.05;
 const maxFiles = 5;
 const maxFileBytes = 8 * 1024 * 1024;
@@ -267,7 +269,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
   // Mỗi hành động trả về trạng thái kế tiếp; ném Error để báo lỗi cho người dùng.
   const actions = {
     approve(order, user, payload) {
-      if (!["approval-1", "approval-2"].includes(order.status)) throw new Error("Đề xuất không ở bước duyệt.");
+      if (!["approval-1", "approval-2", "final-approval-2"].includes(order.status)) throw new Error("Đề xuất không ở bước duyệt.");
       const approvalName = text(payload.approvalName, 150);
       const approvalSignature = typeof payload.approvalSignature === "string" ? payload.approvalSignature : "";
       if (!approvalName) throw new Error("Vui lòng nhập họ và tên người duyệt.");
@@ -276,10 +278,12 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       }
       order.approvals = { ...order.approvals, [order.status]: { ...actor(user), name: approvalName, signatureData: approvalSignature, at: new Date().toISOString() } };
       addHistory(order, user, order.status === "approval-1" ? "Đã duyệt cấp 1" : "Đã duyệt cấp 2", text(payload.note, 500));
-      return order.status === "approval-1" ? "approval-2" : "reconcile";
+      if (order.status === "approval-1") return "approval-2";
+      if (order.status === "approval-2") return "reconcile";
+      return "product-receive";
     },
     reject(order, user, payload) {
-      if (!["approval-1", "approval-2"].includes(order.status)) throw new Error("Đề xuất không ở bước duyệt.");
+      if (!["approval-1", "approval-2", "final-approval-2"].includes(order.status)) throw new Error("Đề xuất không ở bước duyệt.");
       const note = text(payload.note, 500);
       if (!note) throw new Error("Vui lòng nhập lý do từ chối.");
       addHistory(order, user, "Từ chối", note);
@@ -403,7 +407,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     "complete-production"(order, user, payload) {
       if (order.status !== "in-production") throw new Error("Đề xuất không ở trạng thái đang sản xuất.");
       addHistory(order, user, "Xưởng báo hoàn tất sản xuất", text(payload.note, 500));
-      return "product-receive";
+      return "final-approval-2";
     },
     "product-receive"(order, user, payload) {
       if (order.status !== "product-receive") throw new Error("Đề xuất không ở bước tiếp nhận sản phẩm.");
@@ -446,6 +450,8 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     const recipients = usersWithRole(role || "create");
     const body = order.status === "in-production"
       ? `${order.code} · ${order.proposal.productCode}: đã tính giá bán${order.workshop?.expectedDate ? `, giao dự kiến ${order.workshop.expectedDate.split("-").reverse().join("/")}` : ""}.`
+      : order.status === "final-approval-2"
+        ? `${order.code} · ${order.proposal.productCode}: xưởng đã hoàn tất, vui lòng duyệt cấp 2 bằng chữ ký.`
       : order.status === "product-receive"
         ? `${order.code} · ${order.proposal.productCode}: xưởng đã báo hoàn tất, vui lòng tiếp nhận sản phẩm.`
         : order.status === "completed"

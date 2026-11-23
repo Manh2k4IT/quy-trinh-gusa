@@ -61,10 +61,24 @@ async function getFile(api, fileId) {
   return res;
 }
 
-test("production completion moves the order to product receiving", async () => {
+test("production completion moves the order to final approval level 2", async () => {
   const fixture = setup(order("in-production"), "production-complete");
   try {
     const response = await postAction(fixture.api, "complete-production");
+    assert.equal(response.status, 200);
+    assert.equal(response.body.order.status, "final-approval-2");
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("final level 2 approval moves the order to product receiving", async () => {
+  const fixture = setup(order("final-approval-2"), "final-approval-2");
+  try {
+    const response = await postAction(fixture.api, "approve", {
+      approvalName: "Người duyệt",
+      approvalSignature: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+    });
     assert.equal(response.status, 200);
     assert.equal(response.body.order.status, "product-receive");
   } finally {

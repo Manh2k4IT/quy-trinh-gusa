@@ -172,6 +172,11 @@ function stageProgressDetails(order, stage) {
     ['Trạng thái', 'Đang sản xuất'], ['Ngày giao dự kiến', formatDate(order.workshop?.expectedDate)],
     ['Người xưởng nhận', escapeHtml(order.workshop?.name)],
   ]);
+  if (stage === 'final-approval-2') return rows([
+    ['Trạng thái', order.approvals?.['final-approval-2'] ? 'Đã duyệt cấp 2' : 'Chờ duyệt cấp 2'],
+    ['Người duyệt', escapeHtml(order.approvals?.['final-approval-2']?.name)],
+    ['Thời gian duyệt', formatDateTime(order.approvals?.['final-approval-2']?.at)],
+  ]);
   if (stage === 'product-receive') return rows([
     ['Số lượng sản phẩm đã nhận', formatNumber(order.receipt?.receivedQuantity)],
     ['Người tiếp nhận', escapeHtml(order.receipt?.name)],
@@ -277,6 +282,7 @@ function actionPanel(order) {
       <div class="production-rejection-box" data-rejection-box hidden><label>Lý do từ chối<textarea name="note" rows="3" maxlength="500" placeholder="Nhập rõ lý do từ chối..."></textarea></label><div class="production-form-actions"><button class="production-button is-ghost" type="button" data-cancel-reject>Quay lại</button><button class="production-button is-danger" type="button" data-action="reject">Xác nhận từ chối</button></div></div>
       <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt</button></div>`,
     'approval-2': () => forms['approval-1']().replace('Chữ ký duyệt cấp 1', 'Chữ ký duyệt cấp 2'),
+    'final-approval-2': () => forms['approval-1']().replace('Chữ ký duyệt cấp 1', 'Chữ ký duyệt cấp 2 sau hoàn tất'),
     rejected: () => `<div class="production-form-actions"><button class="production-button" type="button" data-resubmit>Sửa &amp; gửi lại</button></div>`,
     'fabric-prep': () => `<p class="production-hint">Số m sau wash đã được đối chiếu. Kiểm tra và chỉnh lần cuối bảng số lượng theo size, rồi bấm xác nhận bàn giao.</p>
       <section class="production-paper-back is-step-editor">
@@ -485,7 +491,7 @@ function openDetail(orderId) {
   const proposal = order.proposal;
   const rejection = order.status === 'rejected' ? [...order.history].reverse().find((item) => item.action === 'Từ chối') : null;
   detailModal.dataset.orderId = order.id;
-  const approvalReview = ['approval-1', 'approval-2'].includes(order.status);
+  const approvalReview = ['approval-1', 'approval-2', 'final-approval-2'].includes(order.status);
   detail.innerHTML = `
     <div class="production-detail-head">
       <div><span class="production-eyebrow">${escapeHtml(order.code)}</span><h2 id="production-detail-title">${escapeHtml(proposal.productCode)} · ${escapeHtml(proposal.productName)}</h2></div>
