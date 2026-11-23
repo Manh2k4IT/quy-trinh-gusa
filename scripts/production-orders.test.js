@@ -72,6 +72,34 @@ test("production completion moves the order to product receiving", async () => {
   }
 });
 
+test("workshop receive moves to selling price calculation", async () => {
+  const fixture = setup(order("workshop-receive"), "workshop-receive");
+  try {
+    const response = await postAction(fixture.api, "workshop-receive", {
+      unitPrice: "90000",
+      expectedDate: "2027-12-31",
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.order.status, "selling-price");
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("accountant selling price moves the order to production", async () => {
+  const initial = order("selling-price");
+  initial.workshop = { expectedDate: "2027-12-31" };
+  const fixture = setup(initial, "selling-price");
+  try {
+    const response = await postAction(fixture.api, "selling-price", { sellingPrice: "250000" });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.order.status, "in-production");
+    assert.equal(response.body.order.sellingPrice.value, 250000);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 test("product receiving requires quantity and both evidence photos", async () => {
   const fixture = setup(order("product-receive"), "product-receive");
   try {

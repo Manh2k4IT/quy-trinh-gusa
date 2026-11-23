@@ -10,12 +10,13 @@ const stages = {
   "fabric-prep": { label: "Xác nhận soạn vải", role: "fabric-prep", step: "Bước 4" },
   handover: { label: "Ký phiếu & bàn giao", role: "handover", step: "Bước 11–12" },
   "workshop-receive": { label: "Xưởng nhận & báo giá", role: "workshop-receive", step: "Bước 12–14" },
+  "selling-price": { label: "Tính giá bán", role: "selling-price", step: "Bước 6" },
   "in-production": { label: "Đang sản xuất", role: "production-complete", step: "Bước 7" },
   "product-receive": { label: "Tiếp nhận sản phẩm", role: "product-receive", step: "Bước 8" },
   completed: { label: "Hoàn tất", role: null, step: "Hoàn tất" },
   rejected: { label: "Bị từ chối", role: "create", step: "Sửa & gửi lại" },
 };
-const stageOrder = ["approval-1", "approval-2", "reconcile", "fabric-prep", "handover", "workshop-receive", "in-production", "product-receive"];
+const stageOrder = ["approval-1", "approval-2", "reconcile", "fabric-prep", "handover", "workshop-receive", "selling-price", "in-production", "product-receive"];
 // Phân công theo từng bước của QT.SX.01.
 const roles = {
   create: { label: "Bước 1–2 · Lập & ký phiếu đề xuất sản xuất", hint: "Thống kê mã cần sản xuất, lập phiếu, ký tên; sửa & gửi lại khi bị từ chối." },
@@ -25,12 +26,13 @@ const roles = {
   "fabric-prep": { label: "Bước 4 · Xác nhận soạn vải", hint: "Sau khi đối chiếu, kiểm tra và xác nhận bảng số lượng theo size." },
   handover: { label: "Bước 11–12 · Ký phiếu & bàn giao cho xưởng", hint: "Ký phiếu, bàn giao bộ đề xuất và vải, chụp ảnh xác nhận." },
   "workshop-receive": { label: "Bước 12–14 · Xưởng nhận vải & báo giá", hint: "Xác nhận đã nhận, nhập đơn giá và ngày giao dự kiến." },
+  "selling-price": { label: "Bước 6 · Tính giá bán", hint: "Kế toán nhập giá bán theo sản phẩm." },
   "production-complete": { label: "Bước 7 · Hoàn tất sản xuất", hint: "Báo hoàn tất khi xưởng đã sản xuất xong để chuyển sang tiếp nhận sản phẩm." },
   "product-receive": { label: "Bước 8 · Tiếp nhận sản phẩm", hint: "Nhập số lượng thực nhận và tải ảnh chứng từ đã xác nhận cùng ảnh sản phẩm." },
   "view-history": { label: "Quyền xem lại tiến độ quy trình", hint: "Xem hồ sơ, nhấn các bước 1, 2, 3… để xem người xử lý, thời gian, ghi chú và ảnh đã lưu." },
 };
 // Phân công cũ theo vai trò → bước tương ứng.
-const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "production-complete": "workshop", "product-receive": "accountant", "view-history": "accountant" };
+const legacyRoles = { create: "planner", "approval-1": "approver1", "approval-2": "approver2", "fabric-prep": "planner", reconcile: "warehouse", handover: "planner", "workshop-receive": "workshop", "selling-price": "accountant", "production-complete": "workshop", "product-receive": "accountant", "view-history": "accountant" };
 const maxWashLoss = 0.05;
 const maxFiles = 5;
 const maxFileBytes = 8 * 1024 * 1024;
@@ -388,6 +390,14 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       order.workshop = { receivedAt: new Date().toISOString(), unitPrice, expectedDate: payload.expectedDate, ...actor(user) };
       order.proposal.deliveryDate = payload.expectedDate;
       addHistory(order, user, "Xưởng nhận đủ bộ đề xuất & vải; nhập đơn giá, ngày giao dự kiến", text(payload.note, 500));
+      return "selling-price";
+    },
+    "selling-price"(order, user, payload) {
+      if (order.status !== "selling-price") throw new Error("Đề xuất không ở bước tính giá bán.");
+      const sellingPrice = amount(payload.sellingPrice, { integer: true });
+      if (!sellingPrice) throw new Error("Vui lòng nhập giá bán (đồng/sản phẩm).");
+      order.sellingPrice = { value: sellingPrice, at: new Date().toISOString(), ...actor(user) };
+      addHistory(order, user, `Đã tính giá bán ${sellingPrice.toLocaleString("vi-VN")} đ/sản phẩm`, text(payload.note, 500));
       return "in-production";
     },
     "complete-production"(order, user, payload) {
@@ -435,7 +445,7 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
     const role = stageRole(order);
     const recipients = usersWithRole(role || "create");
     const body = order.status === "in-production"
-      ? `${order.code} · ${order.proposal.productCode}: xưởng đã nhận, giao dự kiến ${order.workshop.expectedDate.split("-").reverse().join("/")}.`
+      ? `${order.code} · ${order.proposal.productCode}: đã tính giá bán${order.workshop?.expectedDate ? `, giao dự kiến ${order.workshop.expectedDate.split("-").reverse().join("/")}` : ""}.`
       : order.status === "product-receive"
         ? `${order.code} · ${order.proposal.productCode}: xưởng đã báo hoàn tất, vui lòng tiếp nhận sản phẩm.`
         : order.status === "completed"

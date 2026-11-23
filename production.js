@@ -164,6 +164,10 @@ function stageProgressDetails(order, stage) {
     ['Giao dự kiến', formatDate(order.workshop?.expectedDate)],
     ['Thành tiền dự kiến', order.workshop?.unitPrice ? `${formatNumber(order.workshop.unitPrice * proposal.quantity)} đ` : ''],
   ]);
+  if (stage === 'selling-price') return rows([
+    ['Người tính giá', escapeHtml(order.sellingPrice?.name)], ['Thời gian', formatDateTime(order.sellingPrice?.at)],
+    ['Giá bán', order.sellingPrice?.value ? `${formatNumber(order.sellingPrice.value)} đ/sp` : ''],
+  ]);
   if (stage === 'in-production') return rows([
     ['Trạng thái', 'Đang sản xuất'], ['Ngày giao dự kiến', formatDate(order.workshop?.expectedDate)],
     ['Người xưởng nhận', escapeHtml(order.workshop?.name)],
@@ -304,6 +308,9 @@ function actionPanel(order) {
     'workshop-receive': () => `<p class="production-hint">Xác nhận đã nhận đủ bộ đề xuất (phiếu đề xuất + phiếu chuyển kho) và vải.</p>
       <div class="production-grid"><label>Đơn giá sản xuất (đ/sản phẩm)<input name="unitPrice" type="number" min="1" step="1" inputmode="numeric" /></label><label>Ngày giao hàng dự kiến<input name="expectedDate" type="date" min="${todayKey()}" /></label></div>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="workshop-receive">Xác nhận đã nhận</button></div>`,
+    'selling-price': () => `<p class="production-hint">Nhập giá bán dự kiến cho mỗi sản phẩm.</p>
+      <div class="production-grid"><label>Giá bán (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" /></label></div>${note()}
+      <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="selling-price">Xác nhận giá bán</button></div>`,
     'in-production': () => `<p class="production-hint">Khi xưởng đã sản xuất xong, xác nhận hoàn tất để chuyển sang bước tiếp nhận sản phẩm.</p>${note()}
       <div class="production-form-actions"><button class="production-button" type="button" data-action="complete-production">Xưởng báo hoàn tất sản xuất</button></div>`,
     'product-receive': () => `<p class="production-hint">Nhập số lượng sản phẩm thực nhận và tải ảnh chứng từ đã được Vận hành, Kế toán xác nhận cùng ảnh sản phẩm.</p>
@@ -495,6 +502,7 @@ function openDetail(orderId) {
     ${approvalReview ? actionPanel(order) : ''}
     ${order.handover?.files?.length ? `<section class="production-section"><h3>Bàn giao cho phòng sản xuất</h3>${infoRows([['Người bàn giao', escapeHtml(order.handover.name)], ['Thời gian', formatDateTime(order.handover.at)]])}${fileList(order, order.handover.files)}</section>` : ''}
     ${order.workshop ? `<section class="production-section"><h3>Xưởng sản xuất</h3>${infoRows([['Người nhận', escapeHtml(order.workshop.name)], ['Ngày nhận', formatDateTime(order.workshop.receivedAt)], ['Đơn giá', `${formatNumber(order.workshop.unitPrice)} đ/sp`], ['Thành tiền dự kiến', `${formatNumber(order.workshop.unitPrice * proposal.quantity)} đ`], ['Giao dự kiến', formatDate(order.workshop.expectedDate)]])}</section>` : ''}
+    ${order.sellingPrice ? `<section class="production-section"><h3>Giá bán</h3>${infoRows([['Người tính', escapeHtml(order.sellingPrice.name)], ['Thời gian', formatDateTime(order.sellingPrice.at)], ['Giá bán', `${formatNumber(order.sellingPrice.value)} đ/sp`], ['Doanh thu dự kiến', `${formatNumber(order.sellingPrice.value * proposal.quantity)} đ`]])}</section>` : ''}
     ${order.receipt ? `<section class="production-section"><h3>Tiếp nhận sản phẩm</h3>${infoRows([['Số lượng đã nhận', formatNumber(order.receipt.receivedQuantity)], ['Người tiếp nhận', escapeHtml(order.receipt.name)], ['Thời gian', formatDateTime(order.receipt.at)]])}<p class="production-hint">Chứng từ Vận hành &amp; Kế toán xác nhận</p>${fileList(order, order.receipt.documentFiles)}<p class="production-hint">Ảnh sản phẩm tiếp nhận</p>${fileList(order, order.receipt.productFiles)}</section>` : ''}
     <section class="production-section"><h3>Lịch sử</h3><ol class="production-history">${[...order.history].reverse().map((item) => `<li><strong>${escapeHtml(item.action === 'Duyệt' && item.stage === 'approval-1' ? 'Đã duyệt cấp 1' : item.action === 'Duyệt' && item.stage === 'approval-2' ? 'Đã duyệt cấp 2' : item.action)}</strong><span>${escapeHtml(item.name)} · ${formatDateTime(item.at)}</span>${item.note ? `<p>${escapeHtml(item.note)}</p>` : ''}</li>`).join('')}</ol></section>`;
   detailModal.hidden = false;
@@ -666,6 +674,7 @@ async function runAction(button) {
       return;
     }
   }
+  if (action === 'selling-price') payload.sellingPrice = value('sellingPrice');
   if (action === 'product-receive') payload.receivedQuantity = value('receivedQuantity');
   if (['reject', 'send-back'].includes(action) && !payload.note.trim()) {
     error.textContent = action === 'reject' ? 'Vui lòng nhập lý do từ chối vào ô ý kiến.' : 'Vui lòng nhập lý do trả lại vào ô ghi chú.';
