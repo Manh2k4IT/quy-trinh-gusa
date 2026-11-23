@@ -404,8 +404,9 @@ function renderRecords() {
   let week = [];
   for (let day = 1; day <= totalDays; day += 1) {
     const date = new Date(year, month, day);
+    if (date.getDay() === 0) continue;
     week.push(date);
-    if (week.length === 7 || day === totalDays) {
+    if (date.getDay() === 6 || day === totalDays) {
       monthWeeks.push(week);
       week = [];
     }
