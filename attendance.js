@@ -299,6 +299,7 @@ function getStatusMeta(record, date) {
   if (record?.attendanceType === 'half-day-morning' || record?.attendanceType === 'half-day-afternoon') return { className: 'half-day', short: '1/2', label: 'Làm 1/2 ngày' };
 
   if (!record || !record.checkIn) {
+    if (date.getDay() === 0 || date.getDay() === 6) return { className: 'weekend', short: '', label: 'Cuối tuần' };
     return { className: 'absent', short: 'K', label: 'Không chấm công' };
   }
 
@@ -416,7 +417,7 @@ function renderRecords() {
   const rows = monthWeeks.map((weekDates, weekIndex) => {
     const headerCells = weekDates.map((date) => {
       const weekday = date.toLocaleDateString('vi-VN', { weekday: 'short' }).replace('.', '').toUpperCase();
-      return `<div class="attendance-day-header"><span>${date.getDate()}</span><small>${weekday}</small></div>`;
+      return `<div class="attendance-day-header"><span>${date.getDate()}</span><small>${date.getDay() === 0 ? '' : weekday}</small></div>`;
     }).join('');
 
     const valueCells = weekDates.map((date) => {
