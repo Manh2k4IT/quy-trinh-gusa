@@ -203,6 +203,33 @@ function fabricTable(order) {
     }).join('')}</tbody></table></div>`;
 }
 
+function approvalPriceAndLossSummary(order) {
+    const proposal = order.proposal || {};
+    const rows = (order.fabrics || []).map((fabric) => {
+      const loss = lossOf(fabric);
+      const lossLabel = loss == null ? 'Chưa có số sau wash' : `${(loss * 100).toFixed(1)}%`;
+      return `<tr class="${loss != null && loss > maxWashLoss ? 'is-danger' : ''}">
+        <td>${escapeHtml(fabric.fabricCode)}</td>
+        <td>${formatNumber(fabric.cutMeters)} m</td>
+        <td>${formatNumber(fabric.washedMeters)} m</td>
+        <td>${lossLabel}</td>
+      </tr>`;
+    }).join('');
+
+    return `<section class="production-final-review">
+      <h4>Thông tin trước duyệt</h4>
+      <div class="production-info">
+        <div><dt>Giá đề xuất cấp 1</dt><dd>${proposal.suggestedSellingPrice ? `${formatNumber(proposal.suggestedSellingPrice)} đ/sản phẩm` : 'Chưa nhập'}</dd></div>
+        <div><dt>Giá xưởng đã nhập</dt><dd>${order.workshop?.unitPrice ? `${formatNumber(order.workshop.unitPrice)} đ/sản phẩm` : 'Chưa nhập'}</dd></div>
+        <div><dt>Giá bán tính ở Bước 6</dt><dd>${order.sellingPrice?.value ? `${formatNumber(order.sellingPrice.value)} đ/sản phẩm` : 'Chưa nhập'}</dd></div>
+      </div>
+      ${rows ? `<div class="production-table-wrap"><table class="production-table">
+        <thead><tr><th>Mã vải</th><th>Trước wash</th><th>Sau wash</th><th>Hao hụt</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>` : ''}
+    </section>`;
+}
+
 function infoRows(rows) {
   return `<dl class="production-info">${rows.filter(([, value]) => value !== '' && value != null).map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
 }
@@ -289,7 +316,14 @@ function actionPanel(order) {
       <div class="production-rejection-box" data-rejection-box hidden><label>Lý do từ chối<textarea name="note" rows="3" maxlength="500" placeholder="Nhập rõ lý do từ chối..."></textarea></label><div class="production-form-actions"><button class="production-button is-ghost" type="button" data-cancel-reject>Quay lại</button><button class="production-button is-danger" type="button" data-action="reject">Xác nhận từ chối</button></div></div>
       <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt</button></div>`,
     'approval-2': () => forms['approval-1']().replace('Chữ ký duyệt cấp 1', 'Chữ ký duyệt cấp 2'),
-    'final-approval-2': () => forms['approval-1']().replace('Chữ ký duyệt cấp 1', 'Chữ ký duyệt cấp 2'),
+    'final-approval-2': () => `${approvalPriceAndLossSummary(order)}<div class="production-approval-signature-box">
+      <h4>Chữ ký duyệt cấp 2</h4>
+      <canvas class="production-signature" width="600" height="200" aria-label="Bảng ký duyệt" data-approval-signature></canvas>
+      <div class="production-signature-actions"><span data-approval-signature-status>Chưa có chữ ký</span><button class="production-link-button" type="button" data-clear-approval-signature>Xóa / Ký lại</button></div>
+      <label>Họ và tên người duyệt<input name="approvalName" maxlength="150" value="${escapeHtml(state.me.name || '')}" required /></label>
+    </div>
+    <div class="production-rejection-box" data-rejection-box hidden><label>Lý do từ chối<textarea name="note" rows="3" maxlength="500" placeholder="Nhập rõ lý do từ chối..."></textarea></label><div class="production-form-actions"><button class="production-button is-ghost" type="button" data-cancel-reject>Quay lại</button><button class="production-button is-danger" type="button" data-action="reject">Xác nhận từ chối</button></div></div>
+    <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt</button></div>`,
     rejected: () => `<div class="production-form-actions"><button class="production-button" type="button" data-resubmit>Sửa &amp; gửi lại</button></div>`,
     'fabric-prep': () => `<p class="production-hint">Số m sau wash đã được đối chiếu. Kiểm tra và chỉnh lần cuối bảng số lượng theo size, rồi bấm xác nhận bàn giao.</p>
       <section class="production-paper-back is-step-editor">
