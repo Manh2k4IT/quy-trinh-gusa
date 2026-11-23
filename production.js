@@ -665,6 +665,7 @@ async function runAction(button) {
   const form = button.closest('[data-action-form]');
   const error = form.querySelector('[data-action-error]');
   const action = button.dataset.action;
+  const order = state.orders.find((item) => item.id === detailModal.dataset.orderId);
   const value = (name) => form.querySelector(`[name="${name}"]`)?.value;
   const checked = (name) => Boolean(form.querySelector(`[name="${name}"]`)?.checked);
   const payload = { action, note: value('note') || '' };
