@@ -328,7 +328,7 @@ function actionPanel(order) {
         <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
       </div>
       ${order.proposal.suggestedSellingPrice ? `<p class="production-hint">Giá bán đề xuất từ bước duyệt cấp 1: <strong>${formatNumber(order.proposal.suggestedSellingPrice)} đ/sản phẩm</strong></p>` : ''}
-      <div class="production-grid"><label>Giá bán cho sản phẩm này (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(order.proposal.suggestedSellingPrice || '')}" required /></label></div>${note()}
+      <div class="production-grid"><label>Giá bán cho sản phẩm này (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" placeholder="Nhập giá bán khác nếu cần điều chỉnh" required /></label></div>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="selling-price">Xác nhận giá bán</button></div>`,
     'in-production': () => `<p class="production-hint">Khi xưởng đã sản xuất xong, xác nhận hoàn tất để chuyển sang bước tiếp nhận sản phẩm.</p>${note()}
       <div class="production-form-actions"><button class="production-button" type="button" data-action="complete-production">Xưởng báo hoàn tất sản xuất</button></div>`,
