@@ -687,6 +687,14 @@ async function runAction(button) {
       form.querySelector('[name="suggestedSellingPrice"]')?.focus();
       return;
     }
+    if (order.status === 'approval-1') {
+      const suggestedPrice = Number(payload.suggestedSellingPrice);
+      if (!Number.isInteger(suggestedPrice) || suggestedPrice <= 0) {
+        error.textContent = 'Giá bán đề xuất phải là số nguyên lớn hơn 0.';
+        form.querySelector('[name="suggestedSellingPrice"]')?.focus();
+        return;
+      }
+    }
   }
   if (action === 'prepare-fabric') Object.assign(payload, sizeTablePayload(form.querySelector('[data-size-table]')));
   if (action === 'reconcile') Object.assign(payload, { fabrics: collectFabrics(form), lossNote: value('lossNote'), erpConfirmed: checked('erpConfirmed'), printed: checked('printed'), proposalPrinted: checked('proposalPrinted') });
@@ -770,6 +778,15 @@ function initializeApprovalSignature() {
   const context = canvas.getContext('2d');
   const status = detail.querySelector('[data-approval-signature-status]');
   const approveButton = detail.querySelector('[data-approve-button]');
+  const form = canvas.closest('[data-action-form]');
+  const refreshApproveButton = () => {
+    if (!approveButton) return;
+    const signed = canvas.dataset.signed === 'true';
+    const nameInput = form?.querySelector('[name="approvalName"]');
+    const priceInput = form?.querySelector('[name="suggestedSellingPrice"]');
+    const priceValid = !priceInput || (Number.isInteger(Number(priceInput.value)) && Number(priceInput.value) > 0);
+    approveButton.disabled = !(signed && nameInput?.value.trim() && priceValid);
+  };
   let pointer = null;
   context.strokeStyle = '#173f78';
   context.lineWidth = 2.5;
@@ -801,8 +818,10 @@ function initializeApprovalSignature() {
     pointer = null;
     canvas.dataset.signed = 'true';
     status.textContent = 'Đã có chữ ký';
-    approveButton.disabled = false;
+    refreshApproveButton();
   }));
+  form?.querySelector('[name="approvalName"]')?.addEventListener('input', refreshApproveButton);
+  form?.querySelector('[name="suggestedSellingPrice"]')?.addEventListener('input', refreshApproveButton);
   detail.querySelector('[data-clear-approval-signature]').addEventListener('click', () => {
     context.clearRect(0, 0, canvas.width, canvas.height);
     delete canvas.dataset.signed;
