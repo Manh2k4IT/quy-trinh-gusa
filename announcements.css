@@ -16,6 +16,8 @@
 .announcement-check input { width: 18px; height: 18px; accent-color: var(--navy, #174b8e); }
 .announcement-composer-footer button { min-height: 46px; margin-left: auto; padding: 0 1.4rem; border: 0; border-radius: 12px; color: #fff; background: var(--navy, #174b8e); font: inherit; font-weight: 700; cursor: pointer; }
 .announcement-composer-footer button:disabled { opacity: .6; cursor: wait; }
+.announcement-composer-footer .announcement-cancel-edit { margin-left: auto; border: 1px solid #cfd9e6; color: #344054; background: #fff; }
+.announcement-composer-footer .announcement-cancel-edit + [type="submit"] { margin-left: 0; }
 .announcement-status:empty { display: none; }
 .announcement-status { margin: 0; color: #067647; font-weight: 600; }
 
@@ -45,6 +47,9 @@
 .announcement-more { justify-self: start; padding: 0; border: 0; color: var(--navy, #174b8e); background: none; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; }
 .announcement-delete { min-height: 32px; padding: 0 .75rem; border: 1px solid #f3c7c2; border-radius: 10px; color: #b42318; background: #fff; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
 .announcement-delete:hover { background: #fef3f2; }
+.announcement-actions { display: flex; gap: .45rem; }
+.announcement-edit { min-height: 32px; padding: 0 .75rem; border: 1px solid #cfd9e6; border-radius: 10px; color: #344054; background: #fff; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.announcement-edit:hover { background: #f2f5f9; }
 .announcement-empty { display: grid; justify-items: center; gap: .35rem; margin: 0; padding: 2.4rem 1rem; border: 1px dashed #d0d5dd; border-radius: 18px; color: #667085; text-align: center; background: #fff; }
 .announcement-empty span { font-size: 2.2rem; }
 .announcement-empty b { color: #172b4d; }

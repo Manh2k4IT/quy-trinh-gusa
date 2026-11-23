@@ -7,6 +7,7 @@
   let announcements = [];
   let canManage = false;
   let filter = 'all';
+  let editingId = null;
   // Read state is per device, like the notification bell.
   const readKey = 'gusa-read-announcements';
   const readIds = () => { try { return new Set(JSON.parse(localStorage.getItem(readKey) || '[]')); } catch { return new Set(); } };
@@ -134,7 +135,7 @@
       return `<article class="announcement-card${item.important ? ' is-important' : ''}${item.pinned ? ' is-pinned' : ''}${unread ? ' is-unread' : ''}" id="${escape(item.id)}">
         <div class="announcement-card-head">
           <div class="announcement-badges">${item.pinned ? '<span class="badge-pinned">📌 Đã ghim</span>' : ''}${item.important ? '<span class="badge-important">Quan trọng</span>' : ''}${unread ? '<span class="badge-new">Mới</span>' : ''}</div>
-          ${canManage ? `<button class="announcement-delete" type="button" data-delete-announcement="${escape(item.id)}" aria-label="Xóa thông báo">Xóa</button>` : ''}
+          ${canManage ? `<div class="announcement-actions"><button class="announcement-edit" type="button" data-edit-announcement="${escape(item.id)}" aria-label="Sửa thông báo">Sửa</button><button class="announcement-delete" type="button" data-delete-announcement="${escape(item.id)}" aria-label="Xóa thông báo">Xóa</button></div>` : ''}
         </div>
         <h2>${escape(item.title)}</h2>
         <p class="announcement-meta"><span class="announcement-author-dot">${escape((item.authorName || '?').charAt(0).toUpperCase())}</span>${escape(item.authorName)} · <time datetime="${escape(item.createdAt)}">${escape(timeLabel(item.createdAt))}</time></p>
@@ -738,6 +739,23 @@
     if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const resetEditMode = () => {
+    editingId = null;
+    form.querySelector('[data-announcement-composer-title]').textContent = 'Đăng thông báo mới';
+    form.querySelector('[data-announcement-submit]').textContent = 'Đăng thông báo';
+    form.querySelector('[data-cancel-announcement-edit]').hidden = true;
+  };
+
+  form.querySelector('[data-cancel-announcement-edit]').addEventListener('click', () => {
+    resetEditMode();
+    form.reset();
+    editor.innerHTML = '';
+    attachments = [];
+    renderAttachments();
+    status.textContent = '';
+    changed();
+  });
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (uploading) return;
@@ -754,16 +772,18 @@
     }
     status.classList.remove('is-error');
     submit.disabled = true;
-    submit.textContent = 'Đang đăng...';
+    const isEditing = Boolean(editingId);
+    submit.textContent = isEditing ? 'Đang lưu...' : 'Đang đăng...';
     try {
-      const response = await fetch('/api/announcements', {
-        method: 'POST',
+      const response = await fetch(isEditing ? `/api/announcements/${encodeURIComponent(editingId)}` : '/api/announcements', {
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: data.get('title'), content: editor.innerText.trim(), contentHtml: isEditorEmpty() ? '' : cleanHtml(editor.innerHTML), attachments: ready.map(({ file, name }) => ({ file, name })), pinned: data.get('pinned') === 'on', important: data.get('important') === 'on' }),
       });
-      if (!response.ok) throw new Error(await response.text() || 'Không đăng được thông báo.');
+      if (!response.ok) throw new Error(await response.text() || (isEditing ? 'Không sửa được thông báo.' : 'Không đăng được thông báo.'));
       const { announcement } = await response.json();
       markRead([announcement.id]);
+      resetEditMode();
       form.reset();
       editor.innerHTML = '';
       attachments = [];
@@ -773,14 +793,14 @@
       try { localStorage.removeItem(draftKey); } catch {}
       changed();
       clearTimeout(draftTimer);
-      status.textContent = 'Đã đăng thông báo và gửi tới toàn bộ nhân viên.';
+      status.textContent = isEditing ? 'Đã lưu thay đổi thông báo.' : 'Đã đăng thông báo và gửi tới toàn bộ nhân viên.';
       await load();
     } catch (error) {
       status.textContent = error.message;
       status.classList.add('is-error');
     } finally {
       submit.disabled = false;
-      submit.textContent = 'Đăng thông báo';
+      submit.textContent = editingId ? 'Lưu thay đổi' : 'Đăng thông báo';
     }
   });
 
@@ -794,6 +814,27 @@
     }
     const picture = event.target.closest('.announcement-body img');
     if (picture && !picture.closest('a')) { window.open(picture.src, '_blank', 'noopener'); return; }
+    const edit = event.target.closest('[data-edit-announcement]');
+    if (edit) {
+      const item = announcements.find((entry) => entry.id === edit.dataset.editAnnouncement);
+      if (!item) return;
+      editingId = item.id;
+      form.querySelector('[data-announcement-composer-title]').textContent = 'Sửa thông báo';
+      form.querySelector('[data-announcement-submit]').textContent = 'Lưu thay đổi';
+      form.querySelector('[data-cancel-announcement-edit]').hidden = false;
+      form.elements.title.value = item.title || '';
+      form.elements.pinned.checked = Boolean(item.pinned);
+      form.elements.important.checked = Boolean(item.important);
+      editor.innerHTML = cleanHtml(item.contentHtml || escape(item.content));
+      attachments = (item.attachments || []).map((file) => ({ ...file, key: ++attachmentKey }));
+      renderAttachments();
+      status.textContent = '';
+      status.classList.remove('is-error');
+      changed();
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      form.elements.title.focus();
+      return;
+    }
     const remove = event.target.closest('[data-delete-announcement]');
     if (!remove || !confirm('Xóa thông báo này? Nhân viên sẽ không còn thấy nó nữa.')) return;
     remove.disabled = true;

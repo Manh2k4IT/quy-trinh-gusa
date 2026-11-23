@@ -1569,6 +1569,50 @@ async function createAnnouncement(req, res) {
   sendJson(res, 201, { announcement });
 }
 
+async function updateAnnouncement(req, res, id) {
+  const currentUser = getCurrentUser(req);
+  if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được sửa thông báo chung.");
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (Buffer.byteLength(body, "utf8") > 400 * 1024) return send(res, 413, "Nội dung thông báo quá dài.");
+  }
+  let payload;
+  try { payload = JSON.parse(body || "{}"); } catch { return send(res, 400, "Dữ liệu không hợp lệ."); }
+  const announcements = getAnnouncements();
+  const index = announcements.findIndex((item) => item.id === id);
+  if (index < 0) return send(res, 404, "Không tìm thấy thông báo.");
+  const title = String(payload.title || "").trim().slice(0, 150);
+  const contentHtml = payload.contentHtml ? sanitizeAnnouncementHtml(payload.contentHtml) : "";
+  if (contentHtml.length > 200000) return send(res, 413, "Nội dung thông báo quá dài.");
+  const content = (contentHtml ? announcementHtmlToText(contentHtml) : String(payload.content || "").trim()).slice(0, 20000);
+  const attachments = (Array.isArray(payload.attachments) ? payload.attachments : []).slice(0, 20).flatMap((item) => {
+    const stored = String(item?.file || "");
+    if (!announcementFilePattern.test(stored)) return [];
+    const location = path.join(announcementImageDirectory(), stored);
+    if (!fs.existsSync(location)) return [];
+    const name = String(item.name || stored).replace(/[\u0000-\u001f"<>|*?:\\/]/g, "").trim().slice(0, 180) || stored;
+    return [{ file: stored, name, size: fs.statSync(location).size }];
+  });
+  if (!title || (!content.trim() && !attachments.length)) return send(res, 400, "Vui lòng nhập tiêu đề và nội dung thông báo.");
+  const previous = announcements[index];
+  const announcement = {
+    ...previous,
+    title,
+    content,
+    pinned: Boolean(payload.pinned),
+    important: Boolean(payload.important),
+    updatedAt: new Date().toISOString(),
+  };
+  if (contentHtml) announcement.contentHtml = contentHtml;
+  else delete announcement.contentHtml;
+  if (attachments.length) announcement.attachments = attachments;
+  else delete announcement.attachments;
+  announcements[index] = announcement;
+  saveAnnouncements(announcements);
+  sendJson(res, 200, { announcement });
+}
+
 function deleteAnnouncement(req, res, id) {
   const currentUser = getCurrentUser(req);
   if (!isManagementUser(currentUser) || currentUser.status !== "active") return send(res, 403, "Chỉ Admin/CEO được xóa thông báo chung.");
@@ -2599,6 +2643,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/menu-visibility") return await saveMenuVisibility(req, res);
     if (req.method === "GET" && req.url === "/api/announcements") return serveAnnouncements(req, res);
     if (req.method === "POST" && req.url === "/api/announcements") return await createAnnouncement(req, res);
+    if (req.method === "PUT" && req.url.startsWith("/api/announcements/")) return await updateAnnouncement(req, res, decodeURIComponent(req.url.slice("/api/announcements/".length)));
     if (req.method === "POST" && req.url === "/api/announcements/images") return await uploadAnnouncementImage(req, res);
     if (req.method === "GET" && req.url.startsWith("/api/announcements/images/")) return serveAnnouncementImage(req, res);
     if (req.method === "POST" && req.url === "/api/announcements/files") return await uploadAnnouncementFile(req, res);

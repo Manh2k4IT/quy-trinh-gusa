@@ -71,6 +71,16 @@ test('everyone reads announcements, only Admin/CEO post or delete, and new ones 
   const authorBell = (await (await request('/api/notifications', 'admin')).json()).items.filter((item) => item.id.startsWith('announcement-'));
   assert.equal(authorBell.length, 0);
 
+  assert.equal((await request(`/api/announcements/${announcement.id}`, 'employee', { method: 'PUT', payload: { title: 'Đổi', content: 'Nội dung mới' } })).status, 403);
+  const updated = await request(`/api/announcements/${announcement.id}`, 'admin', { method: 'PUT', payload: { title: 'Lịch nghỉ Tết đã sửa', content: 'Nghỉ 2/1.', important: false, pinned: true } });
+  assert.equal(updated.status, 200);
+  const { announcement: edited } = await updated.json();
+  assert.equal(edited.createdAt, announcement.createdAt);
+  assert.equal(edited.title, 'Lịch nghỉ Tết đã sửa');
+  assert.equal(edited.pinned, true);
+  assert.equal(edited.important, false);
+  assert.ok(edited.updatedAt);
+
   assert.equal((await request(`/api/announcements/${announcement.id}`, 'employee', { method: 'DELETE' })).status, 403);
   assert.equal((await request(`/api/announcements/${announcement.id}`, 'admin', { method: 'DELETE' })).status, 200);
   assert.equal((await request(`/api/announcements/${announcement.id}`, 'admin', { method: 'DELETE' })).status, 404);

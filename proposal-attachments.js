@@ -44,9 +44,11 @@ function createAttachmentStore(dataDirectory) {
 
   function migrateFile(proposalsPath) {
     let raw;
-    try { raw = fs.readFileSync(proposalsPath, "utf8"); } catch { return 0; }
-    if (!raw.includes('"paymentFileData": "data:') && !raw.includes('"latePhotoData": "data:')) return 0;
-    const list = JSON.parse(raw);
+    try { raw = fs.readFileSync(proposalsPath); } catch { return 0; }
+    const text = raw.toString("utf8");
+    if (!text.includes('"paymentFileData": "data:') && !text.includes('"latePhotoData": "data:')
+      && !text.includes('"evidenceFileData": "data:')) return 0;
+    const list = JSON.parse(text);
     raw = null;
     if (!Array.isArray(list)) return 0;
     let moved = 0;
