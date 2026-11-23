@@ -61,18 +61,18 @@ async function getFile(api, fileId) {
   return res;
 }
 
-test("production completion moves the order to final approval level 2", async () => {
+test("production completion moves the order to product receiving", async () => {
   const fixture = setup(order("in-production"), "production-complete");
   try {
     const response = await postAction(fixture.api, "complete-production");
     assert.equal(response.status, 200);
-    assert.equal(response.body.order.status, "final-approval-2");
+    assert.equal(response.body.order.status, "product-receive");
   } finally {
     fixture.cleanup();
   }
 });
 
-test("final level 2 approval moves the order to product receiving", async () => {
+test("final level 2 approval moves the order to production", async () => {
   const fixture = setup(order("final-approval-2"), "final-approval-2");
   try {
     const response = await postAction(fixture.api, "approve", {
@@ -80,7 +80,7 @@ test("final level 2 approval moves the order to product receiving", async () => 
       approvalSignature: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
     });
     assert.equal(response.status, 200);
-    assert.equal(response.body.order.status, "product-receive");
+    assert.equal(response.body.order.status, "in-production");
   } finally {
     fixture.cleanup();
   }
@@ -100,14 +100,14 @@ test("workshop receive moves to selling price calculation", async () => {
   }
 });
 
-test("accountant selling price moves the order to production", async () => {
+test("accountant selling price moves the order to final approval level 2", async () => {
   const initial = order("selling-price");
   initial.workshop = { expectedDate: "2027-12-31" };
   const fixture = setup(initial, "selling-price");
   try {
     const response = await postAction(fixture.api, "selling-price", { sellingPrice: "250000" });
     assert.equal(response.status, 200);
-    assert.equal(response.body.order.status, "in-production");
+    assert.equal(response.body.order.status, "final-approval-2");
     assert.equal(response.body.order.sellingPrice.value, 250000);
   } finally {
     fixture.cleanup();
