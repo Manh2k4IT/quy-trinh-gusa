@@ -299,7 +299,6 @@ function getStatusMeta(record, date) {
   if (record?.attendanceType === 'half-day-morning' || record?.attendanceType === 'half-day-afternoon') return { className: 'half-day', short: '1/2', label: 'Làm 1/2 ngày' };
 
   if (!record || !record.checkIn) {
-    if (date.getDay() === 0 || date.getDay() === 6) return { className: 'weekend', short: '', label: 'Cuối tuần' };
     return { className: 'absent', short: 'K', label: 'Không chấm công' };
   }
 
