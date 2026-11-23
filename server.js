@@ -11,7 +11,7 @@ const { createProposalPdf } = require("./proposal-document-pdf");
 const { renderProposalPages } = require("./proposal-document-image");
 const paymentDocumentData = require("./payment-document-data");
 const { validateAllowedIps, getRequestIp, needsOfficeNetwork, getOfficeNetwork, isAllowedOfficeIp } = require("./attendance-network");
-const { ATTENDANCE_SITES, normalizeAttendanceSite, getAttendanceShift, formatShiftTime } = require("./attendance-schedule");
+const { ATTENDANCE_SITES, normalizeAttendanceSite, getAttendanceShift, getCheckoutMinutes, formatShiftTime } = require("./attendance-schedule");
 const { getApprovalConfirmation } = require("./approval-confirmation");
 const { createZaloClient } = require("./zalo-oa");
 const { createAttachmentStore } = require("./proposal-attachments");
@@ -2196,7 +2196,7 @@ async function updateAttendance(req, res) {
     if (record.checkOut) return sendJson(res, 409, { message: "Bạn đã check-out hôm nay.", record });
     const workReportBlock = workReports.checkoutBlock(currentUser);
     if (workReportBlock) return sendJson(res, 409, { message: workReportBlock, needsWorkReport: true });
-    const checkoutMinutes = getAttendanceShift(site, record.attendanceType).checkOutFrom;
+    const checkoutMinutes = getCheckoutMinutes(currentUser.role, site, record.attendanceType, record.workMode);
     if (getLocalMinutes() < checkoutMinutes) return send(res, 400, `Bạn chỉ có thể check-out từ ${formatShiftTime(checkoutMinutes)}.`);
     record.checkOut = now;
     if (siteProof) record.siteCheckOut = siteProof;

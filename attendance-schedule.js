@@ -28,11 +28,18 @@
     return shifts[attendanceType] || shifts["full-day"];
   }
 
+  function getCheckoutMinutes(role, site, attendanceType, workMode) {
+    const shift = getAttendanceShift(site, attendanceType);
+    return role === "admin" && (workMode === "office" || workMode === "online" || workMode == null)
+      ? 17 * 60 + 10
+      : shift.checkOutFrom;
+  }
+
   function formatShiftTime(minutes) {
     return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
   }
 
-  const api = { ATTENDANCE_SITES, normalizeAttendanceSite, getAttendanceShift, formatShiftTime };
+  const api = { ATTENDANCE_SITES, normalizeAttendanceSite, getAttendanceShift, getCheckoutMinutes, formatShiftTime };
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.GusaAttendanceSchedule = api;
 })(this);

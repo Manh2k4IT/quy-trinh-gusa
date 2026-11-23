@@ -16,10 +16,11 @@ let records = {};
 const isWorkdayOverview = new URLSearchParams(window.location.search).get('view') === 'days';
 const isOnlineAttendance = new URLSearchParams(window.location.search).get('view') === 'online';
 const attendanceSite = !isOnlineAttendance && new URLSearchParams(window.location.search).get('site') === 'ben-thanh' ? 'ben-thanh' : 'q4';
-const { getAttendanceShift, formatShiftTime } = window.GusaAttendanceSchedule;
+const { getAttendanceShift, getCheckoutMinutes, formatShiftTime } = window.GusaAttendanceSchedule;
 let onlineProof = null;
 // True while a check-in/out request runs, so the once-a-second status refresh cannot re-enable the buttons.
 let attendanceBusy = false;
+let currentUserRole = 'employee';
 let updateOnlineCheckIn = () => {};
 
 const attendanceMenuItem = document.querySelector('.menu-item[href="attendance.html"]');
@@ -213,7 +214,8 @@ function setStatus(record) {
   const shift = getAttendanceShift(today?.checkIn ? today.site : attendanceSite, selectedType);
   const checkInStartsAt = shift.checkInFrom;
   const checkInEndsAt = shift.checkInTo;
-  const checkoutAvailable = currentMinutes >= shift.checkOutFrom;
+  const checkoutMinutes = getCheckoutMinutes(currentUserRole, today?.checkIn ? today.site : attendanceSite, selectedType, today?.workMode);
+  const checkoutAvailable = currentMinutes >= checkoutMinutes;
   status.className = 'attendance-status';
 
   if (attendanceTypeChoice) {
@@ -251,7 +253,7 @@ function setStatus(record) {
     if (otherSite) status.textContent = `Hôm nay bạn đã check-in tại ${otherSite} (${formatTime(today.checkIn)}) nên giờ làm tính theo ${otherSite}. ${today.late ? 'Đi muộn. ' : ''}`;
     checkIn.disabled = true;
     checkOut.disabled = attendanceBusy;
-    if (!checkoutAvailable) status.textContent += `${otherSite ? '' : ' - '}Check-out mở lúc ${formatShiftTime(shift.checkOutFrom)}`;
+    if (!checkoutAvailable) status.textContent += `${otherSite ? '' : ' - '}Check-out mở lúc ${formatShiftTime(checkoutMinutes)}`;
     return;
   }
 
@@ -547,16 +549,17 @@ list.addEventListener('change', (event) => {
 monthSelect.addEventListener('change', loadAttendance); attendanceTypeChoice?.addEventListener('change', () => setStatus(records)); checkIn.addEventListener('click', () => submitAttendance('check-in')); checkOut.addEventListener('click', () => {
   const today = records?.[todayKey()];
   const shift = getAttendanceShift(today?.site, today?.attendanceType);
+  const checkoutMinutes = getCheckoutMinutes(currentUserRole, today?.site, today?.attendanceType, today?.workMode);
   const now = new Date();
-  const waitMinutes = shift.checkOutFrom - (now.getHours() * 60 + now.getMinutes());
+  const waitMinutes = checkoutMinutes - (now.getHours() * 60 + now.getMinutes());
   if (today?.checkIn && !today.checkOut && waitMinutes > 0) {
     const wait = waitMinutes >= 60 ? `${Math.floor(waitMinutes / 60)} giờ${waitMinutes % 60 ? ` ${waitMinutes % 60} phút` : ''}` : `${waitMinutes} phút`;
-    showAttendanceDialog({ success: false, title: 'Chưa đến giờ check-out', lines: [`Ca hôm nay check-out từ ${formatShiftTime(shift.checkOutFrom)}. Còn ${wait} nữa.`, `Bạn đang làm việc từ ${formatTime(today.checkIn)}, quay lại bấm Check-out khi đến giờ nhé.`] });
+    showAttendanceDialog({ success: false, title: 'Chưa đến giờ check-out', lines: [`Ca hôm nay check-out từ ${formatShiftTime(checkoutMinutes)}. Còn ${wait} nữa.`, `Bạn đang làm việc từ ${formatTime(today.checkIn)}, quay lại bấm Check-out khi đến giờ nhé.`] });
     return;
   }
   submitAttendance('check-out');
 }); setInterval(() => { if (records) updateHoursStat(); }, 60 * 1000); document.querySelector('[data-refresh-attendance]').addEventListener('click', loadAttendance); updateClock(); setInterval(updateClock, 1000);
-fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin, user.role); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : user.role === 'accountant' ? 'Kế toán trưởng' : user.role === 'bookkeeper' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'ceo'
+fetch('/api/me', { cache: 'no-store' }).then((response) => response.json()).then(async ({ user }) => { if (!user) return; currentUserRole = user.role || 'employee'; const admin = user.role === 'admin' || user.role === 'ceo'; setAdminVisibility(admin, user.role); setStatus(records); document.querySelectorAll('[data-user-name]').forEach((element) => { element.textContent = user.name || user.email; }); document.querySelectorAll('[data-user-role]').forEach((element) => { element.textContent = user.role === 'ceo' ? 'CEO' : admin ? 'Quản trị viên' : user.role === 'accountant' ? 'Kế toán trưởng' : user.role === 'bookkeeper' ? 'Kế toán' : user.role === 'warehouse' ? 'Vận hành kho' : user.role === 'manager' ? 'Quản lý cấp 1' : user.role === 'production' ? 'Sản xuất' : user.role === 'hr' ? 'Nhân sự' : 'Nhân viên'; }); document.querySelectorAll('.role-chip').forEach((button) => { const originalRole = button.dataset.role || button.textContent.trim(); button.dataset.role = originalRole; const current = user.role === 'ceo'
       ? originalRole === 'CEO'
       : user.role === 'admin'
         ? originalRole === 'Quản trị'
