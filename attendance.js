@@ -404,9 +404,8 @@ function renderRecords() {
   let week = [];
   for (let day = 1; day <= totalDays; day += 1) {
     const date = new Date(year, month, day);
-    if (date.getDay() === 0) continue;
     week.push(date);
-    if (date.getDay() === 6 || day === totalDays) {
+    if (week.length === 7 || day === totalDays) {
       monthWeeks.push(week);
       week = [];
     }
@@ -418,7 +417,7 @@ function renderRecords() {
   const rows = monthWeeks.map((weekDates, weekIndex) => {
     const headerCells = weekDates.map((date) => {
       const weekday = date.toLocaleDateString('vi-VN', { weekday: 'short' }).replace('.', '').toUpperCase();
-      return `<div class="attendance-day-header"><span>${date.getDate()}</span><small>${date.getDay() === 0 ? '' : weekday}</small></div>`;
+      return `<div class="attendance-day-header"><span>${date.getDate()}</span><small>${weekday}</small></div>`;
     }).join('');
 
     const valueCells = weekDates.map((date) => {
