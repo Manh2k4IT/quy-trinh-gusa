@@ -86,6 +86,29 @@ test("final level 2 approval moves the order to production", async () => {
   }
 });
 
+test("approval level 1 requires and saves suggested selling price", async () => {
+  const fixture = setup(order("approval-1"), "approval-1");
+  try {
+    const missing = await postAction(fixture.api, "approve", {
+      approvalName: "Người duyệt",
+      approvalSignature: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+    });
+    assert.equal(missing.status, 400);
+    assert.match(missing.body, /giá bán đề xuất/);
+
+    const accepted = await postAction(fixture.api, "approve", {
+      approvalName: "Người duyệt",
+      approvalSignature: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+      suggestedSellingPrice: "180000",
+    });
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.body.order.status, "approval-2");
+    assert.equal(accepted.body.order.proposal.suggestedSellingPrice, 180000);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 test("workshop receive moves to selling price calculation", async () => {
   const fixture = setup(order("workshop-receive"), "workshop-receive");
   try {

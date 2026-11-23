@@ -276,6 +276,11 @@ function createProductionOrders({ dataPath, users, getCurrentUser, isManagementU
       if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(approvalSignature) || approvalSignature.length > 256 * 1024) {
         throw new Error("Vui lòng ký xác nhận trước khi duyệt.");
       }
+      if (order.status === "approval-1") {
+        const suggestedSellingPrice = amount(payload.suggestedSellingPrice, { integer: true });
+        if (!suggestedSellingPrice) throw new Error("Vui lòng nhập giá bán đề xuất.");
+        order.proposal.suggestedSellingPrice = suggestedSellingPrice;
+      }
       order.approvals = { ...order.approvals, [order.status]: { ...actor(user), name: approvalName, signatureData: approvalSignature, at: new Date().toISOString() } };
       addHistory(order, user, order.status === "approval-1" ? "Đã duyệt cấp 1" : "Đã duyệt cấp 2", text(payload.note, 500));
       if (order.status === "approval-1") return "approval-2";

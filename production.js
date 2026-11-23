@@ -137,6 +137,7 @@ function stageProgressDetails(order, stage) {
     ['Người lập', escapeHtml(order.createdBy?.name)], ['Ngày lập', formatDateTime(order.createdAt)],
     ['Mã sản phẩm', escapeHtml(proposal.productCode)], ['Tên sản phẩm', escapeHtml(proposal.productName)],
     ...(proposal.deliveryDate ? [['Ngày giao dự kiến', formatDate(proposal.deliveryDate)]] : []), ['Số lượng', formatNumber(proposal.quantity)],
+    ['Giá bán đề xuất', proposal.suggestedSellingPrice ? `${formatNumber(proposal.suggestedSellingPrice)} đ/sp` : 'Chưa nhập'],
     ['Trạng thái duyệt', order.approvals?.['approval-1'] ? `Đã duyệt bởi ${escapeHtml(order.approvals['approval-1'].name)}` : 'Chưa duyệt'],
   ]);
   if (stage === 'approval-2') return rows([
@@ -273,7 +274,13 @@ function actionPanel(order) {
   const sendBack = state.stageOrder.indexOf(order.status) >= 3 && order.status !== 'in-production'
     ? '<button class="production-button is-ghost" type="button" data-action="send-back">Trả lại bước trước</button>' : '';
   const forms = {
-    'approval-1': () => `<div class="production-approval-signature-box">
+    'approval-1': () => `<div class="production-selling-product">
+        <div><span>Mã sản phẩm</span><strong>${escapeHtml(order.proposal.productCode)}</strong></div>
+        <div><span>Tên sản phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
+        <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
+      </div>
+      <label>Giá bán đề xuất (đ/sản phẩm)<input name="suggestedSellingPrice" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(order.proposal.suggestedSellingPrice || '')}" required /></label>
+      <div class="production-approval-signature-box">
         <h4>Chữ ký duyệt cấp 1</h4>
         <canvas class="production-signature" width="600" height="200" aria-label="Bảng ký duyệt" data-approval-signature></canvas>
         <div class="production-signature-actions"><span data-approval-signature-status>Chưa có chữ ký</span><button class="production-link-button" type="button" data-clear-approval-signature>Xóa / Ký lại</button></div>
@@ -320,7 +327,8 @@ function actionPanel(order) {
         <div><span>Tên sản phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
         <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
       </div>
-      <div class="production-grid"><label>Giá bán cho sản phẩm này (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" required /></label></div>${note()}
+      ${order.proposal.suggestedSellingPrice ? `<p class="production-hint">Giá bán đề xuất từ bước duyệt cấp 1: <strong>${formatNumber(order.proposal.suggestedSellingPrice)} đ/sản phẩm</strong></p>` : ''}
+      <div class="production-grid"><label>Giá bán cho sản phẩm này (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(order.proposal.suggestedSellingPrice || '')}" required /></label></div>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="selling-price">Xác nhận giá bán</button></div>`,
     'in-production': () => `<p class="production-hint">Khi xưởng đã sản xuất xong, xác nhận hoàn tất để chuyển sang bước tiếp nhận sản phẩm.</p>${note()}
       <div class="production-form-actions"><button class="production-button" type="button" data-action="complete-production">Xưởng báo hoàn tất sản xuất</button></div>`,
@@ -664,6 +672,7 @@ async function runAction(button) {
     const signature = form.querySelector('[data-approval-signature]');
     payload.approvalName = value('approvalName') || '';
     payload.approvalSignature = signature?.dataset.signed === 'true' ? signature.toDataURL('image/png') : '';
+    payload.suggestedSellingPrice = value('suggestedSellingPrice') || '';
     if (!payload.approvalName.trim()) {
       error.textContent = 'Vui lòng nhập họ và tên người duyệt.';
       form.querySelector('[name="approvalName"]')?.focus();
@@ -671,6 +680,11 @@ async function runAction(button) {
     }
     if (!payload.approvalSignature) {
       error.textContent = 'Vui lòng ký xác nhận trước khi duyệt.';
+      return;
+    }
+    if (order.status === 'approval-1' && !payload.suggestedSellingPrice) {
+      error.textContent = 'Vui lòng nhập giá bán đề xuất.';
+      form.querySelector('[name="suggestedSellingPrice"]')?.focus();
       return;
     }
   }
