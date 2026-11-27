@@ -40,21 +40,32 @@ if (isPaymentReport) {
   document.querySelector('.profile-page-heading h1').textContent = 'Báo cáo đề xuất thanh toán';
   document.querySelector('.profile-page-heading p').textContent = 'Theo dõi và xử lý đề xuất thanh toán của nhân viên.';
 }
-const dayFilter = document.createElement('select');
+const dayFilter = document.createElement('input');
+dayFilter.type = 'date';
+dayFilter.className = 'report-date-filter';
 dayFilter.dataset.proposalDayFilter = '';
 dayFilter.setAttribute('aria-label', 'Lọc theo ngày gửi đề xuất');
-for (let daysAgo = 0; daysAgo <= 30; daysAgo += 1) {
-  const option = document.createElement('option');
-  option.value = String(daysAgo);
-  option.textContent = daysAgo === 0 ? 'Hôm nay' : `${daysAgo} ngày trước`;
-  dayFilter.append(option);
-}
-const allDaysOption = document.createElement('option');
-allDaysOption.value = 'all';
-allDaysOption.textContent = 'Tất cả ngày';
-dayFilter.append(allDaysOption);
+const todayButton = document.createElement('button');
+todayButton.type = 'button';
+todayButton.className = 'report-date-shortcut';
+todayButton.textContent = 'Hôm nay';
+const allDaysButton = document.createElement('button');
+allDaysButton.type = 'button';
+allDaysButton.className = 'report-date-clear';
+allDaysButton.textContent = 'Tất cả ngày';
 document.querySelector('.report-toolbar')?.insertBefore(dayFilter, filter);
-dayFilter.value = requestedProposalId ? 'all' : '0';
+document.querySelector('.report-toolbar')?.insertBefore(todayButton, filter);
+document.querySelector('.report-toolbar')?.insertBefore(allDaysButton, filter);
+dayFilter.value = requestedProposalId ? '' : vietnamDateKey(new Date());
+const updateAllDaysButton = () => {
+  const isSelected = !dayFilter.value;
+  allDaysButton.classList.toggle('is-active', isSelected);
+  allDaysButton.setAttribute('aria-pressed', String(isSelected));
+  const isToday = dayFilter.value === vietnamDateKey(new Date());
+  todayButton.classList.toggle('is-active', isToday);
+  todayButton.setAttribute('aria-pressed', String(isToday));
+};
+updateAllDaysButton();
 if (requestedProposalId) filter.value = 'all';
 const paymentFlowTabs = document.createElement('div');
 paymentFlowTabs.className = 'payment-flow-tabs';
@@ -74,10 +85,12 @@ const refreshButton = document.querySelector('[data-proposal-refresh]');
 const summaryTotal = document.querySelector('[data-report-total]');
 const summaryPending = document.querySelector('[data-report-pending]');
 const summaryApproved = document.querySelector('[data-report-approved]');
+const summaryRejected = document.querySelector('[data-report-rejected]');
 for (const [counter, kind, drawing] of [
   [summaryTotal, 'total', '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h6M9 18h3"/>'],
   [summaryPending, 'pending', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
   [summaryApproved, 'approved', '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'],
+  [summaryRejected, 'rejected', '<circle cx="12" cy="12" r="9"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/>'],
 ]) {
   const icon = document.createElement('div');
   icon.className = `report-summary-icon is-${kind}`;
@@ -93,6 +106,7 @@ const summaryCards = [
   [summaryTotal?.closest('article'), 'all'],
   [summaryPending?.closest('article'), 'pending'],
   [summaryApproved?.closest('article'), 'approved'],
+  [summaryRejected?.closest('article'), 'rejected'],
 ];
 summaryCards.forEach(([card, status]) => {
   if (!card) return;
@@ -101,7 +115,8 @@ summaryCards.forEach(([card, status]) => {
   card.tabIndex = 0;
   const openSummaryList = () => {
     displayedProposalId = '';
-    dayFilter.value = 'all';
+    dayFilter.value = '';
+    updateAllDaysButton();
     filter.value = status;
     currentPage = 1;
     render();
@@ -218,6 +233,16 @@ function dateText(proposal) {
   return proposal.dateFrom && proposal.dateTo ? `${format(proposal.dateFrom)} - ${format(proposal.dateTo)}` : format(proposal.date);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]);
+}
+
 function relativeTime(proposal) {
   const createdAt = new Date(proposal.createdAt || `${proposal.date}T00:00:00`);
   if (Number.isNaN(createdAt.getTime())) return 'Không rõ thời gian';
@@ -229,6 +254,13 @@ function relativeTime(proposal) {
   if (days === 0) return 'Hôm nay';
   if (days === 1) return '1 ngày trước';
   return `${days} ngày trước`;
+}
+
+function submittedDateText(proposal) {
+  const dateKey = proposal.createdAt ? vietnamDateKey(proposal.createdAt) : proposal.date;
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateKey || '')
+    ? dateKey.split('-').reverse().join('/')
+    : 'Không rõ ngày';
 }
 
 function vietnamDateKey(value) {
@@ -244,11 +276,8 @@ function vietnamDateKey(value) {
   return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
 }
 
-function proposalDayOffset(proposal) {
-  const proposalDate = proposal.createdAt ? vietnamDateKey(proposal.createdAt) : proposal.date;
-  const today = vietnamDateKey(new Date());
-  if (!proposalDate || !today) return null;
-  return Math.floor((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${proposalDate}T00:00:00Z`)) / 86400000);
+function proposalDayKey(proposal) {
+  return proposal.createdAt ? vietnamDateKey(proposal.createdAt) : proposal.date || '';
 }
 
 function appendDetailField(label, value) {
@@ -349,8 +378,7 @@ function render() {
   const normalizeSearchText = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
   const query = normalizeSearchText(search.value.trim());
   const visible = proposals.filter((proposal) => {
-    const dayOffset = proposalDayOffset(proposal);
-    const matchesDay = dayFilter.value === 'all' || dayOffset === Number(dayFilter.value);
+    const matchesDay = !dayFilter.value || proposalDayKey(proposal) === dayFilter.value;
     const matchesType = isPaymentReport ? proposal.type === 'payment' : proposal.type !== 'payment';
     const matchesProposal = !displayedProposalId || proposal.id === displayedProposalId;
     const matchesPaymentFlow = !isPaymentReport || (proposal.paymentFlow || 'ceo') === selectedPaymentFlow;
@@ -364,7 +392,7 @@ function render() {
   list.innerHTML = pageProposals.length ? pageProposals.map((proposal) => {
     const isPayment = proposal.type === 'payment';
     const typeLabel = proposal.type === 'other' && proposal.subject
-      ? `Đề xuất: ${String(proposal.subject).replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`)}`
+      ? `Đề xuất: ${proposal.subject}`
       : labels[proposal.type] || 'Đề xuất khác';
     const paymentFlow = proposal.paymentFlow || 'ceo';
     const paymentStage = proposal.paymentStage || (paymentFlow === 'accountant' ? 'accounting' : 'management');
@@ -373,22 +401,73 @@ function render() {
       : isPayment && proposal.status === 'pending' && paymentStage === 'accounting'
         ? 'Chờ kế toán xác nhận'
         : statusLabels[proposal.status] || proposal.status;
+    const statusIcon = proposal.status === 'approved'
+      ? 'm8 12 3 3 5-6'
+      : proposal.status === 'rejected'
+        ? 'M8.5 8.5l7 7M15.5 8.5l-7 7'
+        : proposal.status === 'canceled'
+          ? 'M8 12h8'
+          : 'M12 7v5l3 2';
     const canManage = viewerRole === 'admin' || viewerRole === 'ceo';
     const canDecide = canManage || (isAccountingTeamReport && viewerRole === 'accountant' && !isPayment);
     const canApprove = canReview && canDecide && proposal.status === 'pending' && (!isPayment || paymentFlow === 'ceo' && paymentStage === 'management');
     const canConfirm = canReview && viewerRole === 'accountant' && isPayment && proposal.status === 'pending' && paymentStage === 'accounting';
     const decisionActions = canConfirm
-      ? `<div class="report-decision"><button type="button" data-confirm="${proposal.id}">Xác nhận</button>${paymentFlow === 'accountant' ? `<button type="button" data-accountant-reject="${proposal.id}">Từ chối</button>` : ''}</div>`
+        ? `<div class="report-decision"><button class="report-approve-button" type="button" data-confirm="${escapeHtml(proposal.id)}"><span aria-hidden="true">✓</span> Xác nhận</button>${paymentFlow === 'accountant' ? `<button class="report-reject-button" type="button" data-accountant-reject="${escapeHtml(proposal.id)}"><span aria-hidden="true">×</span> Từ chối</button>` : ''}</div>`
       : canApprove
-        ? `<div class="report-decision"><button type="button" data-approve="${proposal.id}">Duyệt</button><button type="button" data-reject="${proposal.id}">Từ chối</button></div>`
+          ? `<div class="report-decision"><button class="report-approve-button" type="button" data-approve="${escapeHtml(proposal.id)}"><span aria-hidden="true">✓</span> Duyệt</button><button class="report-reject-button" type="button" data-reject="${escapeHtml(proposal.id)}"><span aria-hidden="true">×</span> Từ chối</button></div>`
         : '';
     const zaloResend = canManage && ['pending', 'approved'].includes(proposal.status)
-      ? `<button class="report-detail-button" type="button" data-zalo-resend="${proposal.id}">Gửi lại Zalo</button>`
+        ? `<button class="report-secondary-button" type="button" data-zalo-resend="${escapeHtml(proposal.id)}"><span aria-hidden="true">↻</span> Gửi lại Zalo</button>`
       : '';
+    const proposalId = escapeHtml(proposal.id);
+    const userName = escapeHtml(proposal.userName || 'Nhân viên');
+    const avatar = proposal.userPicture
+        ? `<img src="${escapeHtml(proposal.userPicture)}" alt="" referrerpolicy="no-referrer" />`
+        : `<span>${escapeHtml((proposal.userName || 'N').trim().charAt(0).toUpperCase() || 'N')}</span>`;
+    const reasonLabel = proposal.category ? 'Ghi chú' : 'Lý do';
+    const attachmentUrl = proposal.paymentFileData || proposal.evidenceFileData || '';
+    const attachmentName = proposal.paymentFileName || proposal.evidenceFileName || '';
+    const isImageAttachment = /^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(attachmentUrl);
+    const attachment = attachmentUrl
+        ? `<section class="report-media-card"><span class="report-media-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12.5 6.4-6.4a3 3 0 0 1 4.2 4.2l-8.5 8.5a5 5 0 0 1-7.1-7.1l8.5-8.5"/></svg>${isImageAttachment ? 'Hình ảnh đính kèm' : 'Tệp đính kèm'}</span><div class="report-media-body">${isImageAttachment ? `<img class="report-media-preview" src="${escapeHtml(attachmentUrl)}" alt="" />` : '<span class="report-media-file-icon" aria-hidden="true">▤</span>'}<a class="report-media-action report-file" href="${escapeHtml(attachmentUrl)}"${isImageAttachment ? ' target="_blank" rel="noopener"' : ` download="${escapeHtml(attachmentName || 'tep-dinh-kem')}"`}>${isImageAttachment ? 'Xem ảnh' : escapeHtml(attachmentName || 'Tải tệp')}</a></div></section>`
+        : '';
+    const proof = proposal.latePhotoData
+        ? `<section class="report-media-card"><span class="report-media-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/></svg>Ảnh xác nhận</span><div class="report-media-body"><img class="report-media-preview" src="${escapeHtml(proposal.latePhotoData)}" alt="" /><a class="report-media-action" href="${escapeHtml(proposal.latePhotoData)}" target="_blank" rel="noopener">Xem ảnh</a></div></section>`
+        : '';
+    const location = proposal.latitude
+        ? `<section class="report-media-card"><span class="report-media-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>Vị trí đã chia sẻ</span><div class="report-media-body"><span class="report-media-location-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><a class="report-media-action report-location" href="https://www.google.com/maps?q=${encodeURIComponent(proposal.latitude)},${encodeURIComponent(proposal.longitude)}" target="_blank" rel="noopener">Xem bản đồ</a></div></section>`
+        : '';
+    const mediaItems = [attachment, proof, location].filter(Boolean).join('');
+    const media = mediaItems ? `<div class="report-media-list">${mediaItems}</div>` : '';
     const deleteAction = canManage
-      ? `<button class="report-delete-button" type="button" data-delete-proposal="${proposal.id}" aria-label="Xóa đề xuất của ${proposal.userName}" title="Xóa đề xuất">×</button>`
+        ? `<button class="report-delete-button" type="button" data-delete-proposal="${proposalId}" aria-label="Xóa đề xuất của ${userName}" title="Xóa đề xuất">×</button>`
       : '';
-    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}" data-proposal-id="${proposal.id}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions">${deleteAction}<button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${zaloResend}${decisionActions}</div></article>`;
+    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}" data-proposal-id="${proposalId}">
+        <aside class="report-card-aside">
+          <div class="report-status-art is-${escapeHtml(proposal.status)}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="${statusIcon}"/></svg></div>
+          <div class="report-card-state"><span>TRẠNG THÁI</span><strong class="report-status is-${escapeHtml(proposal.status)}">${escapeHtml(statusLabel)}</strong></div>
+        </aside>
+        <div class="report-card-content">
+          <header class="report-card-header">
+            <div class="report-person"><div class="report-avatar">${avatar}</div><div><h2>${userName}</h2><p>${escapeHtml(relativeTime(proposal))} · Ngày gửi: ${escapeHtml(submittedDateText(proposal))} · Người gửi đề xuất</p></div></div>
+            <div class="report-card-status">${deleteAction}</div>
+          </header>
+          <div class="report-card-divider"></div>
+          <h3 class="report-card-title"><span class="report-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18m-11 0v2h4v-2"/></svg></span><span class="report-type">${escapeHtml(typeLabel)}</span></h3>
+          <div class="report-info-panel">
+            <div class="report-info-item"><span class="report-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-13 4h3m-3 3h7"/></svg></span><div><span>Thời gian đề xuất</span><strong>${escapeHtml(dateText(proposal) || 'Chưa xác định')}${proposal.time ? ` · ${escapeHtml(proposal.time)}` : ''}</strong></div></div>
+            <span class="report-info-divider" aria-hidden="true"></span>
+            <div class="report-info-item report-reason"><span class="report-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2 1-4a7.5 7.5 0 1 1 16-5.5Z"/><path d="M8 11h8m-8 3h5"/></svg></span><div><span>${reasonLabel}</span><p>${escapeHtml(proposal.reason || 'Không có nội dung.')}</p></div></div>
+          </div>
+          ${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${escapeHtml(proposal.category)}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}
+          ${media}
+          <footer class="report-card-footer">
+            <div class="report-secondary-actions"><button class="report-secondary-button" type="button" data-detail="${proposalId}"><span aria-hidden="true">▤</span> Chi tiết</button>${zaloResend}</div>
+            ${decisionActions}
+          </footer>
+        </div>
+    </article>`;
   }).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
   if (pageProposals.length) {
     const reportItems = list.querySelectorAll('.report-item');
@@ -444,6 +523,7 @@ function renderSummary() {
   summaryTotal.textContent = reportProposals.length;
   summaryPending.textContent = reportProposals.filter((proposal) => proposal.status === 'pending').length;
   summaryApproved.textContent = reportProposals.filter((proposal) => proposal.status === 'approved').length;
+  summaryRejected.textContent = reportProposals.filter((proposal) => proposal.status === 'rejected').length;
 }
 
 async function load(showFeedback = false) {
@@ -653,6 +733,21 @@ filter.addEventListener('change', () => {
   render();
 });
 dayFilter.addEventListener('change', () => {
+  displayedProposalId = '';
+  updateAllDaysButton();
+  currentPage = 1;
+  render();
+});
+todayButton.addEventListener('click', () => {
+  dayFilter.value = vietnamDateKey(new Date());
+  displayedProposalId = '';
+  updateAllDaysButton();
+  currentPage = 1;
+  render();
+});
+allDaysButton.addEventListener('click', () => {
+  dayFilter.value = '';
+  updateAllDaysButton();
   displayedProposalId = '';
   currentPage = 1;
   render();

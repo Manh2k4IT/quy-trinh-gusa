@@ -65,8 +65,10 @@ function ensureTopActions() {
     menu.hidden = !menu.hidden;
   });
   document.addEventListener('click', (event) => {
-    if (!menu.contains(event.target) && !event.target.closest('[data-notification-trigger]')) menu.hidden = true;
-  });
+    if (!(event.target instanceof Node)) return;
+    if (!menu.contains(event.target) && !bell.contains(event.target)) menu.hidden = true;
+  }, true);
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') menu.hidden = true; });
   document.querySelector('[data-shared-theme-trigger]').addEventListener('click', () => {
     try { localStorage.setItem('gusa-theme', document.body.dataset.theme === 'dark' ? 'light' : 'dark'); } catch {}
     applySharedAppearance();
