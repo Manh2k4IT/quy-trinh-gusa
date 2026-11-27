@@ -114,6 +114,7 @@ const detailFileName = document.querySelector('[data-detail-file-name]');
 const detailPhoto = document.querySelector('[data-detail-photo]');
 const detailLocation = document.querySelector('[data-detail-location]');
 let proposals = [];
+const locallyDeletedProposalIds = new Set();
 let canReview = false;
 let viewerRole = 'employee';
 let pendingAccountingRejectId = '';
@@ -159,16 +160,19 @@ function proposalNotificationText(proposal) {
 }
 
 async function showProposalNotification(newProposals) {
-  if (!newProposals.length) return;
-  if (window.claimProposalNotification && !(await window.claimProposalNotification(newProposals[0].id))) return;
-  notificationList.innerHTML = newProposals.slice(0, 5).map((proposal) => `<p><b>Đề xuất mới</b><span>${proposalNotificationText(proposal)}</span></p>`).join('');
-  notificationCount.textContent = String(newProposals.length);
+  let visibleProposals = newProposals.filter((proposal) => !locallyDeletedProposalIds.has(proposal.id));
+  if (!visibleProposals.length) return;
+  if (window.claimProposalNotification && !(await window.claimProposalNotification(visibleProposals[0].id))) return;
+  visibleProposals = visibleProposals.filter((proposal) => !locallyDeletedProposalIds.has(proposal.id));
+  if (!visibleProposals.length) return;
+  notificationList.innerHTML = visibleProposals.slice(0, 5).map((proposal) => `<p><b>Đề xuất mới</b><span>${proposalNotificationText(proposal)}</span></p>`).join('');
+  notificationCount.textContent = String(visibleProposals.length);
   notificationCount.hidden = false;
   notificationPanel.hidden = false;
   notificationButton.classList.remove('is-notifying');
   void notificationButton.offsetWidth;
   notificationButton.classList.add('is-notifying');
-  window.speakProposalNotification?.(newProposals[0]);
+  window.speakProposalNotification?.(visibleProposals[0]);
   clearTimeout(notificationTimer);
   notificationTimer = setTimeout(() => {
     notificationPanel.hidden = true;
@@ -177,9 +181,9 @@ async function showProposalNotification(newProposals) {
   }, 5000);
 
   if (window.desktopSettings?.notify) {
-    window.desktopSettings.notify({ title: 'Có đề xuất mới', body: proposalNotificationText(newProposals[0]) });
+    window.desktopSettings.notify({ title: 'Có đề xuất mới', body: proposalNotificationText(visibleProposals[0]) });
   } else if ('Notification' in window && Notification.permission === 'granted') {
-    const notification = new Notification('Có đề xuất mới', { body: proposalNotificationText(newProposals[0]), tag: 'gusa-proposal' });
+    const notification = new Notification('Có đề xuất mới', { body: proposalNotificationText(visibleProposals[0]), tag: 'gusa-proposal' });
     notification.onclick = () => window.desktopSettings?.showApp?.();
   }
 }
@@ -404,7 +408,7 @@ async function load(showFeedback = false) {
     const response = await fetch(`/api/proposals?scope=${scope}&refresh=${Date.now()}`, { cache: 'no-store' });
       if (!response.ok) throw new Error(isPaymentReport ? 'Không có quyền xem báo cáo đề xuất thanh toán.' : isAccountingTeamReport ? 'Chỉ Kế toán trưởng và Admin/CEO được xem báo cáo này.' : 'Không có quyền xem báo cáo nhân sự.');
       const result = await response.json();
-      const nextProposals = result.proposals || [];
+      const nextProposals = (result.proposals || []).filter((proposal) => !locallyDeletedProposalIds.has(proposal.id));
       canReview = result.canReview === true;
       viewerRole = result.viewerRole || 'employee';
       const linkedProposal = nextProposals.find((proposal) => proposal.id === displayedProposalId);
@@ -569,6 +573,7 @@ async function deleteProposal(button) {
       const errorMessage = (await response.text()).trim();
       throw new Error(errorMessage || 'Không thể xóa đề xuất.');
     }
+    locallyDeletedProposalIds.add(proposalId);
     proposals = proposals.filter((proposal) => proposal.id !== proposalId);
     renderSummary();
     render();
