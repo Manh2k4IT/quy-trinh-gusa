@@ -1,6 +1,11 @@
 const list = document.querySelector('[data-proposal-list]');
 const search = document.querySelector('[data-proposal-search]');
 const filter = document.querySelector('[data-proposal-status-filter]');
+const reportToolbar = document.querySelector('.report-toolbar');
+const searchBox = search.closest('.search-box');
+search.placeholder = 'Tìm theo tên người gửi...';
+search.setAttribute('aria-label', 'Tìm theo tên người gửi');
+reportToolbar.prepend(searchBox);
 const pageSize = 10;
 let currentPage = 1;
 const pagination = document.createElement('nav');
@@ -341,7 +346,8 @@ function closeProposalDetail() {
 }
 
 function render() {
-  const query = search.value.trim().toLowerCase();
+  const normalizeSearchText = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
+  const query = normalizeSearchText(search.value.trim());
   const visible = proposals.filter((proposal) => {
     const dayOffset = proposalDayOffset(proposal);
     const matchesDay = dayFilter.value === 'all' || dayOffset === Number(dayFilter.value);
@@ -349,7 +355,7 @@ function render() {
     const matchesProposal = !displayedProposalId || proposal.id === displayedProposalId;
     const matchesPaymentFlow = !isPaymentReport || (proposal.paymentFlow || 'ceo') === selectedPaymentFlow;
     const matchesStatus = filter.value === 'all' || proposal.status === filter.value;
-    const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''} ${proposal.subject || ''}`.toLowerCase().includes(query);
+    const matchesSearch = !query || normalizeSearchText(proposal.userName).includes(query);
     return matchesDay && matchesType && matchesProposal && matchesPaymentFlow && matchesStatus && matchesSearch;
   }).sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date));
   const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
