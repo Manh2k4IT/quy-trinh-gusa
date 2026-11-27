@@ -1,6 +1,19 @@
 const list = document.querySelector('[data-proposal-list]');
 const search = document.querySelector('[data-proposal-search]');
 const filter = document.querySelector('[data-proposal-status-filter]');
+const pageSize = 10;
+let currentPage = 1;
+const pagination = document.createElement('nav');
+pagination.className = 'proposal-pagination';
+pagination.setAttribute('aria-label', 'Phân trang danh sách đề xuất');
+list.after(pagination);
+pagination.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-page]');
+  if (!button || button.disabled) return;
+  currentPage = Number(button.dataset.page);
+  render();
+  list.scrollIntoView({ block: 'start', behavior: 'smooth' });
+});
 const proposalUrl = new URLSearchParams(window.location.search);
 const requestedProposalId = proposalUrl.get('proposalId') || '';
 let displayedProposalId = requestedProposalId;
@@ -85,6 +98,7 @@ summaryCards.forEach(([card, status]) => {
     displayedProposalId = '';
     dayFilter.value = 'all';
     filter.value = status;
+    currentPage = 1;
     render();
     document.querySelector('.report-list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
@@ -338,7 +352,10 @@ function render() {
     const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''} ${proposal.subject || ''}`.toLowerCase().includes(query);
     return matchesDay && matchesType && matchesProposal && matchesPaymentFlow && matchesStatus && matchesSearch;
   }).sort((first, second) => new Date(second.createdAt || second.date) - new Date(first.createdAt || first.date));
-  list.innerHTML = visible.length ? visible.map((proposal) => {
+  const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
+  currentPage = Math.min(currentPage, totalPages);
+  const pageProposals = visible.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  list.innerHTML = pageProposals.length ? pageProposals.map((proposal) => {
     const isPayment = proposal.type === 'payment';
     const typeLabel = proposal.type === 'other' && proposal.subject
       ? `Đề xuất: ${String(proposal.subject).replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`)}`
@@ -367,9 +384,9 @@ function render() {
       : '';
     return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}" data-proposal-id="${proposal.id}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions">${deleteAction}<button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${zaloResend}${decisionActions}</div></article>`;
   }).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
-  if (visible.length) {
+  if (pageProposals.length) {
     const reportItems = list.querySelectorAll('.report-item');
-    visible.forEach((proposal, index) => {
+    pageProposals.forEach((proposal, index) => {
       if (proposal.type !== 'payment') return;
       const source = document.createElement('span');
       // The badge tells where a CEO-flow payment stands, so a rejected one never reads as approved.
@@ -385,6 +402,31 @@ function render() {
       reportItems[index]?.querySelector('.report-type')?.after(source);
     });
   }
+  renderPagination(totalPages, visible.length);
+}
+
+function renderPagination(totalPages, totalItems) {
+  pagination.replaceChildren();
+  pagination.hidden = totalPages <= 1;
+  if (pagination.hidden) return;
+
+  const createPageButton = (label, page, disabled = false, current = false) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.dataset.page = String(page);
+    button.disabled = disabled;
+    if (current) {
+      button.className = 'is-current';
+      button.setAttribute('aria-current', 'page');
+    }
+    return button;
+  };
+  pagination.append(createPageButton('Trước', currentPage - 1, currentPage === 1));
+  const pageLabel = document.createElement('span');
+  pageLabel.textContent = `Trang ${currentPage} / ${totalPages} · ${totalItems} đề xuất`;
+  pagination.append(pageLabel);
+  pagination.append(createPageButton('Sau', currentPage + 1, currentPage === totalPages));
 }
 
 function renderSummary() {
@@ -596,20 +638,24 @@ document.addEventListener('keydown', (event) => {
 });
 search.addEventListener('input', () => {
   displayedProposalId = '';
+  currentPage = 1;
   render();
 });
 filter.addEventListener('change', () => {
   displayedProposalId = '';
+  currentPage = 1;
   render();
 });
 dayFilter.addEventListener('change', () => {
   displayedProposalId = '';
+  currentPage = 1;
   render();
 });
 paymentFlowTabs.addEventListener('click', (event) => {
   const selectedTab = event.target.closest('[data-payment-flow-filter]');
   if (!selectedTab) return;
   selectedPaymentFlow = selectedTab.dataset.paymentFlowFilter;
+  currentPage = 1;
   paymentFlowTabs.querySelectorAll('[data-payment-flow-filter]').forEach((tab) => {
     const selected = tab === selectedTab;
     tab.classList.toggle('is-active', selected);
