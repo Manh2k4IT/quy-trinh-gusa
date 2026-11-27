@@ -15,11 +15,20 @@ let state = null;
 let activeTab = 'mine';
 let stageFilter = '';
 let resubmitOrderId = '';
+const photoSelections = new WeakMap();
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const formatDate = (value) => value ? value.slice(0, 10).split('-').reverse().join('/') : '';
 const formatDateTime = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 const formatNumber = (value) => value == null ? '' : Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
+const approvalSuggestedPrice = (order, level) => {
+  const savedPrice = order.proposal?.[`approval${level}SuggestedSellingPrice`];
+  if (savedPrice != null) return savedPrice;
+  const hasLevel2Approval = Boolean(order.approvals?.['approval-2']);
+  if (level === 1 && !hasLevel2Approval) return order.proposal?.suggestedSellingPrice;
+  if (level === 2 && hasLevel2Approval) return order.proposal?.suggestedSellingPrice;
+  return null;
+};
 const todayKey = () => {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
   const value = (type) => parts.find((part) => part.type === type)?.value || '';
@@ -96,7 +105,7 @@ function stepper(order) {
   const currentIndex = state.stageOrder.indexOf(order.status);
   const canReviewHistory = state.me.canManage || state.me.roles.includes('view-history');
   const visibleStages = state.stageOrder.map((stage, index) => ({ stage, index }));
-  return `<ol class="production-stepper">${visibleStages.map(({ stage, index }, visibleIndex) => {
+  return `<ol class="production-stepper" style="--stage-count:${visibleStages.length}">${visibleStages.map(({ stage, index }, visibleIndex) => {
     const status = order.status === 'rejected' ? (index === 0 ? 'is-rejected' : '') : order.status === 'completed' || index < currentIndex ? 'is-done' : index === currentIndex ? 'is-current' : '';
     return `<li class="${status}"><button type="button" ${canReviewHistory ? `data-view-stage="${stage}"` : 'disabled'} title="${canReviewHistory ? `Xem tiến độ ${escapeHtml(state.stages[stage].label)}` : 'Bạn chưa được cấp quyền xem lại tiến độ'}"><span>${visibleIndex + 1}</span><small>${escapeHtml(state.stages[stage].label)}</small></button></li>`;
   }).join('')}</ol>`;
@@ -105,6 +114,7 @@ function stepper(order) {
 function stageFiles(order, stage) {
   if (stage === 'washing') return [...(order.wash?.files || []).map((file) => ({ ...file, section: 'Gửi vải đi wash' })), ...(order.wash?.returnFiles || []).map((file) => ({ ...file, section: 'Hàng wash về' }))];
   if (stage === 'handover') return (order.handover?.files || []).map((file) => ({ ...file, section: 'Bàn giao xưởng' }));
+  if (stage === 'print-label') return (order.labelPrint?.files || []).map((file) => ({ ...file, section: 'Ảnh tem đã in' }));
   if (stage === 'reconcile') return Object.entries(order.reconcile?.photos || {}).flatMap(([key, list]) => list.map((file) => ({ ...file, section: ({ erp: 'Xác nhận ERPNext', transferPrint: 'Phiếu chuyển kho đã in', proposalPrint: 'Phiếu đề xuất đã in' })[key] || 'Đối chiếu' })));
   if (stage === 'product-receive') return [...(order.receipt?.documentFiles || []).map((file) => ({ ...file, section: 'Chứng từ Vận hành & Kế toán xác nhận' })), ...(order.receipt?.productFiles || []).map((file) => ({ ...file, section: 'Ảnh sản phẩm tiếp nhận' }))];
   return [];
@@ -137,14 +147,17 @@ function stageProgressDetails(order, stage) {
     ['Người lập', escapeHtml(order.createdBy?.name)], ['Ngày lập', formatDateTime(order.createdAt)],
     ['Mã sản phẩm', escapeHtml(proposal.productCode)], ['Tên sản phẩm', escapeHtml(proposal.productName)],
     ...(proposal.deliveryDate ? [['Ngày giao dự kiến', formatDate(proposal.deliveryDate)]] : []), ['Số lượng', formatNumber(proposal.quantity)],
-    ['Giá bán đề xuất', proposal.suggestedSellingPrice ? `${formatNumber(proposal.suggestedSellingPrice)} đ/sp` : 'Chưa nhập'],
+    ['Giá đề xuất cấp 1', approvalSuggestedPrice(order, 1) != null ? `${formatNumber(approvalSuggestedPrice(order, 1))} đ/sp` : 'Chưa nhập'],
     ['Trạng thái duyệt', order.approvals?.['approval-1'] ? `Đã duyệt bởi ${escapeHtml(order.approvals['approval-1'].name)}` : 'Chưa duyệt'],
   ]);
   if (stage === 'approval-2') return rows([
     ['Duyệt cấp 1', order.approvals?.['approval-1'] ? `${escapeHtml(order.approvals['approval-1'].name)} · ${formatDateTime(order.approvals['approval-1'].at)}` : 'Chưa duyệt'],
+    ['Giá đề xuất cấp 1', approvalSuggestedPrice(order, 1) != null ? `${formatNumber(approvalSuggestedPrice(order, 1))} đ/sp` : 'Chưa nhập'],
     ['Duyệt cấp 2', order.approvals?.['approval-2'] ? `${escapeHtml(order.approvals['approval-2'].name)} · ${formatDateTime(order.approvals['approval-2'].at)}` : 'Chưa duyệt'],
+    ['Giá đề xuất cấp 2', approvalSuggestedPrice(order, 2) != null ? `${formatNumber(approvalSuggestedPrice(order, 2))} đ/sp` : 'Chưa nhập'],
   ]);
   if (stage === 'fabric-prep') return `${rows([['Số lượng xác nhận', formatNumber(proposal.quantity)], ['Số dòng size', proposal.technicalRows?.length || 0]])}${productionQuantityTable(proposal, order.fabrics)}`;
+  if (stage === 'fabric-prep-before-wash') return `${rows([['Số mã vải', order.fabrics?.length || 0]])}${fabricTable(order)}`;
   if (stage === 'washing') return `${rows([
     ['Đơn vị wash', escapeHtml(order.wash?.vendor || '')], ['Đưa đi wash', formatDateTime(order.wash?.sentAt)],
     ['Nhận hàng wash', formatDateTime(order.wash?.returnedAt)],
@@ -158,6 +171,10 @@ function stageProgressDetails(order, stage) {
   if (stage === 'handover') return rows([
     ['Người bàn giao', escapeHtml(order.handover?.name)], ['Thời gian bàn giao', formatDateTime(order.handover?.at)],
     ['Trạng thái', order.handover ? 'Đã bàn giao cho xưởng' : 'Chưa bàn giao'],
+  ]);
+  if (stage === 'print-label') return rows([
+    ['Người in tem', escapeHtml(order.labelPrint?.name)], ['Thời gian in tem', formatDateTime(order.labelPrint?.at)],
+    ['Trạng thái', order.labelPrint ? 'Đã in tem, có ảnh xác nhận' : 'Chưa in tem'],
   ]);
   if (stage === 'workshop-receive') return rows([
     ['Người nhận', escapeHtml(order.workshop?.name)], ['Ngày nhận', formatDateTime(order.workshop?.receivedAt)],
@@ -177,6 +194,8 @@ function stageProgressDetails(order, stage) {
     ['Trạng thái', order.approvals?.['final-approval-2'] ? 'Đã duyệt cấp 2' : 'Chờ duyệt cấp 2'],
     ['Người duyệt', escapeHtml(order.approvals?.['final-approval-2']?.name)],
     ['Thời gian duyệt', formatDateTime(order.approvals?.['final-approval-2']?.at)],
+    ['Giá bán cuối cùng', order.finalSellingPrice ? `${formatNumber(order.finalSellingPrice.value)} đ/sp` : 'Chưa chốt'],
+    ...(order.finalSellingPrice ? [['Cách chốt giá', order.finalSellingPrice.source === 'adjusted-at-final-approval' ? 'Giá thay thế sau khi từ chối giá Bước 6' : 'Giá Bước 6 được cấp 2 duyệt']] : []),
   ]);
   if (stage === 'product-receive') return rows([
     ['Số lượng sản phẩm đã nhận', formatNumber(order.receipt?.receivedQuantity)],
@@ -204,7 +223,8 @@ function fabricTable(order) {
 }
 
 function approvalPriceAndLossSummary(order) {
-    const proposal = order.proposal || {};
+    const approval1Price = approvalSuggestedPrice(order, 1);
+    const approval2Price = approvalSuggestedPrice(order, 2);
     const rows = (order.fabrics || []).map((fabric) => {
       const loss = lossOf(fabric);
       const lossLabel = loss == null ? 'Chưa có số sau wash' : `${(loss * 100).toFixed(1)}%`;
@@ -219,7 +239,8 @@ function approvalPriceAndLossSummary(order) {
     return `<section class="production-final-review">
       <h4>Thông tin trước duyệt</h4>
       <div class="production-info">
-        <div><dt>Giá đề xuất cấp 1</dt><dd>${proposal.suggestedSellingPrice ? `${formatNumber(proposal.suggestedSellingPrice)} đ/sản phẩm` : 'Chưa nhập'}</dd></div>
+        <div><dt>Giá đề xuất cấp 1</dt><dd>${approval1Price != null ? `${formatNumber(approval1Price)} đ/sản phẩm` : 'Chưa lưu'}</dd></div>
+        <div><dt>Giá đề xuất cấp 2</dt><dd>${approval2Price != null ? `${formatNumber(approval2Price)} đ/sản phẩm` : 'Chưa nhập'}</dd></div>
         <div><dt>Giá xưởng đã nhập</dt><dd>${order.workshop?.unitPrice ? `${formatNumber(order.workshop.unitPrice)} đ/sản phẩm` : 'Chưa nhập'}</dd></div>
         <div><dt>Giá bán tính ở Bước 6</dt><dd>${order.sellingPrice?.value ? `${formatNumber(order.sellingPrice.value)} đ/sản phẩm` : 'Chưa nhập'}</dd></div>
       </div>
@@ -228,6 +249,18 @@ function approvalPriceAndLossSummary(order) {
         <tbody>${rows}</tbody>
       </table></div>` : ''}
     </section>`;
+}
+
+function approvalPriceSummary(order) {
+  const approval1Price = approvalSuggestedPrice(order, 1);
+  const approval2Price = approvalSuggestedPrice(order, 2);
+  const prices = [
+    ['Giá bán đề xuất từ bước duyệt cấp 1', approval1Price, approval1Price == null && order.approvals?.['approval-1'] ? 'Chưa lưu' : 'Chưa nhập'],
+    ['Giá bán đề xuất từ bước duyệt cấp 2', approval2Price, approval2Price == null && order.approvals?.['approval-2'] ? 'Chưa lưu' : 'Chưa nhập'],
+    ['Giá xưởng đã nhập', order.workshop?.unitPrice, 'Chưa nhập'],
+    ['Giá bán tính ở Bước 6', order.sellingPrice?.value, 'Chưa nhập'],
+  ];
+  return `<dl class="production-info">${prices.map(([label, price, missing]) => `<div><dt>${label}</dt><dd>${price != null ? `${formatNumber(price)} đ/sản phẩm` : missing}</dd></div>`).join('')}</dl>`;
 }
 
 function infoRows(rows) {
@@ -284,12 +317,31 @@ async function shrinkImage(file) {
 }
 
 async function readFiles(input) {
-  const files = [...(input?.files || [])];
+  const files = input && photoSelections.has(input) ? photoSelections.get(input) : [...(input?.files || [])];
   if (files.length > 5) throw new Error('Chỉ đính kèm tối đa 5 file.');
   const results = await Promise.all(files.map(async (file) => /^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) ? shrinkImage(file) : { name: file.name, data: await readDataUrl(file) }));
   const tooLarge = results.find((file) => file.data.length * 0.75 > 8 * 1024 * 1024);
   if (tooLarge) throw new Error(`File ${tooLarge.name} vượt quá 8MB.`);
   return results;
+}
+
+function photoUploadField(name, title, { multiple = false, required = false, hint = '' } = {}) {
+  const attributes = [
+    `name="${escapeHtml(name)}"`,
+    'type="file"',
+    'accept="image/*"',
+    multiple ? 'multiple' : '',
+    required ? 'required' : '',
+    'data-photo-picker-input',
+  ].filter(Boolean).join(' ');
+  const description = hint || 'Chụp ảnh bằng camera hoặc chọn ảnh có sẵn từ thiết bị.';
+  return `<label class="production-photo-picker" data-photo-picker>
+    <input ${attributes} aria-label="${escapeHtml(title)}" />
+    <span class="production-photo-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8.5h3l1.5-2h7l1.5 2h3v10H4z" /><circle cx="12" cy="13.5" r="3.2" /><path d="M18 11h.01" /></svg></span>
+    <span class="production-photo-picker-copy"><strong>${escapeHtml(title)}</strong>${required ? '<em>Bắt buộc</em>' : ''}<small>${escapeHtml(description)}</small></span>
+    <span class="production-photo-picker-action">Chụp ảnh / Tải ảnh lên</span>
+    <span class="production-photo-picker-files" data-photo-picker-files>Chưa chọn ảnh</span>
+  </label>`;
 }
 
 function actionPanel(order) {
@@ -298,7 +350,7 @@ function actionPanel(order) {
     return order.stageRole ? `<p class="production-waiting">Đang chờ: <strong>${escapeHtml(waiting || state.roles[order.stageRole]?.label || state.roles[order.stageRole] || '')}</strong></p>` : '';
   }
   const note = (label = 'Ghi chú') => `<label>${label}<textarea name="note" rows="2" maxlength="500"></textarea></label>`;
-  const sendBack = state.stageOrder.indexOf(order.status) >= 3 && order.status !== 'in-production'
+  const sendBack = state.stageOrder.indexOf(order.status) >= 2 && order.status !== 'in-production'
     ? '<button class="production-button is-ghost" type="button" data-action="send-back">Trả lại bước trước</button>' : '';
   const forms = {
     'approval-1': () => `<div class="production-selling-product">
@@ -306,6 +358,7 @@ function actionPanel(order) {
         <div><span>Tên sản phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
         <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
       </div>
+      ${approvalPriceSummary(order)}
       <label>Giá bán đề xuất (đ/sản phẩm)<input name="suggestedSellingPrice" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(order.proposal.suggestedSellingPrice || '')}" required /></label>
       <div class="production-approval-signature-box">
         <h4>Chữ ký duyệt cấp 1</h4>
@@ -320,7 +373,8 @@ function actionPanel(order) {
         <div><span>Tên sản phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
         <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
       </div>
-      <label>Giá bán đề xuất (đ/sản phẩm)<input name="suggestedSellingPrice" type="number" value="${escapeHtml(order.proposal.suggestedSellingPrice || '')}" readonly /></label>
+      ${approvalPriceSummary(order)}
+      <label>Giá bán đề xuất (đ/sản phẩm)<input name="suggestedSellingPrice" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(order.proposal.suggestedSellingPrice || '')}" required /></label>
       <div class="production-approval-signature-box">
         <h4>Chữ ký duyệt cấp 2</h4>
         <canvas class="production-signature" width="600" height="200" aria-label="Bảng ký duyệt" data-approval-signature></canvas>
@@ -335,16 +389,29 @@ function actionPanel(order) {
       <div class="production-signature-actions"><span data-approval-signature-status>Chưa có chữ ký</span><button class="production-link-button" type="button" data-clear-approval-signature>Xóa / Ký lại</button></div>
       <label>Họ và tên người duyệt<input name="approvalName" maxlength="150" value="${escapeHtml(state.me.name || '')}" required /></label>
     </div>
-    <div class="production-rejection-box" data-rejection-box hidden><label>Lý do từ chối<textarea name="note" rows="3" maxlength="500" placeholder="Nhập rõ lý do từ chối..."></textarea></label><div class="production-form-actions"><button class="production-button is-ghost" type="button" data-cancel-reject>Quay lại</button><button class="production-button is-danger" type="button" data-action="reject">Xác nhận từ chối</button></div></div>
-    <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt</button></div>`,
+    <div class="production-rejection-box" data-final-price-box hidden>
+      <h4>Điều chỉnh giá cuối cùng</h4>
+      <p class="production-hint">Giá bán tính ở Bước 6: <strong>${order.sellingPrice?.value ? `${formatNumber(order.sellingPrice.value)} đ/sản phẩm` : 'Chưa nhập'}</strong></p>
+      <p class="production-hint">Giá nhập bên dưới sẽ được lưu làm giá cuối sau khi cấp 2 xác nhận.</p>
+      <label>Giá bán cuối cùng thay thế (đ/sản phẩm)<input name="finalSellingPrice" type="number" min="1" step="1" inputmode="numeric" required /></label>
+      <div class="production-form-actions"><button class="production-button is-ghost" type="button" data-cancel-reject>Quay lại</button><button class="production-button" type="button" data-action="approve-final-price" disabled data-approve-button>Chốt giá thay thế &amp; duyệt</button></div>
+    </div>
+    <div class="production-form-actions" data-approval-actions><button class="production-button is-danger" type="button" data-show-reject>Từ chối giá Bước 6</button><button class="production-button" type="button" data-action="approve" disabled data-approve-button>Duyệt theo giá Bước 6</button></div>`,
     rejected: () => `<div class="production-form-actions"><button class="production-button" type="button" data-resubmit>Sửa &amp; gửi lại</button></div>`,
+    'fabric-prep-before-wash': () => `<p class="production-hint">Nhập mã vải, số m trước wash và số lượng theo size. Số lượng vải được tính bằng định mức ban đầu nhân tổng cộng; số m sau wash sẽ được cập nhật ở bước đối chiếu.</p>
+      <section class="production-paper-back is-step-editor">
+        <h3>BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h3>
+        <div class="paper-back-product-code"><strong>MÃ SP:</strong><span>${escapeHtml(order.proposal.productCode)}</span></div>
+        ${sizeTableMarkup({ showFabricQuantity: true })}
+      </section>
+      <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="prepare-fabric-before-wash">Xác nhận soạn vải</button></div>`,
     'fabric-prep': () => `<p class="production-hint">Số m sau wash đã được đối chiếu. Kiểm tra và chỉnh lần cuối bảng số lượng theo size, rồi bấm xác nhận bàn giao.</p>
       <section class="production-paper-back is-step-editor">
         <h3>BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h3>
         <div class="paper-back-product-code"><strong>MÃ SP:</strong><span>${escapeHtml(order.proposal.productCode)}</span></div>
-        ${sizeTableMarkup()}
+        ${sizeTableMarkup({ showFabricQuantity: true })}
       </section>
-      <div class="production-form-actions"><button class="production-button" type="button" data-action="prepare-fabric">Xác nhận bảng</button></div>`,
+      <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="prepare-fabric">Xác nhận bảng</button></div>`,
     reconcile: () => {
       const overLimit = order.fabrics.filter((fabric) => lossOf(fabric) > maxWashLoss);
       return `<p class="production-hint">Nhập số m sau wash của từng mã vải (so với số m trước wash), rồi xác nhận trên ERPNext. Hao hụt cho phép tối đa 5%.</p>
@@ -352,18 +419,16 @@ function actionPanel(order) {
         ${overLimit.length ? `<p class="production-alert">Hao hụt vượt 5%: ${overLimit.map((fabric) => `${escapeHtml(fabric.fabricCode)} (${(lossOf(fabric) * 100).toFixed(1)}%)`).join(', ')}. Bắt buộc ghi lý do.</p>` : ''}
         <label>Lý do hao hụt (bắt buộc nếu hao hụt vượt 5%)<textarea name="lossNote" rows="2" maxlength="500"></textarea></label>
         ${[
-          ['erpConfirmed', 'erp', 'Đã sửa số lượng và bấm xác nhận phiếu chuyển kho trên ERPNext', 'Ảnh màn hình phiếu chuyển kho đã xác nhận trên ERPNext'],
-          ['printed', 'transferPrint', 'Đã in 2 phiếu chuyển kho có chữ ký từ Vận hành kho thời trang', 'Ảnh 2 phiếu chuyển kho đã in có chữ ký từ Vận hành kho thời trang'],
-          ['proposalPrinted', 'proposalPrint', 'Đã in đủ 2 phiếu đề xuất sản xuất có chữ ký từ Vận hành kho thời trang', 'Ảnh 2 phiếu đề xuất sản xuất đã in có chữ ký từ Vận hành kho thời trang'],
-        ].map(([check, photo, label, photoLabel]) => `<div class="production-proof">
+          ['erpConfirmed', 'Phiếu chuyển kho', 'erp', 'Ảnh phiếu chuyển kho đã xác nhận trên ERPNext', 'Chụp ảnh xác minh hoặc tải ảnh phiếu chuyển kho lên.'],
+          ['proposalPrinted', 'Phiếu đề xuất sản xuất', 'proposalPrint', 'Ảnh 2 phiếu đề xuất sản xuất đã in có chữ ký', 'Chụp ảnh xác minh hoặc tải ảnh phiếu đề xuất lên.'],
+        ].map(([check, label, photoName, photoTitle, photoHint]) => `<div class="production-proof">
           <label class="production-check"><input type="checkbox" name="${check}" /> ${label}</label>
-          <label>${photoLabel} (bắt buộc)<input name="photo-${photo}" type="file" multiple accept="image/*" /></label>
+          ${photoUploadField(`photo-${photoName}`, photoTitle, { required: true, hint: photoHint })}
         </div>`).join('')}
         <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="reconcile">Xác nhận đối chiếu</button></div>`;
     },
-    handover: () => `<label class="production-check"><input type="checkbox" name="signed" /> Đã ký 2 phiếu chuyển kho, kẹp 1 phiếu vào phiếu đề xuất, bảo lưu 1 phiếu</label>
-      <label>Ảnh xác nhận đã bàn giao cho phòng sản xuất (bắt buộc)<input name="files" type="file" multiple accept="image/*" /></label>
-      <p class="production-muted">Chụp ảnh hoặc chọn từ thư viện. Tối đa 5 ảnh.</p>${note()}
+    handover: () => `<label class="production-check"><input type="checkbox" name="signed" /> Ký bộ &amp; bàn giao BỘ ĐỀ XUẤT (phiếu chuyển kho + phiếu đề xuất)</label>
+      ${photoUploadField('files', 'Ảnh xác nhận đã bàn giao cho phòng sản xuất', { multiple: true, required: true, hint: 'Có thể chọn tối đa 5 ảnh cùng lúc hoặc chọn lần lượt; ảnh đã chọn sẽ được giữ lại.' })}${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="handover">Bàn giao bộ đề xuất &amp; vải cho xưởng</button></div>`,
     'workshop-receive': () => `<p class="production-hint">Xác nhận đã nhận đủ bộ đề xuất (phiếu đề xuất + phiếu chuyển kho) và vải.</p>
       <div class="production-grid"><label>Đơn giá sản xuất (đ/sản phẩm)<input name="unitPrice" type="number" min="1" step="1" inputmode="numeric" /></label><label>Ngày giao hàng dự kiến<input name="expectedDate" type="date" min="${todayKey()}" /></label></div>${note()}
@@ -374,16 +439,18 @@ function actionPanel(order) {
         <div><span>Tên sản phẩm</span><strong>${escapeHtml(order.proposal.productName)}</strong></div>
         <div><span>Số lượng dự kiến</span><strong>${formatNumber(order.proposal.quantity)} sản phẩm</strong></div>
       </div>
-      ${order.proposal.suggestedSellingPrice ? `<p class="production-hint">Giá bán đề xuất từ bước duyệt cấp 1: <strong>${formatNumber(order.proposal.suggestedSellingPrice)} đ/sản phẩm</strong></p>` : ''}
-      ${order.workshop?.unitPrice ? `<p class="production-hint">Giá xưởng đã nhập: <strong>${formatNumber(order.workshop.unitPrice)} đ/sản phẩm</strong></p>` : ''}
+      ${approvalPriceSummary(order)}
       <div class="production-grid"><label>Giá bán cho sản phẩm này (đ/sản phẩm)<input name="sellingPrice" type="number" min="1" step="1" inputmode="numeric" required /></label></div>${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="selling-price">Xác nhận giá bán</button></div>`,
+    'print-label': () => `<p class="production-hint">In tem sản phẩm, sau đó chụp ảnh tem đã in để xác nhận.</p>
+      ${photoUploadField('files', 'Ảnh tem đã in', { multiple: true, required: true, hint: 'Chụp ảnh hoặc tải ảnh tem đã in lên. Có thể chọn tối đa 5 ảnh.' })}
+      <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="confirm-label-print">Xác nhận đã in tem</button></div>`,
     'in-production': () => `<p class="production-hint">Khi xưởng đã sản xuất xong, xác nhận hoàn tất để chuyển sang bước tiếp nhận sản phẩm.</p>${note()}
       <div class="production-form-actions"><button class="production-button" type="button" data-action="complete-production">Xưởng báo hoàn tất sản xuất</button></div>`,
-    'product-receive': () => `<p class="production-hint">Nhập số lượng sản phẩm thực nhận và tải ảnh chứng từ đã được Vận hành, Kế toán xác nhận cùng ảnh sản phẩm.</p>
+    'product-receive': () => `<p class="production-hint">Nhập số lượng sản phẩm thực nhận và chụp ảnh hoặc tải ảnh chứng từ, ảnh sản phẩm lên.</p>
       <label>Số lượng sản phẩm đã nhận<input name="receivedQuantity" type="number" min="1" step="1" inputmode="numeric" required /></label>
-      <label>Ảnh chứng từ đã xác nhận từ Vận hành và Kế toán (bắt buộc)<input name="photo-documents" type="file" accept="image/*" capture="environment" required /></label>
-      <label>Ảnh sản phẩm tiếp nhận (bắt buộc)<input name="photo-products" type="file" accept="image/*" capture="environment" required /></label>${note()}
+      ${photoUploadField('photo-documents', 'Ảnh chứng từ đã xác nhận từ Vận hành và Kế toán', { required: true })}
+      ${photoUploadField('photo-products', 'Ảnh sản phẩm tiếp nhận', { required: true })}${note()}
       <div class="production-form-actions">${sendBack}<button class="production-button" type="button" data-action="product-receive">Xác nhận tiếp nhận sản phẩm</button></div>`,
   };
   return forms[order.status] ? `<section class="production-action" data-action-form><h3>${escapeHtml(order.stageStep)} · ${escapeHtml(order.stageLabel)}</h3>${forms[order.status]()}<p class="production-error" data-action-error role="alert"></p></section>` : '';
@@ -418,7 +485,7 @@ function proposalApprovalPreview(order) {
     <section class="production-approval-page">
       <h3>BẢNG SỐ LƯỢNG ĐỀ XUẤT THEO SIZE</h3>
       <p><b>MÃ SP:</b> ${escapeHtml(proposal.productCode)}</p>
-      ${productionQuantityTable(proposal, order.fabrics)}
+      ${productionQuantityTable(proposal, order.fabrics, { proposalEntry: ['approval-1', 'approval-2'].includes(order.status) })}
     </section>
   </div>`;
 }
@@ -440,23 +507,42 @@ function sizeValuesOf(row, columns) {
 }
 
 const sizeTotalOf = (values) => values.reduce((sum, value) => sum + (Number(value) || 0), 0);
+const fabricQuantityOf = (sizes, fabricNorm) => {
+  const norm = Number(fabricNorm);
+  if (!Number.isFinite(norm) || norm <= 0) return '';
+  const quantity = sizeTotalOf(sizes) * norm;
+  return Number.isFinite(quantity) ? String(Number(quantity.toFixed(2))) : '';
+};
 
-function productionQuantityTable(proposal, fabrics = []) {
+function productionQuantityTable(proposal, fabrics = [], { proposalEntry = false } = {}) {
   const columns = sizeColumnsOf(proposal);
-  const rows = (proposal?.technicalRows || []).filter((row) => row.item || row.requirement || row.actual || sizeValuesOf(row, columns).some(Boolean));
-  const sizeWidth = Math.max(4, Math.floor(40 / columns.length));
+  const rows = (proposal?.technicalRows || []).filter((row) => (proposalEntry
+    ? row.color || sizeValuesOf(row, columns).some(Boolean)
+    : row.item || row.requirement || row.actual || sizeValuesOf(row, columns).some(Boolean)));
+  const sizeWidth = Math.max(4, Math.floor((proposalEntry ? 70 : 40) / columns.length));
   const body = (rows.length ? rows : [{}]).map((row) => {
     const sizes = sizeValuesOf(row, columns);
+    const total = sizeTotalOf(sizes);
     const fabric = fabrics.find((item) => String(item.fabricCode || '').trim().toLowerCase() === String(row.item || '').trim().toLowerCase());
     const actual = row.actual || (fabric?.washedMeters != null ? String(fabric.washedMeters) : '');
-    return `<tr><td>${escapeHtml(row.item || '')}</td><td>${escapeHtml(row.requirement || '')}</td><td>${escapeHtml(actual)}</td>${sizes.map((value) => `<td>${escapeHtml(value || '0')}</td>`).join('')}<td>${sizeTotalOf(sizes)}</td></tr>`;
+    const identity = proposalEntry ? row.color : row.item;
+    const meterCells = proposalEntry ? '' : `<td>${escapeHtml(row.requirement || '')}</td><td>${escapeHtml(actual)}</td>`;
+    const fabricQuantity = proposalEntry ? '' : fabricQuantityOf(sizes, proposal.fabricNorm);
+    const fabricQuantityCell = proposalEntry ? '' : `<td>${fabricQuantity === '' ? '' : formatNumber(fabricQuantity)}</td>`;
+    return `<tr><td>${escapeHtml(identity || '')}</td>${meterCells}${sizes.map((value) => `<td>${escapeHtml(value || '0')}</td>`).join('')}<td>${total}</td>${fabricQuantityCell}</tr>`;
   }).join('');
-  return `<table class="production-quantity-table"><colgroup><col style="width:18%"><col style="width:14%"><col style="width:14%">${columns.map(() => `<col style="width:${sizeWidth}%">`).join('')}<col style="width:12%"></colgroup><thead><tr><th>Mẫu vải</th><th>Số m trước wash</th><th>Số m sau wash</th>${columns.map((label) => `<th>${escapeHtml(label)}</th>`).join('')}<th>Tổng cộng</th></tr></thead><tbody>${body}</tbody></table>`;
+  const identityColumn = proposalEntry ? '<col style="width:18%">' : '<col style="width:14%">';
+  const meterColumns = proposalEntry ? '' : '<col style="width:10%"><col style="width:10%">';
+  const fabricQuantityColumn = proposalEntry ? '' : '<col style="width:16%">';
+  const totalColumn = proposalEntry ? '<col style="width:12%">' : '<col style="width:10%">';
+  const identityHeader = proposalEntry ? '<th>Màu</th>' : '<th>Mẫu vải</th><th>Số m trước wash</th><th>Số m sau wash</th>';
+  const fabricQuantityHeader = proposalEntry ? '' : '<th>Số lượng vải</th>';
+  return `<table class="production-quantity-table"><colgroup>${identityColumn}${meterColumns}${columns.map(() => `<col style="width:${sizeWidth}%">`).join('')}${totalColumn}${fabricQuantityColumn}</colgroup><thead><tr>${identityHeader}${columns.map((label) => `<th>${escapeHtml(label)}</th>`).join('')}<th>Tổng cộng</th>${fabricQuantityHeader}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
 // Bảng nhập số lượng theo size dùng chung cho phiếu lập đề xuất và bước soạn vải.
-function sizeTableMarkup() {
-  return `<div class="production-size-table" data-size-table>
+function sizeTableMarkup({ showFabricQuantity = false } = {}) {
+  return `<div class="production-size-table" data-size-table data-show-fabric-quantity="${showFabricQuantity}">
     <div class="production-technical-scroll">
       <div class="production-technical-head" data-size-head></div>
       <div class="production-rows" data-size-rows></div>
@@ -468,22 +554,40 @@ function sizeTableMarkup() {
   </div>`;
 }
 
-function sizeRowMarkup(row, columns, { lockActual = false } = {}) {
+function sizeRowMarkup(row, columns, { lockActual = false, proposalEntry = false, showFabricQuantity = false, fabricNorm = 0 } = {}) {
   const sizes = sizeValuesOf(row, columns);
+  const identityField = proposalEntry
+    ? `<input name="technical-color" maxlength="60" placeholder="Màu" value="${escapeHtml(row.color || '')}" />
+      <input type="hidden" name="technical-item" value="${escapeHtml(row.item || '')}" />
+      <input type="hidden" name="technical-requirement" value="${escapeHtml(row.requirement || '')}" />
+      <input type="hidden" name="technical-actual" value="${escapeHtml(row.actual || '')}" />`
+    : `<input name="technical-item" maxlength="100" placeholder="Mẫu vải" value="${escapeHtml(row.item || '')}" />
+      <input name="technical-requirement" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Số m" value="${escapeHtml(row.requirement || '')}" />
+      <input name="technical-actual" type="number" ${lockActual ? 'readonly tabindex="-1" class="is-locked" title="Cột này bị khóa ở bước này"' : 'min="0" step="0.01" inputmode="decimal" placeholder="Số m"'} value="${escapeHtml(row.actual || '')}" />
+      <input type="hidden" name="technical-color" value="${escapeHtml(row.color || '')}" />`;
   return `<div class="production-technical-row" data-size-row>
-    <input name="technical-item" maxlength="100" placeholder="Mẫu vải" value="${escapeHtml(row.item || '')}" />
-    <input name="technical-requirement" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Số m" value="${escapeHtml(row.requirement || '')}" />
-    <input name="technical-actual" type="number" ${lockActual ? 'readonly tabindex="-1" class="is-locked" title="Cột này bị khóa ở bước này"' : 'min="0" step="0.01" inputmode="decimal" placeholder="Số m"'} value="${escapeHtml(row.actual || '')}" />
+    ${identityField}
     ${sizes.map((value) => `<input name="technical-size" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="${escapeHtml(value)}" data-size-quantity />`).join('')}
     <input name="technical-total" type="number" readonly tabindex="-1" value="${sizeTotalOf(sizes)}" data-size-total />
+    ${showFabricQuantity ? `<input type="number" step="0.01" readonly tabindex="-1" value="${fabricQuantityOf(sizes, fabricNorm)}" data-fabric-quantity title="Định mức ban đầu × Tổng cộng" />` : ''}
     <button type="button" class="production-row-remove" data-remove-size-row aria-label="Xóa dòng">×</button>
   </div>`;
 }
 
 function renderSizeTable(root, { columns, rows }, options = {}) {
+  const renderOptions = {
+    ...options,
+    showFabricQuantity: options.showFabricQuantity === true || root.dataset.showFabricQuantity === 'true',
+  };
   root.style.setProperty('--size-count', columns.length);
-  root.querySelector('[data-size-head]').innerHTML = `<span>Mẫu vải</span><span>Số m trước wash</span><span>Số m sau wash</span>${columns.map((label, index) => `<span class="production-size-head"><input data-size-label value="${escapeHtml(label)}" maxlength="10" placeholder="Size" aria-label="Tên cột size" />${columns.length > 1 ? `<button type="button" data-remove-size="${index}" aria-label="Xóa cột size">×</button>` : ''}</span>`).join('')}<span>Tổng cộng</span><span></span>`;
-  root.querySelector('[data-size-rows]').innerHTML = rows.map((row) => sizeRowMarkup(row, columns, options)).join('');
+  root.classList.toggle('is-proposal-entry', renderOptions.proposalEntry === true);
+  root.classList.toggle('is-fabric-quantity', renderOptions.showFabricQuantity);
+  const identityHeaders = renderOptions.proposalEntry
+    ? '<span>Màu</span>'
+    : '<span>Mẫu vải</span><span>Số m trước wash</span><span>Số m sau wash</span>';
+  const fabricQuantityHeader = renderOptions.showFabricQuantity ? '<span>Số lượng vải</span>' : '';
+  root.querySelector('[data-size-head]').innerHTML = `${identityHeaders}${columns.map((label, index) => `<span class="production-size-head"><input data-size-label value="${escapeHtml(label)}" maxlength="10" placeholder="Size" aria-label="Tên cột size" />${columns.length > 1 ? `<button type="button" data-remove-size="${index}" aria-label="Xóa cột size">×</button>` : ''}</span>`).join('')}<span>Tổng cộng</span>${fabricQuantityHeader}<span></span>`;
+  root.querySelector('[data-size-rows]').innerHTML = rows.map((row) => sizeRowMarkup(row, columns, renderOptions)).join('');
   root.querySelector('[data-add-size-column]').hidden = columns.length >= maxSizeColumns;
   root.querySelector('[data-add-size-row]').hidden = rows.length >= maxSizeRows;
 }
@@ -492,9 +596,10 @@ function readSizeTable(root) {
   return {
     columns: [...root.querySelectorAll('[data-size-label]')].map((input) => input.value.trim()),
     rows: [...root.querySelectorAll('[data-size-row]')].map((row) => ({
-      item: row.querySelector('[name="technical-item"]').value,
-      requirement: row.querySelector('[name="technical-requirement"]').value,
-      actual: row.querySelector('[name="technical-actual"]').value,
+      item: row.querySelector('[name="technical-item"]')?.value || '',
+      requirement: row.querySelector('[name="technical-requirement"]')?.value || '',
+      actual: row.querySelector('[name="technical-actual"]')?.value || '',
+      color: row.querySelector('[name="technical-color"]')?.value || '',
       sizes: [...row.querySelectorAll('[data-size-quantity]')].map((input) => input.value),
     })),
   };
@@ -511,7 +616,11 @@ function mountSizeTable(root, data, options = {}) {
   root.addEventListener('input', (event) => {
     const row = event.target.closest('[data-size-row]');
     if (!row || !event.target.matches('[data-size-quantity]')) return;
-    row.querySelector('[data-size-total]').value = sizeTotalOf([...row.querySelectorAll('[data-size-quantity]')].map((input) => input.value));
+    const sizes = [...row.querySelectorAll('[data-size-quantity]')].map((input) => input.value);
+    const total = sizeTotalOf(sizes);
+    row.querySelector('[data-size-total]').value = total;
+    const fabricQuantity = row.querySelector('[data-fabric-quantity]');
+    if (fabricQuantity) fabricQuantity.value = fabricQuantityOf(sizes, options.fabricNorm);
   });
   root.addEventListener('click', (event) => {
     const table = readSizeTable(root);
@@ -533,14 +642,14 @@ function mountSizeTable(root, data, options = {}) {
     }
     if (event.target.closest('[data-add-size-row]')) {
       if (table.rows.length >= maxSizeRows) return;
-      table.rows.push({ item: options.defaultItem || '', sizes: table.columns.map(() => '') });
+      table.rows.push({ item: options.proposalEntry ? '' : options.defaultItem || '', color: '', sizes: table.columns.map(() => '') });
       renderSizeTable(root, table, options);
       return;
     }
     const removeRow = event.target.closest('[data-remove-size-row]');
     if (removeRow) {
       table.rows.splice([...root.querySelectorAll('[data-size-row]')].indexOf(removeRow.closest('[data-size-row]')), 1);
-      if (!table.rows.length) table.rows.push({ item: options.defaultItem || '', sizes: table.columns.map(() => '') });
+      if (!table.rows.length) table.rows.push({ item: options.proposalEntry ? '' : options.defaultItem || '', color: '', sizes: table.columns.map(() => '') });
       renderSizeTable(root, table, options);
     }
   });
@@ -551,6 +660,7 @@ function openDetail(orderId) {
   if (!order) return;
   const proposal = order.proposal;
   const rejection = order.status === 'rejected' ? [...order.history].reverse().find((item) => item.action === 'Từ chối') : null;
+  const finalSellingPrice = order.finalSellingPrice?.value ?? order.sellingPrice?.value;
   detailModal.dataset.orderId = order.id;
   const approvalReview = ['approval-1', 'approval-2', 'final-approval-2'].includes(order.status);
   detail.innerHTML = `
@@ -568,8 +678,9 @@ function openDetail(orderId) {
     </section>
     ${approvalReview ? actionPanel(order) : ''}
     ${order.handover?.files?.length ? `<section class="production-section"><h3>Bàn giao cho phòng sản xuất</h3>${infoRows([['Người bàn giao', escapeHtml(order.handover.name)], ['Thời gian', formatDateTime(order.handover.at)]])}${fileList(order, order.handover.files)}</section>` : ''}
+    ${order.labelPrint?.files?.length ? `<section class="production-section"><h3>In tem</h3>${infoRows([['Người in tem', escapeHtml(order.labelPrint.name)], ['Thời gian', formatDateTime(order.labelPrint.at)]])}${fileList(order, order.labelPrint.files)}</section>` : ''}
     ${order.workshop ? `<section class="production-section"><h3>Xưởng sản xuất</h3>${infoRows([['Người nhận', escapeHtml(order.workshop.name)], ['Ngày nhận', formatDateTime(order.workshop.receivedAt)], ['Đơn giá', `${formatNumber(order.workshop.unitPrice)} đ/sp`], ['Thành tiền dự kiến', `${formatNumber(order.workshop.unitPrice * proposal.quantity)} đ`], ['Giao dự kiến', formatDate(order.workshop.expectedDate)]])}</section>` : ''}
-    ${order.sellingPrice ? `<section class="production-section"><h3>Giá bán</h3>${infoRows([['Người tính', escapeHtml(order.sellingPrice.name)], ['Thời gian', formatDateTime(order.sellingPrice.at)], ['Giá bán', `${formatNumber(order.sellingPrice.value)} đ/sp`], ['Doanh thu dự kiến', `${formatNumber(order.sellingPrice.value * proposal.quantity)} đ`]])}</section>` : ''}
+    ${order.sellingPrice ? `<section class="production-section"><h3>Giá bán</h3>${infoRows([['Người tính', escapeHtml(order.sellingPrice.name)], ['Thời gian', formatDateTime(order.sellingPrice.at)], ['Giá tính ở Bước 6', `${formatNumber(order.sellingPrice.value)} đ/sp`], ['Giá cuối cùng', order.finalSellingPrice ? `${formatNumber(order.finalSellingPrice.value)} đ/sp` : order.status === 'final-approval-2' ? 'Chưa duyệt' : 'Chưa chốt'], ...(order.finalSellingPrice ? [['Cách chốt giá', order.finalSellingPrice.source === 'step-6' ? 'Giá Bước 6 được cấp 2 duyệt' : 'Giá thay thế do cấp 2 duyệt']] : []), ['Doanh thu dự kiến', `${formatNumber(finalSellingPrice * proposal.quantity)} đ`]])}</section>` : ''}
     ${order.receipt ? `<section class="production-section"><h3>Tiếp nhận sản phẩm</h3>${infoRows([['Số lượng đã nhận', formatNumber(order.receipt.receivedQuantity)], ['Người tiếp nhận', escapeHtml(order.receipt.name)], ['Thời gian', formatDateTime(order.receipt.at)]])}<p class="production-hint">Chứng từ Vận hành &amp; Kế toán xác nhận</p>${fileList(order, order.receipt.documentFiles)}<p class="production-hint">Ảnh sản phẩm tiếp nhận</p>${fileList(order, order.receipt.productFiles)}</section>` : ''}
     <section class="production-section"><h3>Lịch sử</h3><ol class="production-history">${[...order.history].reverse().map((item) => `<li><strong>${escapeHtml(item.action === 'Duyệt' && item.stage === 'approval-1' ? 'Đã duyệt cấp 1' : item.action === 'Duyệt' && item.stage === 'approval-2' ? 'Đã duyệt cấp 2' : item.action)}</strong><span>${escapeHtml(item.name)} · ${formatDateTime(item.at)}</span>${item.note ? `<p>${escapeHtml(item.note)}</p>` : ''}</li>`).join('')}</ol></section>`;
   detailModal.hidden = false;
@@ -712,7 +823,8 @@ function updateLossPreview() {
 async function runAction(button) {
   const form = button.closest('[data-action-form]');
   const error = form.querySelector('[data-action-error]');
-  const action = button.dataset.action;
+  const submittedAction = button.dataset.action;
+  const action = submittedAction === 'approve-final-price' ? 'approve' : submittedAction;
   const order = state.orders.find((item) => item.id === detailModal.dataset.orderId);
   const value = (name) => form.querySelector(`[name="${name}"]`)?.value;
   const checked = (name) => Boolean(form.querySelector(`[name="${name}"]`)?.checked);
@@ -731,12 +843,12 @@ async function runAction(button) {
       error.textContent = 'Vui lòng ký xác nhận trước khi duyệt.';
       return;
     }
-    if (order.status === 'approval-1' && !payload.suggestedSellingPrice) {
+    if (['approval-1', 'approval-2'].includes(order.status) && !payload.suggestedSellingPrice) {
       error.textContent = 'Vui lòng nhập giá bán đề xuất.';
       form.querySelector('[name="suggestedSellingPrice"]')?.focus();
       return;
     }
-    if (order.status === 'approval-1') {
+    if (['approval-1', 'approval-2'].includes(order.status)) {
       const suggestedPrice = Number(payload.suggestedSellingPrice);
       if (!Number.isInteger(suggestedPrice) || suggestedPrice <= 0) {
         error.textContent = 'Giá bán đề xuất phải là số nguyên lớn hơn 0.';
@@ -744,9 +856,18 @@ async function runAction(button) {
         return;
       }
     }
+    if (submittedAction === 'approve-final-price') {
+      payload.finalSellingPrice = value('finalSellingPrice') || '';
+      const finalPrice = Number(payload.finalSellingPrice);
+      if (!Number.isInteger(finalPrice) || finalPrice <= 0) {
+        error.textContent = 'Giá bán cuối cùng phải là số nguyên lớn hơn 0.';
+        form.querySelector('[name="finalSellingPrice"]')?.focus();
+        return;
+      }
+    }
   }
-  if (action === 'prepare-fabric') Object.assign(payload, sizeTablePayload(form.querySelector('[data-size-table]')));
-  if (action === 'reconcile') Object.assign(payload, { fabrics: collectFabrics(form), lossNote: value('lossNote'), erpConfirmed: checked('erpConfirmed'), printed: checked('printed'), proposalPrinted: checked('proposalPrinted') });
+  if (action === 'prepare-fabric' || action === 'prepare-fabric-before-wash') Object.assign(payload, sizeTablePayload(form.querySelector('[data-size-table]')));
+  if (action === 'reconcile') Object.assign(payload, { fabrics: collectFabrics(form), lossNote: value('lossNote'), erpConfirmed: checked('erpConfirmed'), proposalPrinted: checked('proposalPrinted') });
   if (action === 'handover') payload.signed = checked('signed');
   if (action === 'workshop-receive') {
     Object.assign(payload, { unitPrice: value('unitPrice'), expectedDate: value('expectedDate') });
@@ -767,11 +888,13 @@ async function runAction(button) {
   form.querySelectorAll('button').forEach((item) => { item.disabled = true; });
   error.textContent = '';
   try {
+    if (['handover', 'confirm-label-print'].includes(action)) payload.files = await readFiles(form.querySelector('[name="files"]'));
     if (action === 'reconcile') {
-      payload.photos = {};
-      for (const key of ['erp', 'transferPrint', 'proposalPrint']) payload.photos[key] = await readFiles(form.querySelector(`[name="photo-${key}"]`));
+      payload.photos = {
+        erp: await readFiles(form.querySelector('[name="photo-erp"]')),
+        proposalPrint: await readFiles(form.querySelector('[name="photo-proposalPrint"]')),
+      };
     }
-    if (action === 'handover') payload.files = await readFiles(form.querySelector('[name="files"]'));
     if (action === 'product-receive') {
       payload.photos = {
         documents: await readFiles(form.querySelector('[name="photo-documents"]')),
@@ -797,6 +920,14 @@ detail.addEventListener('click', (event) => {
   if (event.target.closest('[data-resubmit]')) return openCreate(state.orders.find((order) => order.id === detailModal.dataset.orderId));
   if (event.target.closest('[data-show-reject]')) {
     const form = event.target.closest('[data-action-form]');
+    const finalPriceBox = form.querySelector('[data-final-price-box]');
+    if (finalPriceBox) {
+      form.querySelector('[data-action-error]').textContent = '';
+      finalPriceBox.hidden = false;
+      form.querySelector('[data-approval-actions]').hidden = true;
+      form.querySelector('[name="finalSellingPrice"]').focus();
+      return;
+    }
     form.querySelector('[data-rejection-box]').hidden = false;
     form.querySelector('[data-approval-actions]').hidden = true;
     form.querySelector('.production-approval-signature-box').hidden = true;
@@ -805,6 +936,13 @@ detail.addEventListener('click', (event) => {
   }
   if (event.target.closest('[data-cancel-reject]')) {
     const form = event.target.closest('[data-action-form]');
+    const finalPriceBox = form.querySelector('[data-final-price-box]');
+    if (finalPriceBox) {
+      finalPriceBox.hidden = true;
+      form.querySelector('[data-approval-actions]').hidden = false;
+      form.querySelector('[data-action-error]').textContent = '';
+      return;
+    }
     form.querySelector('[data-rejection-box]').hidden = true;
     form.querySelector('[data-approval-actions]').hidden = false;
     form.querySelector('.production-approval-signature-box').hidden = false;
@@ -819,6 +957,32 @@ detail.addEventListener('click', (event) => {
     if (rows.children.length > 1) event.target.closest('[data-fabric-row]').remove();
   }
 });
+detail.addEventListener('change', (event) => {
+  const input = event.target.closest('[data-photo-picker-input]');
+  if (!input) return;
+  const status = input.closest('[data-photo-picker]').querySelector('[data-photo-picker-files]');
+  const incoming = Array.from(input.files || []);
+  let files = incoming;
+  if (input.multiple) {
+    const previous = photoSelections.get(input) || [];
+    const existing = new Set(previous.map((file) => `${file.name}:${file.size}:${file.lastModified}`));
+    const additions = incoming.filter((file) => !existing.has(`${file.name}:${file.size}:${file.lastModified}`));
+    if (previous.length + additions.length > 5) {
+      photoSelections.set(input, previous);
+      status.textContent = `${previous.length ? `${previous.length} ảnh đã chọn. ` : ''}Tối đa 5 ảnh; ảnh vừa chọn chưa được thêm.`;
+      input.closest('[data-action-form]').querySelector('[data-action-error]').textContent = 'Chỉ đính kèm tối đa 5 ảnh. Hãy chọn ít ảnh hơn.';
+      input.value = '';
+      return;
+    }
+    files = [...previous, ...additions];
+    photoSelections.set(input, files);
+    input.value = '';
+  }
+  input.closest('[data-action-form]').querySelector('[data-action-error]').textContent = '';
+  status.textContent = files.length === 1
+    ? files[0].name
+    : files.length ? `${files.length} ảnh đã chọn: ${files.map((file) => file.name).join(', ')}` : 'Chưa chọn ảnh';
+});
 detail.addEventListener('input', updateLossPreview);
 
 function initializeApprovalSignature() {
@@ -826,15 +990,15 @@ function initializeApprovalSignature() {
   if (!canvas) return;
   const context = canvas.getContext('2d');
   const status = detail.querySelector('[data-approval-signature-status]');
-  const approveButton = detail.querySelector('[data-approve-button]');
+  const approveButtons = [...detail.querySelectorAll('[data-approve-button]')];
   const form = canvas.closest('[data-action-form]');
   const refreshApproveButton = () => {
-    if (!approveButton) return;
+    if (!approveButtons.length) return;
     const signed = canvas.dataset.signed === 'true';
     const nameInput = form?.querySelector('[name="approvalName"]');
     const priceInput = form?.querySelector('[name="suggestedSellingPrice"]');
     const priceValid = !priceInput || (Number.isInteger(Number(priceInput.value)) && Number(priceInput.value) > 0);
-    approveButton.disabled = !(signed && nameInput?.value.trim() && priceValid);
+    approveButtons.forEach((button) => { button.disabled = !(signed && nameInput?.value.trim() && priceValid); });
   };
   let pointer = null;
   context.strokeStyle = '#173f78';
@@ -875,15 +1039,21 @@ function initializeApprovalSignature() {
     context.clearRect(0, 0, canvas.width, canvas.height);
     delete canvas.dataset.signed;
     status.textContent = 'Chưa có chữ ký';
-    approveButton.disabled = true;
+    approveButtons.forEach((button) => { button.disabled = true; });
   });
 }
 
 function initializeFinalQuantityEditor(order) {
   const root = detail.querySelector('[data-size-table]');
   if (!root) return;
-  const rows = order.proposal.technicalRows?.length ? order.proposal.technicalRows : [{ item: order.proposal.productCode }];
-  mountSizeTable(root, { columns: sizeColumnsOf(order.proposal), rows }, { lockActual: true, defaultItem: order.proposal.productCode });
+  const defaultItem = order.status === 'fabric-prep-before-wash' ? '' : order.proposal.productCode;
+  const rows = order.proposal.technicalRows?.length ? order.proposal.technicalRows : [{ item: defaultItem }];
+  mountSizeTable(root, { columns: sizeColumnsOf(order.proposal), rows }, {
+    lockActual: true,
+    defaultItem,
+    showFabricQuantity: ['fabric-prep-before-wash', 'fabric-prep'].includes(order.status),
+    fabricNorm: order.proposal.fabricNorm,
+  });
 }
 
 // Phiếu đề xuất: định mức, màu/size, chữ ký.
@@ -942,7 +1112,8 @@ createForm.querySelector('[data-add-variant]').addEventListener('click', () => a
 variantRows.addEventListener('click', (event) => event.target.closest('[data-remove-row]')?.closest('[data-variant-row]').remove());
 const sizeTableRoot = createForm.querySelector('[data-size-table]');
 const defaultSizeTable = () => ({ columns: ['S'], rows: [{}] });
-mountSizeTable(sizeTableRoot, defaultSizeTable());
+const proposalEntryTableOptions = { proposalEntry: true };
+mountSizeTable(sizeTableRoot, defaultSizeTable(), proposalEntryTableOptions);
 
 const changeRows = createForm.querySelector('[data-change-rows]');
 function updateChangeNumbers() {
@@ -998,7 +1169,7 @@ function openCreate(order = null) {
   createForm.reset();
   clearSignature();
   variantRows.innerHTML = '';
-  renderSizeTable(sizeTableRoot, defaultSizeTable());
+  renderSizeTable(sizeTableRoot, defaultSizeTable(), proposalEntryTableOptions);
   changeRows.innerHTML = '';
   existingProductImage = '';
   productImageInput.value = '';
@@ -1009,7 +1180,7 @@ function openCreate(order = null) {
   if (order) {
     ['date', 'productCode', 'productName', 'reason', 'quantity', 'fabricNorm', 'fabric', 'color', 'sampleStatus', 'patternStatus', 'imageStatus', 'sampleSize', 'note', 'signatureName'].forEach((name) => { createForm.elements[name].value = order.proposal[name] ?? ''; });
     order.proposal.variants?.forEach(addVariant);
-    renderSizeTable(sizeTableRoot, { columns: sizeColumnsOf(order.proposal), rows: order.proposal.technicalRows?.length ? order.proposal.technicalRows : [{}] });
+    renderSizeTable(sizeTableRoot, { columns: sizeColumnsOf(order.proposal), rows: order.proposal.technicalRows?.length ? order.proposal.technicalRows : [{}] }, proposalEntryTableOptions);
     const savedChanges = (order.proposal.changeNotes || []).map((note) => typeof note === 'string' ? { detail: note } : note);
     (savedChanges.length ? savedChanges : [{}]).forEach(addChangeRow);
     existingProductImage = order.proposal.productImage || '';
