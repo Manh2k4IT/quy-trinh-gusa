@@ -3,6 +3,7 @@ const search = document.querySelector('[data-proposal-search]');
 const filter = document.querySelector('[data-proposal-status-filter]');
 const proposalUrl = new URLSearchParams(window.location.search);
 const requestedProposalId = proposalUrl.get('proposalId') || '';
+let displayedProposalId = requestedProposalId;
 const isPaymentReport = proposalUrl.get('type') === 'payment';
 // Leave and working-time proposals of the accounting staff, reviewed by the chief accountant.
 const isAccountingTeamReport = proposalUrl.get('type') === 'accounting-team';
@@ -65,7 +66,36 @@ for (const [counter, kind, drawing] of [
   icon.setAttribute('aria-hidden', 'true');
   icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${drawing}</svg>`;
   counter.closest('article').prepend(icon);
+  const actionHint = document.createElement('small');
+  actionHint.className = 'report-summary-action';
+  actionHint.textContent = 'Nhấn để xem danh sách';
+  counter.closest('article').append(actionHint);
 }
+const summaryCards = [
+  [summaryTotal?.closest('article'), 'all'],
+  [summaryPending?.closest('article'), 'pending'],
+  [summaryApproved?.closest('article'), 'approved'],
+];
+summaryCards.forEach(([card, status]) => {
+  if (!card) return;
+  card.dataset.summaryFilter = status;
+  card.setAttribute('role', 'button');
+  card.tabIndex = 0;
+  const openSummaryList = () => {
+    displayedProposalId = '';
+    dayFilter.value = 'all';
+    filter.value = status;
+    render();
+    document.querySelector('.report-list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+  card.addEventListener('click', openSummaryList);
+  card.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openSummaryList();
+    }
+  });
+});
 const accountantRejectModal = document.querySelector('[data-accountant-reject-modal]');
 const accountantRejectForm = document.querySelector('[data-accountant-reject-form]');
 const accountantRejectReason = document.querySelector('[data-accountant-reject-reason]');
@@ -298,7 +328,7 @@ function render() {
     const dayOffset = proposalDayOffset(proposal);
     const matchesDay = dayFilter.value === 'all' || dayOffset === Number(dayFilter.value);
     const matchesType = isPaymentReport ? proposal.type === 'payment' : proposal.type !== 'payment';
-    const matchesProposal = !requestedProposalId || proposal.id === requestedProposalId;
+    const matchesProposal = !displayedProposalId || proposal.id === displayedProposalId;
     const matchesPaymentFlow = !isPaymentReport || (proposal.paymentFlow || 'ceo') === selectedPaymentFlow;
     const matchesStatus = filter.value === 'all' || proposal.status === filter.value;
     const matchesSearch = !query || `${proposal.userName} ${proposal.reason} ${proposal.category || ''} ${proposal.subject || ''}`.toLowerCase().includes(query);
@@ -374,8 +404,8 @@ async function load(showFeedback = false) {
       const nextProposals = result.proposals || [];
       canReview = result.canReview === true;
       viewerRole = result.viewerRole || 'employee';
-      const linkedProposal = nextProposals.find((proposal) => proposal.id === requestedProposalId);
-      if (requestedProposalId && linkedProposal?.type === 'payment') {
+      const linkedProposal = nextProposals.find((proposal) => proposal.id === displayedProposalId);
+      if (displayedProposalId && linkedProposal?.type === 'payment') {
         selectedPaymentFlow = linkedProposal.paymentFlow || 'ceo';
         paymentFlowTabs.querySelectorAll('[data-payment-flow-filter]').forEach((button) => {
           const selected = button.dataset.paymentFlowFilter === selectedPaymentFlow;
@@ -390,9 +420,9 @@ async function load(showFeedback = false) {
     notificationInitialized = true;
     renderSummary();
     render();
-    if (requestedProposalId) {
+    if (displayedProposalId) {
       [...list.querySelectorAll('[data-proposal-id]')]
-        .find((item) => item.dataset.proposalId === requestedProposalId)
+        .find((item) => item.dataset.proposalId === displayedProposalId)
         ?.scrollIntoView({ block: 'center' });
     }
     window.GusaReportNotifications?.markSeen(result.reportNotificationSnapshot);
@@ -525,9 +555,18 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && detailModal && !detailModal.hidden) closeProposalDetail();
   if (event.key === 'Escape' && accountantRejectModal && !accountantRejectModal.hidden) closeAccountantRejectModal();
 });
-search.addEventListener('input', render);
-filter.addEventListener('change', render);
-dayFilter.addEventListener('change', render);
+search.addEventListener('input', () => {
+  displayedProposalId = '';
+  render();
+});
+filter.addEventListener('change', () => {
+  displayedProposalId = '';
+  render();
+});
+dayFilter.addEventListener('change', () => {
+  displayedProposalId = '';
+  render();
+});
 paymentFlowTabs.addEventListener('click', (event) => {
   const selectedTab = event.target.closest('[data-payment-flow-filter]');
   if (!selectedTab) return;

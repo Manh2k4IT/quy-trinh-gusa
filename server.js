@@ -1051,8 +1051,9 @@ function publishProposalEvent(proposal) {
   const payload = `event: proposal\ndata: ${JSON.stringify(proposal)}\n\n`;
   proposalEventClients.forEach((client) => {
     const shouldNotifyAccountant = needsAccountingReview(proposal) && client.role === "accountant";
+    const shouldNotifyChiefAccountant = needsChiefAccountantReview(proposal) && client.role === "accountant";
     const shouldNotifyManagement = needsManagementReview(proposal) && isManagementUser({ role: client.role });
-    if (shouldNotifyAccountant || shouldNotifyManagement) client.response.write(payload);
+    if (shouldNotifyAccountant || shouldNotifyChiefAccountant || shouldNotifyManagement) client.response.write(payload);
   });
 }
 
@@ -1232,7 +1233,7 @@ async function sendProposalCreatedPush(proposal) {
     : `${proposal.userName || "Nhân viên"} vừa gửi đề xuất ${flowLabel}.`;
   const soundName = isAccountingHandoff ? "proposal_payment_ceo_approved" : isDirectAccountantProposal ? "proposal_payment_direct_accountant" : isLateProposal ? "proposal_late_submitted" : isEarlyLeaveProposal ? "proposal_early_leave_submitted" : isHalfDayProposal ? "proposal_half_day_submitted" : isLeaveProposal ? "proposal_leave_submitted" : isUnauthorizedLeaveProposal ? "proposal_unauthorized_leave_submitted" : proposal.type === "payment" ? "proposal_new_payment" : "proposal_new_general";
   const channelId = isAccountingHandoff ? "proposal-created-payment-accounting-v1" : isDirectAccountantProposal ? "proposal-created-payment-accountant-direct-v1" : isLateProposal ? "proposal-created-late-v1" : isEarlyLeaveProposal ? "proposal-created-early-leave-v1" : isHalfDayProposal ? "proposal-created-half-day-v1" : isLeaveProposal ? "proposal-created-leave-v1" : isUnauthorizedLeaveProposal ? "proposal-created-unauthorized-leave-v1" : proposal.type === "payment" ? "proposal-created-payment-v2" : "proposal-created-general-v2";
-  const url = proposal.type === "payment" ? "https://quytrinh.gusa.vn/proposal-report.html?type=payment" : "https://quytrinh.gusa.vn/proposal-report.html";
+  const url = getProposalReviewUrl(proposal);
   const expiredTokens = new Set();
   await Promise.all(devices.map(async (device) => {
     try {
@@ -1651,7 +1652,7 @@ function serveNotifications(req, res) {
     kind: "action",
     title: proposal.type === "payment" ? "Đề xuất thanh toán chờ duyệt" : "Đề xuất chờ duyệt",
     text: `${proposal.userName || "Nhân viên"} gửi đề xuất ${proposalTypeName(proposal, proposalTypeLabels)}.`,
-    url: `/proposal-report.html?proposalId=${encodeURIComponent(proposal.id)}${proposal.type === "payment" ? "&type=payment" : ""}`,
+    url: getProposalReviewUrl(proposal).replace("https://quytrinh.gusa.vn", ""),
   }));
   const newApplications = recruitment.newApplicationsFor(currentUser);
   if (newApplications) items.push({ id: "new-applications", kind: "action", count: newApplications, time: recruitment.latestNewApplicationAt(currentUser), title: "Ứng viên mới", text: `${newApplications} hồ sơ ứng tuyển chưa xử lý.`, url: "/recruitment.html?view=applications" });
@@ -1703,7 +1704,11 @@ function serveNotifications(req, res) {
 
 function getProposalReviewUrl(proposal) {
   const query = new URLSearchParams({ proposalId: proposal.id });
-  if (proposal.type === "payment") query.set("type", "payment");
+  if (proposal.type === "payment") {
+    query.set("type", "payment");
+  } else if (isAccountingTeamProposal(proposal)) {
+    query.set("type", "accounting-team");
+  }
   return `https://quytrinh.gusa.vn/proposal-report.html?${query}`;
 }
 
