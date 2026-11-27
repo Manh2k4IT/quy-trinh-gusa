@@ -2070,6 +2070,19 @@ async function cancelProposal(req, res, proposalId) {
   sendJson(res, 200, { proposal: attachments.withUrls(proposal) });
 }
 
+function deleteProposal(req, res, proposalId) {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser || currentUser.status !== "active" || !isManagementUser(currentUser)) return send(res, 403, "Chỉ Admin/CEO được xóa đề xuất.");
+  const proposals = getProposals();
+  const proposalIndex = proposals.findIndex((item) => item.id === proposalId);
+  if (proposalIndex === -1) return send(res, 404, "Không tìm thấy đề xuất.");
+  const proposal = proposals[proposalIndex];
+  const remainingProposals = proposals.filter((item) => item.id !== proposalId);
+  fs.writeFileSync(proposalsPath, JSON.stringify(remainingProposals, null, 2));
+  attachments.remove(proposal.id);
+  sendJson(res, 200, { deleted: true, proposalId: proposal.id });
+}
+
 async function createProposal(req, res) {
   const currentUser = getCurrentUser(req);
   if (!currentUser || currentUser.status !== "active") return send(res, 403, "Forbidden");
@@ -2679,6 +2692,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url.startsWith("/api/proposals/") && req.url.endsWith("/cancel")) {
       const proposalId = decodeURIComponent(req.url.slice("/api/proposals/".length, -"/cancel".length));
       return await cancelProposal(req, res, proposalId);
+    }
+    if (req.method === "DELETE" && req.url.startsWith("/api/proposals/")) {
+      const proposalId = decodeURIComponent(req.url.slice("/api/proposals/".length));
+      return deleteProposal(req, res, proposalId);
     }
     if (req.method === "GET" && req.url === "/api/payment-template/download") return downloadPaymentTemplate(req, res);
     if (req.method === "GET" && req.url === "/api/payment-template") return servePaymentTemplate(req, res);

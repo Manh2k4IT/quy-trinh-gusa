@@ -27,6 +27,9 @@
 .report-actions { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: .45rem; padding-top: 2.7rem; }
 .report-actions button { min-width: 78px; min-height: 30px; border: 0; border-radius: 6px; color: #fff; background: #174b8e; cursor: pointer; font: inherit; font-size: .7rem; font-weight: 700; }
 .report-actions .report-detail-button { background: #1557a6; }
+.report-actions .report-delete-button { width: 30px; min-width: 30px; min-height: 30px; padding: 0; border: 1px solid #f3c7cc; border-radius: 50%; color: #c6283d; background: #fff; font-size: 1.25rem; line-height: 1; }
+.report-actions .report-delete-button:hover { border-color: #c6283d; color: #fff; background: #c6283d; }
+.report-actions .report-delete-button:disabled { cursor: wait; opacity: .6; }
 .report-actions .report-decision button[data-approve] { background: #16804a; }
 .report-actions .report-decision button[data-approve]:hover { background: #11683c; }
 .report-actions .report-decision button[data-confirm] { background: #16804a; }

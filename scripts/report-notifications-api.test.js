@@ -364,3 +364,38 @@ test("signed proposals preserve documents and payment routing", async () => {
   assert.equal(legacy.status, 200);
   assert.equal((await request("/api/proposals/management-payment/document?format=pdf", "admin")).status, 200);
 });
+
+test("only Admin and CEO can permanently delete proposals in any status and their attachments", async () => {
+  const file = path.join(directory, "proposals.json");
+  const original = fs.readFileSync(file, "utf8");
+  const records = [
+    { id: "delete-pending", userId: "employee", type: "leave", status: "pending" },
+    { id: "delete-approved", userId: "employee", type: "leave", status: "approved" },
+    { id: "delete-rejected", userId: "employee", type: "leave", status: "rejected" },
+  ];
+  const attachmentsDirectory = path.join(directory, "attachments");
+  fs.mkdirSync(attachmentsDirectory, { recursive: true });
+  const attachment = path.join(attachmentsDirectory, "delete-pending.evidence.txt");
+  fs.writeFileSync(attachment, "data:text/plain;base64,dGVzdA==");
+  const remove = (id, role) => fetch(`${baseUrl}/api/proposals/${id}`, {
+    method: "DELETE",
+    headers: role ? { Cookie: `gusa_session=${role}-session` } : {},
+  });
+  try {
+    fs.writeFileSync(file, JSON.stringify(records));
+    for (const role of ["accountant", "employee", "inactive", null]) {
+      assert.equal((await remove("delete-pending", role)).status, 403);
+    }
+    assert.equal(fs.existsSync(attachment), true);
+    for (const [id, role] of [["delete-pending", "admin"], ["delete-approved", "ceo"], ["delete-rejected", "admin"]]) {
+      const response = await remove(id, role);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { deleted: true, proposalId: id });
+    }
+    assert.equal(fs.existsSync(attachment), false);
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), []);
+    assert.equal((await remove("missing", "admin")).status, 404);
+  } finally {
+    fs.writeFileSync(file, original);
+  }
+});

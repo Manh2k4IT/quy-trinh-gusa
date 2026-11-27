@@ -358,7 +358,10 @@ function render() {
     const zaloResend = canManage && ['pending', 'approved'].includes(proposal.status)
       ? `<button class="report-detail-button" type="button" data-zalo-resend="${proposal.id}">Gửi lại Zalo</button>`
       : '';
-    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}" data-proposal-id="${proposal.id}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions"><button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${zaloResend}${decisionActions}</div></article>`;
+    const deleteAction = canManage
+      ? `<button class="report-delete-button" type="button" data-delete-proposal="${proposal.id}" aria-label="Xóa đề xuất của ${proposal.userName}" title="Xóa đề xuất">×</button>`
+      : '';
+    return `<article class="report-item ${isPayment ? 'is-payment' : 'is-general'}" data-proposal-id="${proposal.id}"><div class="report-item-main"><span class="report-type">${typeLabel}</span><h2>${proposal.userName}</h2><p class="report-date"><span class="report-relative-time">${relativeTime(proposal)}</span> · <b>${isPayment ? 'Ngày đề xuất' : 'Ngày áp dụng'}:</b> ${dateText(proposal)}${proposal.time ? ` · <b>Giờ đề xuất:</b> ${proposal.time}` : ''}</p>${proposal.category ? `<div class="payment-meta"><span><b>Hạng mục</b>${proposal.category}</span><span><b>Số tiền</b><strong class="payment-amount">${Number(proposal.amount).toLocaleString('vi-VN')} VNĐ</strong></span></div>` : ''}<p><b>${proposal.category ? 'Ghi chú:' : 'Lý do:'}</b> ${proposal.reason || 'Không có nội dung.'}</p>${proposal.paymentFileData ? `<a class="report-file" href="${proposal.paymentFileData}" download="${proposal.paymentFileName || 'bieu-mau-de-xuat'}"><span>FILE ĐÍNH KÈM</span>${proposal.paymentFileName || 'Tải file biểu mẫu'}</a>` : ''}${proposal.latePhotoData ? `<img class="report-proof" src="${proposal.latePhotoData}" alt="Ảnh xác nhận đi trễ">` : ''}${proposal.latitude ? `<a class="report-location" href="https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}" target="_blank" rel="noopener">Xem vị trí đã chia sẻ</a>` : ''}</div><strong class="report-status is-${proposal.status}">${statusLabel}</strong><div class="report-actions">${deleteAction}<button class="report-detail-button" type="button" data-detail="${proposal.id}">Chi tiết</button>${zaloResend}${decisionActions}</div></article>`;
   }).join('') : '<div class="report-empty"><strong>Không có đề xuất phù hợp</strong><span>Thử đổi nhóm hoặc bộ lọc trạng thái.</span></div>';
   if (visible.length) {
     const reportItems = list.querySelectorAll('.report-item');
@@ -536,6 +539,11 @@ async function resendZalo(button) {
 }
 
 list.addEventListener('click', (event) => {
+  const deleteButton = event.target.closest('[data-delete-proposal]');
+  if (deleteButton) {
+    deleteProposal(deleteButton);
+    return;
+  }
   const zaloResend = event.target.closest('[data-zalo-resend]');
   if (zaloResend) { resendZalo(zaloResend); return; }
   const details = event.target.closest('[data-detail]');
@@ -549,6 +557,32 @@ list.addEventListener('click', (event) => {
   if (confirm) update(confirm.dataset.confirm, 'approved', confirm, 'confirm');
   if (accountantReject) openRejectDialog(accountantReject.dataset.accountantReject, accountantReject, 'accounting-reject');
 });
+
+async function deleteProposal(button) {
+  const proposalId = button.dataset.deleteProposal;
+  if (!confirm('Bạn có chắc chắn muốn xóa vĩnh viễn đề xuất này? Thao tác này không thể hoàn tác.')) return;
+  button.disabled = true;
+  button.textContent = '…';
+  try {
+    const response = await fetch(`/api/proposals/${encodeURIComponent(proposalId)}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const errorMessage = (await response.text()).trim();
+      throw new Error(errorMessage || 'Không thể xóa đề xuất.');
+    }
+    proposals = proposals.filter((proposal) => proposal.id !== proposalId);
+    renderSummary();
+    render();
+    actionFeedback.textContent = 'Đã xóa đề xuất.';
+    actionFeedback.classList.remove('is-error');
+    actionFeedback.hidden = false;
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = '×';
+    actionFeedback.textContent = error.message || 'Không thể xóa đề xuất.';
+    actionFeedback.classList.add('is-error');
+    actionFeedback.hidden = false;
+  }
+}
 document.querySelector('[data-close-report-detail]')?.addEventListener('click', closeProposalDetail);
 detailModal?.addEventListener('click', (event) => { if (event.target === detailModal) closeProposalDetail(); });
 document.addEventListener('keydown', (event) => {

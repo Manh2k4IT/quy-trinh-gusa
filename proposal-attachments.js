@@ -26,6 +26,19 @@ function createAttachmentStore(dataDirectory) {
     try { return target ? fs.readFileSync(target, "utf8") : ""; } catch { return ""; }
   }
 
+  function remove(id) {
+    for (const kind of Object.keys(FIELDS)) {
+      const target = filePath(id, kind);
+      if (!target) return false;
+      try {
+        fs.unlinkSync(target);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+    return true;
+  }
+
   // Moves inline base64 attachments out of a proposal and returns the lightweight copy.
   function externalize(proposal) {
     let changed = false;
@@ -82,7 +95,7 @@ function createAttachmentStore(dataDirectory) {
     return result;
   }
 
-  return { save, read, externalize, migrateFile, withUrls, withData, FIELDS };
+  return { save, read, remove, externalize, migrateFile, withUrls, withData, FIELDS };
 }
 
 module.exports = { createAttachmentStore };

@@ -20,5 +20,8 @@ test("migrates inline attachments out of proposals.json", () => {
   assert.equal(store.withUrls(saved[0]).latePhotoData, "/api/proposals/p1/attachment/late");
   assert.equal(store.withData(saved[0]).latePhotoData, photo);
   assert.equal(store.migrateFile(proposalsPath), 0);
+  assert.equal(store.remove("p1"), true);
+  assert.equal(store.read("p1", "late"), "");
+  assert.equal(store.remove("../x"), false);
   assert.equal(store.read("../x", "late"), "");
 });
