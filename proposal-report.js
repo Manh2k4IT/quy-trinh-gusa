@@ -227,6 +227,19 @@ notificationButton.addEventListener('click', () => {
   if (!notificationPanel.hidden) clearTimeout(notificationTimer);
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 });
+document.addEventListener('click', (event) => {
+  if (!(event.target instanceof Node)) return;
+  if (!notificationPanel.contains(event.target) && !notificationButton.contains(event.target)) {
+    notificationPanel.hidden = true;
+    clearTimeout(notificationTimer);
+  }
+}, true);
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    notificationPanel.hidden = true;
+    clearTimeout(notificationTimer);
+  }
+});
 
 function dateText(proposal) {
   const format = (value) => value ? value.split('-').reverse().join('/') : '';
